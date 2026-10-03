@@ -22,7 +22,7 @@ input[type="file"] { display: block; width: 100%; font-size: 12px; }
 .artwork-details { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; min-width: 0; font-size: 12px; }
 .filename { overflow-wrap: anywhere; width: 100%; }
 .region-picker { margin-top: 10px; font-size: 12px; }
-.region-options { margin-top: 6px; }
+.region-options { margin-top: 6px; flex-wrap: wrap; }
 .selection-note { display: block; margin-top: 6px; }
 .segmented, .manual-pose-buttons { display: flex; gap: 5px; }
 .segmented button { flex: 1; font-size: 12px; }
@@ -36,7 +36,7 @@ input[type="file"] { display: block; width: 100%; font-size: 12px; }
 .error-message { color: #a12222; font-size: 12px; line-height: 1.5; }
 .color-note { color: #8c4512; font-size: 12px; }
 .camera-preview { position: relative; width: 100%; aspect-ratio: 16/9; background: #eee; margin-top: 10px; overflow: hidden; }
-.camera-preview video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); visibility: hidden; }
+.camera-preview video { width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); visibility: hidden; }
 .camera-preview .video-visible { visibility: visible; }
 .manual-preview { display: none; }
 .camera-placeholder { position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; padding: 10px; text-align: center; }

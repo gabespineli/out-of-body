@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { motionFromLandmarks, advanceHold, EMPTY_HOLD, manualMotion, matchesGesture, HOLD_MS, type Landmark, type HoldState } from "../src/lib/pose";
+import { motionFromLandmarks, advanceHold, EMPTY_HOLD, manualMotion, matchesGesture, HOLD_MS, REST_LEGS, type Landmark, type HoldState } from "../src/lib/pose";
 
 function standing(): Landmark[] {
   const p = Array.from({ length: 33 }, () => ({ x: .5, y: .5, visibility: .99, presence: .99 }));
@@ -8,6 +8,8 @@ function standing(): Landmark[] {
   p[13] = { ...p[13], x: .65, y: .5 }; p[14] = { ...p[14], x: .35, y: .5 };
   p[15] = { ...p[15], x: .7, y: .7 }; p[16] = { ...p[16], x: .3, y: .7 };
   p[23] = { ...p[23], x: .56, y: .65 }; p[24] = { ...p[24], x: .44, y: .65 };
+  p[25] = { ...p[25], x: .562, y: .8 }; p[26] = { ...p[26], x: .438, y: .8 };
+  p[27] = { ...p[27], x: .558, y: .95 }; p[28] = { ...p[28], x: .442, y: .95 };
   return p;
 }
 
@@ -110,4 +112,41 @@ test("pause restarts an unfinished hold and freezes an earned fade without catch
   for (let now = 2100; now <= 5000; now += 100) hold = advanceHold(hold, true, now, undefined, true);
   assert.equal(hold.fade, .25);
   assert.equal(advanceHold(hold, false, 5100).fade, .3125);
+});
+
+test("hips, knees and ankles move each leg and detect the outward side independently", () => {
+  const p = standing();
+  assert.equal(matchesGesture(motionFromLandmarks(p), "left-leg"), false);
+  assert.equal(matchesGesture(motionFromLandmarks(p), "right-leg"), false);
+  p[25].x = .68; p[25].y = .78; p[27].x = .67;
+  let motion = motionFromLandmarks(p);
+  assert.ok(motion.leftLeg > .5); assert.ok(motion.leftKnee < -.5);
+  assert.ok(Math.abs(motion.rightLeg) < .03);
+  assert.equal(matchesGesture(motion, "left-leg"), true);
+  assert.equal(matchesGesture(motion, "right-leg"), false);
+  p[26].x = .3; p[26].y = .78; p[28].x = .34;
+  motion = motionFromLandmarks(p);
+  assert.ok(motion.rightLeg < -.5); assert.ok(motion.rightKnee > .5);
+  assert.equal(matchesGesture(motion, "right-leg"), true);
+});
+
+test("a missing ankle resets only its leg and cannot earn a leg hold", () => {
+  const p = standing(); p[25].x = .68; p[26].x = .3;
+  p[15].y = .05; p[13].y = .18; p[27].visibility = .2;
+  const motion = motionFromLandmarks(p);
+  assert.equal(motion.leftLegVisible, false); assert.equal(motion.leftLeg, 0); assert.equal(motion.leftKnee, 0);
+  assert.equal(matchesGesture(motion, "left-leg"), false);
+  assert.equal(motion.rightLegVisible, true); assert.equal(matchesGesture(motion, "right-leg"), true);
+  assert.equal(matchesGesture(motion, "left-arm"), true);
+  p[25].visibility = .99; p[27].visibility = .99; p[27].x = p[25].x; p[27].y = p[25].y;
+  assert.equal(motionFromLandmarks(p).leftLegVisible, false);
+});
+
+test("manual legs swing independently and knees bend without changing the arms", () => {
+  const left = manualMotion(0, 0, 0, { ...REST_LEGS, leftLeg: 1, leftKnee: .5 });
+  assert.equal(matchesGesture(left, "left-leg"), true); assert.equal(matchesGesture(left, "right-leg"), false);
+  assert.equal(left.leftArm, 0); assert.equal(left.rightLeg, 0); assert.equal(left.leftKnee, .45);
+  const right = manualMotion(0, 0, 0, { ...REST_LEGS, rightLeg: -1, rightKnee: .5 });
+  assert.equal(matchesGesture(right, "right-leg"), true); assert.equal(right.rightKnee, -.45);
+  assert.equal(matchesGesture(manualMotion(0, 0, 0, { ...REST_LEGS, leftLeg: -1 }), "left-leg"), false);
 });

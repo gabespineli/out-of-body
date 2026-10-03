@@ -1,5 +1,19 @@
 # Verification record
 
+## Leg movement update — 3 October 2026
+
+The Sites edition now has separate textured thighs and shins, fixed hip/knee pivots, leg visibility feedback, four manual leg/knee controls, two leg pose buttons and two held leg gestures. Existing drawing sheets keep the same outer silhouette. Feet follow their shins and the pelvis stays anchored.
+
+- Static export and TypeScript build: passed.
+- Gesture/timing checks: **13 passed**, including independent leg tracking, knee rotation, missing ankle/collapsed segment rejection, and manual leg controls.
+- Chromium checks against the exported app: **16 passed**, including both real-model replays. Uploaded blue leg pixels were exactly **115, 153, 180** at rest and followed both hip and knee rotation. The other leg and torso retained their original pixels. Each leg hold rejected the opposite leg, then faded its selected area.
+- Real MediaPipe replay: both legs were confidently visible; the avatar moved from actual model landmarks and a one-second outward left-leg hold completed a 0.2-second selected leg fade. Camera tracks ended on stop; the untouched right-leg color returned unchanged once the rig settled. The replay is the existing reference photograph, not live participant footage.
+- Existing upload, arm/lean, pause, multi-area, PNG, camera denial/missing/busy/model-failure/cancellation and 320/768/1024/1440 layout checks passed. Loaded leg region buttons and manual controls do not overflow at these widths.
+- WebMCP in the Codex in-app browser: optional leg/knee parameters changed the matching visible controls; an out-of-range leg input was rejected without changing state; legacy arm/lean-only input reset all leg controls to rest.
+- Physical webcam/live participant performance and deployed-domain camera permission behavior remain unverified. Forward/back leg motion, separate foot rotation, moving pelvis and exact full-body mirroring remain outside this 2D MVP.
+
+The records below describe the earlier upper-body release and its Sites port.
+
 ## Sites export verification
 
 The source was ported to a static Next.js export for Sites, preserving the plain HTML controls and browser-only photo/video processing. No server storage or accounts were added to the participant flow. Sites supplies private hosting access.
@@ -50,7 +64,7 @@ The inference display showed approximately 18–19 fps during the camera replays
 - Pixel preservation/fading used a generated test drawing with known colors. A real paper drawing under camera lighting has not yet been tried; paper tone, shadows, skew, and joint seams still require an installation trial.
 - The fixed masks only support the supplied template. The canvas has horizontal padding so extended arms do not clip at the original paper edges.
 - Fullscreen is implemented with browser error recovery. Permission behavior, embedded-browser restrictions, projection, and real-world framing should be checked in Chrome or Edge on the installation laptop.
-- Nothing was deployed to a public service. No photos, video, participant records or sessions are automatically persisted by this app. **Save PNG** explicitly downloads one rendered artwork frame to the participant's device.
+- The app is now privately hosted on Sites. No photos, video, participant records or sessions are automatically persisted by this app. **Save PNG** explicitly downloads one rendered artwork frame to the participant's device.
 
 ## Reproduce
 
@@ -62,10 +76,10 @@ npx.cmd playwright install chromium
 npm.cmd run test:browser
 ```
 
-The ordinary browser run executes the twelve non-replay scenarios and explicitly skips the two optional real-model replay checks. To include them, set `OOB_CAMERA_FIXTURE` and `OOB_LEAN_CAMERA_FIXTURE` to Y4M replay files before running the browser suite. The original local fixture inputs are outside the deliverable source and contain no participant footage.
+The current browser run executes fourteen non-replay scenarios and explicitly skips the two optional real-model replay checks. To include them, set `OOB_CAMERA_FIXTURE` and `OOB_LEAN_CAMERA_FIXTURE` to Y4M replay files before running the browser suite. The original local fixture inputs are outside the deliverable source and contain no participant footage.
 
 The reference image came from Google's [MediaPipe test assets](https://storage.googleapis.com/mediapipe-assets/pose.jpg). The webcam integration follows the [official Pose Landmarker Web guide](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker/web_js).
 
 ## Before a live showing
 
-Use the real printed sheet, actual drawing/photo, webcam and projector. Check that the shoulders, hips and hands stay in frame; that both chosen gestures are detected; that the selected colored area visibly softens; and that the manual demo works if camera access is unavailable. This short installation trial is the remaining practical validation.
+Use the real printed sheet, actual drawing/photo, webcam and projector. Check that shoulders, hands, hips, knees and feet stay in frame; that the chosen arm, lean and leg gestures are detected; that the selected colored area visibly softens; and that the manual demo works if camera access is unavailable. This short installation trial is the remaining practical validation.

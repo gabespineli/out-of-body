@@ -6,7 +6,7 @@ import { readFile } from "node:fs/promises";
 
 let drawing: Buffer;
 test.beforeAll(async () => {
-  const svg = silhouetteSvg(false).replace("</svg>", '<rect x="219" y="248" width="40" height="55" fill="#db715d"/><rect x="256" y="324" width="87" height="130" fill="#279aa3"/><rect x="280" y="110" width="40" height="30" fill="#e5b543"/><rect x="292" y="427" width="16" height="16" fill="#222222"/></svg>');
+  const svg = silhouetteSvg(false).replace("</svg>", '<rect x="219" y="248" width="40" height="55" fill="#db715d"/><rect x="256" y="324" width="87" height="130" fill="#279aa3"/><rect x="280" y="110" width="40" height="30" fill="#e5b543"/><rect x="292" y="427" width="16" height="16" fill="#222222"/><rect x="240" y="590" width="30" height="130" fill="#7399b4"/><rect x="334" y="690" width="24" height="70" fill="#a198bd"/></svg>');
   drawing = await sharp(Buffer.from(svg)).png().toBuffer();
 });
 
@@ -106,6 +106,7 @@ test("layout fits 320, 768, 1024 and 1440 widths and supports keyboard controls"
     await page.getByRole("button", { name: "Try an example", exact: true }).click();
     await page.getByRole("button", { name: "Manual demo", exact: true }).click();
     await expect(page.getByTestId("avatar")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
     await page.screenshot({ path: `test-results/layout-${width}.png`, fullPage: true });
   }
   await page.getByRole("button", { name: "Raise arms", exact: true }).focus();
@@ -113,7 +114,7 @@ test("layout fits 320, 768, 1024 and 1440 widths and supports keyboard controls"
   await expect(page.getByRole("button", { name: "Raise arms", exact: true })).toHaveAttribute("aria-pressed", "true");
 });
 
-test("real local MediaPipe initializes, processes a replay camera and releases tracks", async () => {
+test("real MediaPipe moves arms and legs, holds a leg pose through fade and releases tracks", async () => {
   const fixture = process.env.OOB_CAMERA_FIXTURE;
   test.skip(!fixture, "Set OOB_CAMERA_FIXTURE to a Y4M replay. This test does not use a participant’s physical webcam.");
   const browser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-video-capture=${path.resolve(fixture!)}`] });
@@ -121,16 +122,24 @@ test("real local MediaPipe initializes, processes a replay camera and releases t
   const page = await context.newPage();
   try {
     await page.goto("http://127.0.0.1:3201"); await upload(page);
+    await page.getByRole("button", { name: "Left leg", exact: true }).click();
+    await page.getByRole("combobox", { name: "Gesture to hold", exact: true }).selectOption("left-leg");
+    await page.getByRole("slider", { name: "Hold duration", exact: true }).fill("1");
+    await page.getByRole("slider", { name: "Fade duration", exact: true }).fill("0.2");
     await page.getByRole("button", { name: "Enable camera", exact: true }).click();
     await expect(page.getByRole("button", { name: "Stop camera", exact: true })).toBeVisible({ timeout: 30000 });
     await expect(page.getByText(/Body found ·/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId("tracking-legs")).toHaveText("Left leg: visible · Right leg: visible");
+    await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 254, 710))[3]).toBe(0);
+    await expect(page.getByText("Selected color faded")).toBeVisible({ timeout: 6000 });
     await page.screenshot({ path: "test-results/camera-replay.png", fullPage: true });
     // The real model output rotates arms for the reference person’s horizontal arm pose.
     await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 180, 390))[3]).toBe(0);
     await page.evaluate(() => { (window as unknown as { testStream: MediaStream }).testStream = document.querySelector("video")!.srcObject as MediaStream; });
     await page.getByRole("button", { name: "Stop camera", exact: true }).click();
     expect(await page.evaluate(() => (window as unknown as { testStream: MediaStream }).testStream.getTracks().every(track => track.readyState === "ended"))).toBeTruthy();
-    await expect(page.getByTestId("avatar")).toHaveAttribute("data-hold", "0.00");
+    await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 254, 610))[0]).toBeGreaterThan(235);
+    await expect.poll(() => pixel(page, '[data-testid="avatar"]', 346, 720)).toEqual([161, 152, 189, 255]);
   } finally { await context.close(); await browser.close(); }
 });
 
@@ -302,4 +311,50 @@ test("canceling a pending camera request releases a stream that arrives later", 
   expect(await page.locator("video").evaluate(v => (v as HTMLVideoElement).srcObject)).toBeNull();
   await page.getByRole("button", { name: "Manual demo", exact: true }).click();
   await expect(page.getByRole("slider", { name: "Manual left arm height", exact: true })).toBeVisible();
+});
+
+test("uploaded leg marks follow independent hip and knee controls", async ({ page }) => {
+  await page.goto("/"); await upload(page);
+  await page.getByRole("button", { name: "Manual demo", exact: true }).click();
+  await expect.poll(() => pixel(page, '[data-testid="avatar"]', 254, 610)).toEqual([115, 153, 180, 255]);
+  expect(await pixel(page, '[data-testid="avatar"]', 254, 710)).toEqual([115, 153, 180, 255]);
+  const atRotated = (x: number, y: number, pivotX: number, pivotY: number, angle: number) => ({ x: Math.round(pivotX + (x - pivotX) * Math.cos(angle) - (y - pivotY) * Math.sin(angle)), y: Math.round(pivotY + (x - pivotX) * Math.sin(angle) + (y - pivotY) * Math.cos(angle)) });
+  await page.getByRole("slider", { name: "Manual left knee bend", exact: true }).fill("1");
+  const shin = atRotated(254, 710, 254, 652, .9);
+  await expect.poll(() => pixel(page, '[data-testid="avatar"]', shin.x, shin.y)).toEqual([115, 153, 180, 255]);
+  expect(await pixel(page, '[data-testid="avatar"]', 254, 610)).toEqual([115, 153, 180, 255]);
+  await page.getByRole("button", { name: "Return to rest", exact: true }).click();
+  await page.getByRole("slider", { name: "Manual left leg swing", exact: true }).fill("1");
+  const thigh = atRotated(254, 610, 256, 522, .8);
+  await expect.poll(() => pixel(page, '[data-testid="avatar"]', thigh.x, thigh.y)).toEqual([115, 153, 180, 255]);
+  expect(await pixel(page, '[data-testid="avatar"]', 346, 720)).toEqual([161, 152, 189, 255]);
+  expect(await pixel(page, '[data-testid="avatar"]', 300, 385)).toEqual([39, 154, 163, 255]);
+  await page.getByRole("button", { name: "Lift right leg", exact: true }).click();
+  const right = atRotated(346, 720, 346, 652, -.45);
+  const rightSwing = atRotated(right.x, right.y, 344, 522, -.8);
+  await expect.poll(() => pixel(page, '[data-testid="avatar"]', rightSwing.x, rightSwing.y)).toEqual([161, 152, 189, 255]);
+  await page.screenshot({ path: "test-results/leg-movement.png", fullPage: true });
+});
+
+test("each held leg gesture fades its chosen leg and rejects the other leg", async ({ page }) => {
+  await page.goto("/"); await upload(page);
+  await page.getByRole("button", { name: "Manual demo", exact: true }).click();
+  await page.getByRole("slider", { name: "Hold duration", exact: true }).fill("1");
+  await page.getByRole("slider", { name: "Fade duration", exact: true }).fill("0.2");
+  for (const side of ["left", "right"]) {
+    const name = side === "left" ? "Left" : "Right", other = side === "left" ? "right" : "left";
+    await page.getByRole("button", { name: `${name} leg`, exact: true }).click();
+    await page.getByRole("combobox", { name: "Gesture to hold", exact: true }).selectOption(`${side}-leg`);
+    await page.getByRole("button", { name: `Lift ${other} leg`, exact: true }).click();
+    await page.waitForTimeout(1300);
+    await expect(page.getByTestId("avatar")).toHaveAttribute("data-hold", "0.00");
+    await page.getByRole("button", { name: `Lift ${side} leg`, exact: true }).click();
+    await expect(page.getByText("Selected color faded")).toBeVisible({ timeout: 3500 });
+    await page.getByRole("button", { name: "Return to rest", exact: true }).click();
+    const [x, y] = side === "left" ? [254, 610] : [346, 720];
+    await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', x, y))[0]).toBeGreaterThan(235);
+    expect(await pixel(page, '[data-testid="avatar"]', 300, 385)).toEqual([39, 154, 163, 255]);
+    const [otherX, otherY, color] = side === "left" ? [346, 720, [161, 152, 189, 255]] : [254, 610, [115, 153, 180, 255]];
+    expect(await pixel(page, '[data-testid="avatar"]', otherX as number, otherY as number)).toEqual(color);
+  }
 });

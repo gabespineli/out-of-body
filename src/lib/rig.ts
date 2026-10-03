@@ -8,11 +8,18 @@ export const REGIONS: Region[] = [
   { x: 232, y: 268, radius: 65, label: "Shoulder" },
   { x: 300, y: 385, radius: 80, label: "Torso" },
   { x: 422, y: 414, radius: 58, label: "Arm" },
+  { x: 254, y: 620, radius: 65, label: "Left leg" },
+  { x: 346, y: 720, radius: 65, label: "Right leg" },
 ];
 
-// The printable sheet, texture masks and joint geometry share this single definition.
+// Keep the original sheet outline compatible with drawings made before leg motion.
+const LOWER_OUTLINE = "M224 461 Q300 485 376 461 L382 522 L370 780 Q389 787 392 806 L315 806 L306 550 L294 550 L285 806 L208 806 Q211 787 230 780 L218 522 Z";
 export const SEGMENTS = {
-  lower: "M224 461 Q300 485 376 461 L382 522 L370 780 Q389 787 392 806 L315 806 L306 550 L294 550 L285 806 L208 806 Q211 787 230 780 L218 522 Z",
+  pelvis: "M224 461 Q300 485 376 461 L382 522 L380.884 546 L306 550 L294 550 L219.116 546 L218 522 Z",
+  leftThigh: "M218 522 L294 522 L294 550 L290.168 659 L224.372 659 Z",
+  leftShin: "M223.953 650 L290.484 650 L285 806 L208 806 Q211 787 230 780 Z",
+  rightThigh: "M306 522 L382 522 L375.628 659 L309.832 659 L306 550 Z",
+  rightShin: "M309.516 650 L376.047 650 L370 780 Q389 787 392 806 L315 806 Z",
   torso: "M269 201 L269 211 Q243 207 219 225 L226 307 L232 386 L224 478 Q300 504 376 478 L368 386 L374 307 L381 225 Q357 207 331 211 L331 201 Z",
   head: "M300 83 C266 83 253 111 255 140 Q257 177 278 185 L277 215 Q300 229 323 215 L322 185 Q343 177 345 140 C347 111 334 83 300 83 Z",
   leftUpper: "M217 222 Q198 218 190 241 L162 342 Q158 363 179 369 Q201 375 207 351 L235 247 Q241 228 217 222 Z",
@@ -22,6 +29,12 @@ export const SEGMENTS = {
 } as const;
 export const JOINTS = {
   hip: { x: 300, y: 480 },
+  leftHip: { x: 256, y: 522 },
+  rightHip: { x: 344, y: 522 },
+  leftKnee: { x: 254, y: 652 },
+  rightKnee: { x: 346, y: 652 },
+  leftAnkle: { x: 258, y: 785 },
+  rightAnkle: { x: 342, y: 785 },
   leftShoulder: { x: 216, y: 238 },
   rightShoulder: { x: 384, y: 238 },
   leftElbow: { x: 182, y: 356 },
@@ -31,7 +44,7 @@ export const JOINTS = {
 };
 
 export function silhouetteSvg(sample = false) {
-  const shapes = Object.values(SEGMENTS).map(d => `<path d="${d}"/>`).join("");
+  const shapes = [LOWER_OUTLINE, SEGMENTS.torso, SEGMENTS.head, SEGMENTS.leftUpper, SEGMENTS.leftLower, SEGMENTS.rightUpper, SEGMENTS.rightLower].map(d => `<path d="${d}"/>`).join("");
   const marks = sample ? `<g clip-path="url(#body)" fill="none" stroke-linecap="round" stroke-linejoin="round">
     <path d="M272 121 Q299 100 326 136 M269 137 Q298 117 329 150" stroke="#e5b543" stroke-width="15"/>
     <path d="M205 242 Q231 247 251 270 M193 254 Q218 279 243 293 M195 277 L229 310" stroke="#da7461" stroke-width="22"/>

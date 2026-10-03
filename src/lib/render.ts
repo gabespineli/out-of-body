@@ -27,7 +27,13 @@ export function renderAvatar(ctx: CanvasRenderingContext2D, art: Artwork | null,
   const rotate = (pivot: { x: number; y: number }, angle: number) => {
     ctx.translate(pivot.x, pivot.y); ctx.rotate(angle); ctx.translate(-pivot.x, -pivot.y);
   };
-  draw("lower");
+  const leg = (side: "left" | "right") => {
+    ctx.save(); rotate(JOINTS[`${side}Hip`], motion[`${side}Leg`]);
+    draw(`${side}Thigh`);
+    rotate(JOINTS[`${side}Knee`], motion[`${side}Knee`]);
+    draw(`${side}Shin`); ctx.restore();
+  };
+  leg("left"); leg("right"); draw("pelvis");
   ctx.save(); rotate(JOINTS.hip, motion.lean);
   draw("torso"); draw("head");
   const arm = (side: "left" | "right") => {

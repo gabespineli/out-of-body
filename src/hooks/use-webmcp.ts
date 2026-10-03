@@ -35,13 +35,22 @@ export function useWebMcp(bindings: Bindings) {
       },
       {
         name: "configure_manual_pose", title: "Configure manual pose",
-        description: "Switch to the visible manual simulation and set left/right arm heights (0–1) and lean (-1–1). Releases any active camera. Preserves pause state and runs the same rig and gesture timer as the manual controls.",
-        inputSchema: { type: "object", properties: { left: { type: "number", minimum: 0, maximum: 1 }, right: { type: "number", minimum: 0, maximum: 1 }, lean: { type: "number", minimum: -1, maximum: 1 } }, required: ["left", "right", "lean"], additionalProperties: false },
+        description: "Switch to manual simulation. Set arm heights (0–1), lean (-1–1), optional leg swings (-1–1) and knee bends (0–1). Omitted leg controls reset to rest. Positive left leg / negative right leg moves outward. Releases the camera and uses the visible rig and hold timer.",
+        inputSchema: { type: "object", properties: { left: { type: "number", minimum: 0, maximum: 1 }, right: { type: "number", minimum: 0, maximum: 1 }, lean: { type: "number", minimum: -1, maximum: 1 }, leftLeg: { type: "number", minimum: -1, maximum: 1 }, rightLeg: { type: "number", minimum: -1, maximum: 1 }, leftKnee: { type: "number", minimum: 0, maximum: 1 }, rightKnee: { type: "number", minimum: 0, maximum: 1 } }, required: ["left", "right", "lean"], additionalProperties: false },
         annotations: { readOnlyHint: false, untrustedContentHint: false },
         execute(input) {
-          const value = input as ManualPose;
-          if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some(key => !["left", "right", "lean"].includes(key)) || ![value.left, value.right, value.lean].every(Number.isFinite) || value.left < 0 || value.left > 1 || value.right < 0 || value.right > 1 || value.lean < -1 || value.lean > 1) throw new Error("Use left/right heights from 0 to 1 and a lean from -1 to 1.");
-          flushSync(() => latest.current.setManual({ left: value.left, right: value.right, lean: value.lean }));
+          if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Use an object of manual pose controls.");
+          const ranges = { left: [0, 1], right: [0, 1], lean: [-1, 1], leftLeg: [-1, 1], rightLeg: [-1, 1], leftKnee: [0, 1], rightKnee: [0, 1] } as const;
+          const value = input as Record<string, unknown>;
+          if (Object.keys(value).some(key => !Object.hasOwn(ranges, key)) || ["left", "right", "lean"].some(key => !Object.hasOwn(value, key))) throw new Error("Supply left, right and lean; optional controls are leftLeg, rightLeg, leftKnee and rightKnee.");
+          const pose = {} as ManualPose;
+          for (const key of Object.keys(ranges) as (keyof ManualPose)[]) {
+            const number = Object.hasOwn(value, key) ? value[key] : 0;
+            const [min, max] = ranges[key];
+            if (typeof number !== "number" || !Number.isFinite(number) || number < min || number > max) throw new Error(`${key} must be a number from ${min} to ${max}.`);
+            pose[key] = number;
+          }
+          flushSync(() => latest.current.setManual(pose));
           return latest.current.state();
         },
       },

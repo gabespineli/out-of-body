@@ -4,13 +4,12 @@ import { useArtwork } from "@/hooks/use-artwork";
 import { useWebMcp } from "@/hooks/use-webmcp";
 import { useCamera, type MotionSource } from "@/hooks/use-camera";
 import { ArtworkPanel } from "./artwork-panel";
-import { MotionPanel, type ManualPose } from "./motion-panel";
+import { MotionPanel, MANUAL_REST, type ManualPose } from "./motion-panel";
 import { advanceHold, DEFAULT_TIMING, EMPTY_HOLD, GESTURES, manualMotion, matchesGesture, REST, smoothMotion, type Gesture, type HoldState, type Timing } from "@/lib/pose";
 import { renderAvatar } from "@/lib/render";
 import { saveAvatarPng } from "@/lib/export";
 import { STAGE_WIDTH, HEIGHT } from "@/lib/rig";
 
-const MANUAL_REST: ManualPose = { left: 0, right: 0, lean: 0 };
 const EMPTY_PROGRESS = { hold: 0, fade: 0, complete: false, active: false };
 
 export function Installation() {
@@ -46,7 +45,7 @@ export function Installation() {
     let frame = 0, last = performance.now(), uiTime = 0;
     const tick = (now: number) => {
       const dt = Math.min(100, now - last); last = now;
-      const target = mode === "manual" ? manualMotion(manual.left, manual.lean, manual.right)
+      const target = mode === "manual" ? manualMotion(manual.left, manual.lean, manual.right, manual)
         : now - source.current.time < 300 ? source.current.motion : { ...REST };
       if (!paused) displayed.current = smoothMotion(displayed.current, target, dt);
       const active = !paused && !document.hidden && !!artwork.art && artwork.art.coloredPixels >= 40 && matchesGesture(target, gesture);
