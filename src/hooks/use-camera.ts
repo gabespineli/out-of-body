@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PoseLandmarker } from "@mediapipe/tasks-vision";
-import { motionFromLandmarks, REST, type Motion } from "@/lib/pose";
+import { captureHipOrigin, motionFromLandmarks, REST, type Motion, type HipOrigin } from "@/lib/pose";
 
 export type CameraStatus = "idle" | "permission" | "loading" | "live" | "error";
 export type MotionSource = { motion: Motion; time: number };
@@ -21,6 +21,7 @@ export function useCamera(source: React.RefObject<MotionSource>) {
   const modelRef = useRef<PoseLandmarker | null>(null);
   const frameRef = useRef<number>(0);
   const generation = useRef(0);
+  const hipOrigin = useRef<HipOrigin | null>(null);
   const [status, setStatus] = useState<CameraStatus>("idle");
   const [error, setError] = useState("");
   const [tracking, setTracking] = useState(false);
@@ -33,6 +34,7 @@ export function useCamera(source: React.RefObject<MotionSource>) {
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
     modelRef.current?.close(); modelRef.current = null;
+    hipOrigin.current = null;
     source.current = { motion: { ...REST }, time: 0 };
   }, [source]);
 
@@ -83,7 +85,7 @@ export function useCamera(source: React.RefObject<MotionSource>) {
         if (token !== generation.current) return;
         release(); setTracking(false); setStatus("error"); setError("The webcam disconnected. Reconnect it and try again, or use manual mode.");
       }, { once: true });
-      let lastInference = -Infinity, lastVideoTime = -1, lastUi = 0, count = 0, fpsTime = performance.now();
+      let lastInference = -Infinity, lastVideoTime = -1, lastUi = 0, lastHips = 0, count = 0, fpsTime = performance.now();
       const tick = (now: number) => {
         if (token !== generation.current) return;
         try {
@@ -91,7 +93,13 @@ export function useCamera(source: React.RefObject<MotionSource>) {
           if (!document.hidden && now - lastInference >= 50 && video.readyState >= 2 && video.currentTime !== lastVideoTime) {
             lastVideoTime = video.currentTime; lastInference = now;
             const result = model.detectForVideo(video, now);
-            const motion = motionFromLandmarks(result.landmarks[0] ?? [], video.videoWidth / video.videoHeight);
+            const points = result.landmarks[0] ?? [], aspect = video.videoWidth / video.videoHeight;
+            const candidate = captureHipOrigin(points, aspect);
+            if (candidate) {
+              if (!hipOrigin.current || now - lastHips > 1000) hipOrigin.current = candidate;
+              lastHips = now;
+            } else if (now - lastHips > 1000) hipOrigin.current = null;
+            const motion = motionFromLandmarks(points, aspect, hipOrigin.current);
             source.current = { motion, time: performance.now() };
             count++;
             if (now - lastUi > 200) { setTracking(motion.tracked); lastUi = now; }
@@ -116,5 +124,6 @@ export function useCamera(source: React.RefObject<MotionSource>) {
   }, [release, source]);
 
   useEffect(() => () => release(), [release]);
-  return { videoRef, status, error, tracking, fps, start, stop };
+  const recenter = useCallback(() => { hipOrigin.current = null; }, []);
+  return { videoRef, status, error, tracking, fps, start, stop, recenter };
 }

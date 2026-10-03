@@ -1,5 +1,19 @@
 # Verification record
 
+## Moving center pelvis — 3 October 2026
+
+The pelvis now translates sideways/vertically and tilts with the detected hip line. Both legs and the upper body inherit that moving parent, retaining their relative joints and actual uploaded textures. Manual hip sway, height and tilt controls and left/right shift buttons exercise the same renderer. Camera position centers from the first confident pose and can be recentered explicitly.
+
+- TypeScript/static export: passed. Gesture/timing checks: **15 passed**.
+- **18 browser scenarios validated**: 17 passed in the full exported-app run; the remaining manual-pelvis scenario passed on a targeted rerun after correcting its assertion to check that the colored hip mark moved away, rather than assuming the original point must be transparent. Another body part can occupy that point. Application code was unchanged for this correction.
+- A generated uploaded magenta pelvis mark retained exactly **RGB 211, 95, 164** at its translated/tilted position. Torso and leg pixels moved with the same parent. Pause froze the pelvis, PNG preserved the posed hip pixel, and Return to rest restored all hip controls and the original pixel.
+- The real MediaPipe model processed an eight-second replay of the reference photograph shifted and rotated across the camera frame. The rendered pelvis texture moved over 40 pixels horizontally and over 15 pixels vertically; Recenter position brought it near the avatar center, and stopping returned it to rest. No landmark results were injected.
+- Existing arm/lean/leg holds and fade, permission/device/model failure states, camera cancellation/cleanup, masks, PNG and responsive checks still passed.
+- WebMCP in the supported in-app browser accepted hip parameters and changed the visible controls; an invalid hip range was rejected without changing state. Omitted hip parameters default to neutral.
+- This is bounded 2D motion, not full walking or 3D pelvis reconstruction. Real physical-webcam/live-participant and deployed-domain camera permission behavior still need a trial.
+
+The following records describe earlier releases; the former anchored-pelvis constraint is superseded above.
+
 ## Leg movement update — 3 October 2026
 
 The Sites edition now has separate textured thighs and shins, fixed hip/knee pivots, leg visibility feedback, four manual leg/knee controls, two leg pose buttons and two held leg gestures. Existing drawing sheets keep the same outer silhouette. Feet follow their shins and the pelvis stays anchored.
@@ -76,7 +90,7 @@ npx.cmd playwright install chromium
 npm.cmd run test:browser
 ```
 
-The current browser run executes fourteen non-replay scenarios and explicitly skips the two optional real-model replay checks. To include them, set `OOB_CAMERA_FIXTURE` and `OOB_LEAN_CAMERA_FIXTURE` to Y4M replay files before running the browser suite. The original local fixture inputs are outside the deliverable source and contain no participant footage.
+The current browser run executes fifteen non-replay scenarios and explicitly skips the three optional real-model replay checks. To include them, set `OOB_CAMERA_FIXTURE`, `OOB_LEAN_CAMERA_FIXTURE` and `OOB_HIP_CAMERA_FIXTURE` to Y4M replay files before running the browser suite. The local fixture inputs are outside the deliverable source and contain no participant footage.
 
 The reference image came from Google's [MediaPipe test assets](https://storage.googleapis.com/mediapipe-assets/pose.jpg). The webcam integration follows the [official Pose Landmarker Web guide](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker/web_js).
 

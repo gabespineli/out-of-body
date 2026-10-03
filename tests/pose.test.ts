@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { motionFromLandmarks, advanceHold, EMPTY_HOLD, manualMotion, matchesGesture, HOLD_MS, REST_LEGS, type Landmark, type HoldState } from "../src/lib/pose";
+import { captureHipOrigin, motionFromLandmarks, advanceHold, EMPTY_HOLD, manualMotion, matchesGesture, HOLD_MS, REST_LEGS, REST_HIPS, type Landmark, type HoldState } from "../src/lib/pose";
 
 function standing(): Landmark[] {
   const p = Array.from({ length: 33 }, () => ({ x: .5, y: .5, visibility: .99, presence: .99 }));
@@ -149,4 +149,35 @@ test("manual legs swing independently and knees bend without changing the arms",
   const right = manualMotion(0, 0, 0, { ...REST_LEGS, rightLeg: -1, rightKnee: .5 });
   assert.equal(matchesGesture(right, "right-leg"), true); assert.equal(right.rightKnee, -.45);
   assert.equal(matchesGesture(manualMotion(0, 0, 0, { ...REST_LEGS, leftLeg: -1 }), "left-leg"), false);
+});
+
+test("hip center follows mirrored translation, vertical movement and a tilted hip line", () => {
+  const p = standing(), origin = captureHipOrigin(p)!;
+  assert.ok(origin);
+  const rest = motionFromLandmarks(p, 4 / 3, origin);
+  assert.equal(rest.hipX, 0); assert.equal(rest.hipY, 0); assert.equal(rest.hipTilt, 0);
+  for (const point of p) { point.x += .06; point.y += .04; }
+  const shifted = motionFromLandmarks(p, 4 / 3, origin);
+  assert.ok(shifted.hipX < -50); assert.ok(shifted.hipY > 30);
+  p[24].y += .04;
+  const tilted = motionFromLandmarks(p, 4 / 3, origin);
+  assert.ok(tilted.hipTilt > .2);
+  const recentered = motionFromLandmarks(p, 4 / 3, captureHipOrigin(p));
+  assert.equal(recentered.hipX, 0); assert.equal(recentered.hipY, 0);
+  p[23].visibility = .1;
+  assert.equal(captureHipOrigin(p), null);
+  const lost = motionFromLandmarks(p, 4 / 3, origin);
+  assert.equal(lost.hipX, 0); assert.equal(lost.hipY, 0); assert.equal(lost.hipTilt, 0);
+  assert.equal(lost.tracked, true);
+});
+
+test("hip motion is bounded and a hip tilt alone cannot count as a leg lift", () => {
+  const p = standing(), origin = captureHipOrigin(p)!;
+  p[23].x -= .5; p[24].x -= .5; p[23].y += .5; p[24].y += .5;
+  const far = motionFromLandmarks(p, 4 / 3, origin);
+  assert.equal(far.hipX, 80); assert.equal(far.hipY, 50);
+  const manual = manualMotion(0, 0, 0, REST_LEGS, { ...REST_HIPS, hipSway: -1, hipHeight: -.5, hipTilt: 1 });
+  assert.equal(manual.hipX, -80); assert.equal(manual.hipY, -25); assert.equal(manual.hipTilt, .35);
+  assert.equal(manual.leftLeg, manual.hipTilt); assert.equal(manual.rightLeg, manual.hipTilt);
+  assert.equal(matchesGesture(manual, "left-leg"), false); assert.equal(matchesGesture(manual, "right-leg"), false);
 });

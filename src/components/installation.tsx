@@ -45,7 +45,7 @@ export function Installation() {
     let frame = 0, last = performance.now(), uiTime = 0;
     const tick = (now: number) => {
       const dt = Math.min(100, now - last); last = now;
-      const target = mode === "manual" ? manualMotion(manual.left, manual.lean, manual.right, manual)
+      const target = mode === "manual" ? manualMotion(manual.left, manual.lean, manual.right, manual, manual)
         : now - source.current.time < 300 ? source.current.motion : { ...REST };
       if (!paused) displayed.current = smoothMotion(displayed.current, target, dt);
       const active = !paused && !document.hidden && !!artwork.art && artwork.art.coloredPixels >= 40 && matchesGesture(target, gesture);

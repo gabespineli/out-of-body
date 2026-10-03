@@ -13,14 +13,18 @@ export type Landmark = { x: number; y: number; visibility?: number; presence?: n
 export type Motion = {
   leftArm: number; rightArm: number; leftElbow: number; rightElbow: number;
   leftLeg: number; rightLeg: number; leftKnee: number; rightKnee: number;
+  hipX: number; hipY: number; hipTilt: number;
   lean: number; tracked: boolean; raised: boolean; leaning: boolean;
   leftRaised: boolean; rightRaised: boolean;
   leftVisible: boolean; rightVisible: boolean; hipsVisible: boolean;
   leftLegVisible: boolean; rightLegVisible: boolean; leftLegLifted: boolean; rightLegLifted: boolean;
 };
-export const REST: Motion = { leftArm: 0, rightArm: 0, leftElbow: 0, rightElbow: 0, leftLeg: 0, rightLeg: 0, leftKnee: 0, rightKnee: 0, lean: 0, tracked: false, raised: false, leaning: false, leftRaised: false, rightRaised: false, leftVisible: false, rightVisible: false, hipsVisible: false, leftLegVisible: false, rightLegVisible: false, leftLegLifted: false, rightLegLifted: false };
+export const REST: Motion = { leftArm: 0, rightArm: 0, leftElbow: 0, rightElbow: 0, leftLeg: 0, rightLeg: 0, leftKnee: 0, rightKnee: 0, hipX: 0, hipY: 0, hipTilt: 0, lean: 0, tracked: false, raised: false, leaning: false, leftRaised: false, rightRaised: false, leftVisible: false, rightVisible: false, hipsVisible: false, leftLegVisible: false, rightLegVisible: false, leftLegLifted: false, rightLegLifted: false };
 export type ManualLegs = { leftLeg: number; rightLeg: number; leftKnee: number; rightKnee: number };
 export const REST_LEGS: ManualLegs = { leftLeg: 0, rightLeg: 0, leftKnee: 0, rightKnee: 0 };
+export type ManualHips = { hipSway: number; hipHeight: number; hipTilt: number };
+export const REST_HIPS: ManualHips = { hipSway: 0, hipHeight: 0, hipTilt: 0 };
+export type HipOrigin = { x: number; y: number; scale: number };
 export const HOLD_MS = 3000;
 export const FADE_MS = 1600;
 export type Timing = { holdMs: number; fadeMs: number };
@@ -29,8 +33,17 @@ const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(mi
 const visible = (p: Landmark | undefined) => !!p && Number.isFinite(p.x) && Number.isFinite(p.y) && (p.visibility ?? 0) >= .6 && (p.presence ?? 1) >= .6;
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
+// The first confident pose centers the avatar and scales camera displacement to the template.
+export function captureHipOrigin(points: Landmark[], aspect = 4 / 3): HipOrigin | null {
+  if (![11, 12, 23, 24].every(i => visible(points[i]))) return null;
+  const y = (points[23].y + points[24].y) / 2;
+  const torsoHeight = y - (points[11].y + points[12].y) / 2;
+  if (torsoHeight <= .08 || Math.abs(points[23].x - points[24].x) * aspect < .04) return null;
+  return { x: (points[23].x + points[24].x) / 2, y, scale: 284 / torsoHeight };
+}
+
 // Mirror X once, as in the preview. Aspect correction prevents wide-camera angle bias.
-export function motionFromLandmarks(points: Landmark[], aspect = 4 / 3): Motion {
+export function motionFromLandmarks(points: Landmark[], aspect = 4 / 3, origin?: HipOrigin | null): Motion {
   if (![11, 12].every(i => visible(points[i]))) return { ...REST };
   const angle = (a: Landmark, b: Landmark) => Math.atan2(b.y - a.y, (a.x - b.x) * aspect);
   const leftRest = Math.atan2(118, -34);
@@ -43,7 +56,7 @@ export function motionFromLandmarks(points: Landmark[], aspect = 4 / 3): Motion 
   };
   const left = arm(11, 13, 15, leftRest, Math.atan2(108, -26));
   const right = arm(12, 14, 16, rightRest, Math.atan2(108, 26));
-  let lean = 0;
+  let lean = 0, hipX = 0, hipY = 0, hipTilt = 0;
   const hipsVisible = [23, 24].every(i => visible(points[i]));
   if (hipsVisible) {
     const sx = (points[11].x + points[12].x) / 2;
@@ -51,6 +64,12 @@ export function motionFromLandmarks(points: Landmark[], aspect = 4 / 3): Motion 
     const hx = (points[23].x + points[24].x) / 2;
     const hy = (points[23].y + points[24].y) / 2;
     if (hy - sy > .08) lean = clamp(Math.atan2((hx - sx) * aspect, hy - sy), -.5, .5);
+    const span = Math.abs(points[23].x - points[24].x) * aspect;
+    if (span >= .04) hipTilt = clamp(Math.atan2(points[24].y - points[23].y, span), -.35, .35);
+    if (origin) {
+      hipX = clamp((origin.x - hx) * aspect * origin.scale, -80, 80);
+      hipY = clamp((hy - origin.y) * origin.scale, -50, 50);
+    }
   }
   const leftVisible = [13, 15].every(i => visible(points[i]));
   const rightVisible = [14, 16].every(i => visible(points[i]));
@@ -67,15 +86,18 @@ export function motionFromLandmarks(points: Landmark[], aspect = 4 / 3): Motion 
   const leftLeg = leg(23, 25, 27, Math.atan2(130, -2), Math.atan2(133, 4));
   const rightLeg = leg(24, 26, 28, Math.atan2(130, 2), Math.atan2(133, -4));
   return { leftArm: left.upper - lean, rightArm: right.upper - lean, leftElbow: left.lower, rightElbow: right.lower, lean, tracked: true, raised: leftRaised && rightRaised, leaning: hipsVisible && Math.abs(lean) >= .20, leftRaised, rightRaised, leftVisible, rightVisible, hipsVisible,
-    leftLeg: leftLeg.upper, rightLeg: rightLeg.upper, leftKnee: leftLeg.lower, rightKnee: rightLeg.lower,
+    hipX, hipY, hipTilt,
+    leftLeg: leftLeg.visible ? leftLeg.upper : hipTilt, rightLeg: rightLeg.visible ? rightLeg.upper : hipTilt, leftKnee: leftLeg.lower, rightKnee: rightLeg.lower,
     leftLegVisible: leftLeg.visible, rightLegVisible: rightLeg.visible,
-    leftLegLifted: leftLeg.visible && leftLeg.upper >= .28, rightLegLifted: rightLeg.visible && rightLeg.upper <= -.28 };
+    leftLegLifted: leftLeg.visible && leftLeg.upper - hipTilt >= .28, rightLegLifted: rightLeg.visible && rightLeg.upper - hipTilt <= -.28 };
 }
 
-export function manualMotion(left: number, lean: number, right = left, legs: ManualLegs = REST_LEGS): Motion {
+export function manualMotion(left: number, lean: number, right = left, legs: ManualLegs = REST_LEGS, hips: ManualHips = REST_HIPS): Motion {
   const tilt = lean * .4;
-  return { leftArm: left * 2.55, rightArm: right * -2.55, leftElbow: left * -.18, rightElbow: right * .18, lean: tilt, tracked: true, raised: left >= .72 && right >= .72, leaning: Math.abs(tilt) >= .20, leftRaised: left >= .72, rightRaised: right >= .72, leftVisible: true, rightVisible: true, hipsVisible: true,
-    leftLeg: legs.leftLeg * .8, rightLeg: legs.rightLeg * .8, leftKnee: legs.leftKnee * .9, rightKnee: legs.rightKnee * -.9,
+  const hipTilt = hips.hipTilt * .35;
+  return { leftArm: left * 2.55, rightArm: right * -2.55, leftElbow: left * -.18, rightElbow: right * .18, lean: tilt + hipTilt, tracked: true, raised: left >= .72 && right >= .72, leaning: Math.abs(tilt + hipTilt) >= .20, leftRaised: left >= .72, rightRaised: right >= .72, leftVisible: true, rightVisible: true, hipsVisible: true,
+    hipX: hips.hipSway * 80, hipY: hips.hipHeight * 50, hipTilt,
+    leftLeg: legs.leftLeg * .8 + hipTilt, rightLeg: legs.rightLeg * .8 + hipTilt, leftKnee: legs.leftKnee * .9, rightKnee: legs.rightKnee * -.9,
     leftLegVisible: true, rightLegVisible: true, leftLegLifted: legs.leftLeg * .8 >= .28, rightLegLifted: legs.rightLeg * .8 <= -.28 };
 }
 
@@ -97,7 +119,7 @@ export function matchesGesture(motion: Motion, gesture: Gesture): boolean {
 export function smoothMotion(current: Motion, target: Motion, dt: number): Motion {
   const weight = 1 - Math.exp(-dt / 90);
   const mix = (a: number, b: number) => a + (b - a) * weight;
-  return { ...target, leftArm: mix(current.leftArm, target.leftArm), rightArm: mix(current.rightArm, target.rightArm), leftElbow: mix(current.leftElbow, target.leftElbow), rightElbow: mix(current.rightElbow, target.rightElbow), leftLeg: mix(current.leftLeg, target.leftLeg), rightLeg: mix(current.rightLeg, target.rightLeg), leftKnee: mix(current.leftKnee, target.leftKnee), rightKnee: mix(current.rightKnee, target.rightKnee), lean: mix(current.lean, target.lean) };
+  return { ...target, leftArm: mix(current.leftArm, target.leftArm), rightArm: mix(current.rightArm, target.rightArm), leftElbow: mix(current.leftElbow, target.leftElbow), rightElbow: mix(current.rightElbow, target.rightElbow), leftLeg: mix(current.leftLeg, target.leftLeg), rightLeg: mix(current.rightLeg, target.rightLeg), leftKnee: mix(current.leftKnee, target.leftKnee), rightKnee: mix(current.rightKnee, target.rightKnee), hipX: mix(current.hipX, target.hipX), hipY: mix(current.hipY, target.hipY), hipTilt: mix(current.hipTilt, target.hipTilt), lean: mix(current.lean, target.lean) };
 }
 
 export type HoldState = { elapsed: number; lastTime: number | null; complete: boolean; fade: number };

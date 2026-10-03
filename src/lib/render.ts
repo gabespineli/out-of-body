@@ -28,13 +28,15 @@ export function renderAvatar(ctx: CanvasRenderingContext2D, art: Artwork | null,
     ctx.translate(pivot.x, pivot.y); ctx.rotate(angle); ctx.translate(-pivot.x, -pivot.y);
   };
   const leg = (side: "left" | "right") => {
-    ctx.save(); rotate(JOINTS[`${side}Hip`], motion[`${side}Leg`]);
+    ctx.save(); rotate(JOINTS[`${side}Hip`], motion[`${side}Leg`] - motion.hipTilt);
     draw(`${side}Thigh`);
     rotate(JOINTS[`${side}Knee`], motion[`${side}Knee`]);
     draw(`${side}Shin`); ctx.restore();
   };
+  // The textured pelvis is the parent of both legs and the upper body.
+  ctx.translate(motion.hipX, motion.hipY); rotate(JOINTS.pelvis, motion.hipTilt);
   leg("left"); leg("right"); draw("pelvis");
-  ctx.save(); rotate(JOINTS.hip, motion.lean);
+  ctx.save(); rotate(JOINTS.hip, motion.lean - motion.hipTilt);
   draw("torso"); draw("head");
   const arm = (side: "left" | "right") => {
     ctx.save(); rotate(JOINTS[`${side}Shoulder`], motion[`${side}Arm`]);
