@@ -5,7 +5,7 @@ import { useWebMcp } from "@/hooks/use-webmcp";
 import { useCamera, type MotionSource } from "@/hooks/use-camera";
 import { ArtworkPanel } from "./artwork-panel";
 import { MotionPanel, MANUAL_REST, type ManualPose } from "./motion-panel";
-import { advanceHold, DEFAULT_TIMING, EMPTY_HOLD, GESTURES, manualMotion, matchesGesture, REST, smoothMotion, type Gesture, type HoldState, type Timing } from "@/lib/pose";
+import { advanceHold, DEFAULT_TIMING, EMPTY_HOLD, manualMotion, matchesGesture, REST, smoothMotion, type HoldState, type Timing } from "@/lib/pose";
 import { renderAvatar } from "@/lib/render";
 import { saveAvatarPng } from "@/lib/export";
 import { STAGE_WIDTH, HEIGHT } from "@/lib/rig";
@@ -21,7 +21,7 @@ export function Installation() {
   const hold = useRef<HoldState>({ ...EMPTY_HOLD });
   const displayed = useRef({ ...REST });
   const [mode, setMode] = useState<"camera" | "manual">("camera");
-  const [gesture, setGesture] = useState<Gesture>("raise");
+  const gesture = "raise" as const;
   const [manual, setManual] = useState<ManualPose>({ ...MANUAL_REST });
   const [timing, setTiming] = useState<Timing>({ ...DEFAULT_TIMING });
   const [strength, setStrength] = useState(.97);
@@ -85,7 +85,7 @@ export function Installation() {
   };
   const startFresh = () => {
     camera.stop(); setMode("camera"); setManual({ ...MANUAL_REST });
-    setGesture("raise"); setPaused(false); setTiming({ ...DEFAULT_TIMING }); setStrength(.97);
+    setPaused(false); setTiming({ ...DEFAULT_TIMING }); setStrength(.97);
     displayed.current = { ...REST }; artwork.reset(); restore(); setSaveError(""); setFullscreenError("");
   };
   const enterFullscreen = async () => {
@@ -104,20 +104,30 @@ export function Installation() {
     finally { setSaving(false); }
   };
   const holdSeconds = timing.holdMs / 1000;
-  const holdText = paused ? "Session paused" : !artwork.art ? "Upload a drawing" : artwork.art.coloredPixels < 40 ? "Select a colored area"
-    : progress.complete ? progress.fade >= 1 ? "Selected color faded" : "Fading selected color" : progress.active ? "Hold pose"
-    : mode === "camera" && camera.status !== "live" ? "Enable camera or use manual demo" : GESTURES.find(g => g.value === gesture)!.prompt;
+  const fadeArea = artwork.regions.length > 1 ? "selected areas" : artwork.region.label === "Your selection" ? "selected area" : `${artwork.region.label.toLowerCase()} area`;
+  const stretchState = paused ? "paused" : !artwork.art ? "waiting" : artwork.art.coloredPixels < 40 ? "no-color"
+    : progress.complete ? progress.fade >= 1 ? "completed" : "fading" : progress.active ? "holding" : "not-detected";
+  const holdText = paused ? "Session paused" : !artwork.art ? "Upload a drawing to begin" : artwork.art.coloredPixels < 40 ? "No strong color in the selected area. Align the photo or choose a colored area."
+    : progress.complete ? progress.fade >= 1 ? "Completed — selected color faded" : "Stretch held — fading selected color…" : progress.active ? "Hold still — keep both arms raised"
+    : mode === "camera" && camera.status !== "live" ? "Not detected — enable camera or use manual demo"
+    : mode === "camera" && (!detected.tracked || !detected.leftVisible || !detected.rightVisible) ? "Not detected — keep shoulders, elbows and both hands in view"
+    : "Not detected — raise both hands above your shoulders";
   const statusText = paused ? "Paused" : mode === "manual" ? "Manual simulation" : camera.status === "live" ? camera.tracking ? "Tracking" : "No body detected" : "Camera off";
+  const feedback = <div className="stretch-feedback" data-testid="stretch-feedback" data-stretch-state={stretchState}>
+    <p className="stretch-instruction" data-testid="stretch-instruction"><strong>Raise both hands above your shoulders.</strong> Keep elbows near shoulder height and hold for {holdSeconds} seconds.</p>
+    <p className="stretch-mapping">Fade: {fadeArea}. Lowering an arm before the hold finishes restarts the timer.</p>
+    <div className="hold-panel"><strong role="status" aria-live="polite" data-testid="stretch-status">{holdText}</strong><span data-testid="hold-number">{(progress.hold * holdSeconds).toFixed(1)} / {holdSeconds}s</span><progress aria-label="Gesture hold" max={holdSeconds} value={progress.hold * holdSeconds} /><span>Fade: {Math.round(progress.fade * 100)}%</span></div>
+  </div>;
 
   return <div className="installation-shell">
     <header className="site-header"><h1>Out of Body — MVP</h1></header>
     <main><div className="experience-grid">
       <aside className="control-panel">
         <ArtworkPanel artwork={artwork} />
-        <MotionPanel camera={camera} mode={mode} setMode={changeMode} gesture={gesture} setGesture={setGesture} manual={manual} setManual={setManual} detected={detected} />
+        <MotionPanel camera={camera} mode={mode} setMode={changeMode} manual={manual} setManual={setManual} detected={detected} />
         <section className="control-section" aria-labelledby="session-title">
           <h2 id="session-title">Hold and fade</h2>
-          <label className="slider-label">Hold: {holdSeconds}s<input type="range" aria-label="Hold duration" min="1" max="10" step=".5" value={holdSeconds} onChange={event => setTiming({ ...timing, holdMs: +event.target.value * 1000 })} /></label>
+          <label className="slider-label">Hold: {holdSeconds}s<input type="range" aria-label="Hold duration" min="2" max="3" step=".5" value={holdSeconds} onChange={event => setTiming({ ...timing, holdMs: +event.target.value * 1000 })} /></label>
           <label className="slider-label">Fade: {timing.fadeMs / 1000}s<input type="range" aria-label="Fade duration" min=".2" max="5" step=".1" value={timing.fadeMs / 1000} onChange={event => setTiming({ ...timing, fadeMs: +event.target.value * 1000 })} /></label>
           <label className="slider-label">Amount: {Math.round(strength * 100)}%<input type="range" aria-label="Fade amount" min="25" max="100" step="1" value={Math.round(strength * 100)} onChange={event => setStrength(+event.target.value / 100)} /></label>
           <button onClick={() => { setTiming({ ...DEFAULT_TIMING }); setStrength(.97); }}>Reset timing</button>
@@ -133,14 +143,15 @@ export function Installation() {
             <button onClick={startFresh}>Start fresh</button>
           </div>
         </div>
+        {!full && feedback}
         <div className="avatar-stage" ref={stage}>
           <span className="stage-status">{statusText}</span>
+          {full && <div className="fullscreen-feedback">{feedback}</div>}
           <div className="avatar-frame"><canvas ref={canvas} width={STAGE_WIDTH} height={HEIGHT} className="avatar-canvas" data-testid="avatar" data-fade={progress.fade.toFixed(2)} data-hold={progress.hold.toFixed(2)} data-paused={paused} aria-label={`${artwork.art ? `Moving artwork: ${artwork.name}` : "Blank silhouette preview"}. ${mode === "manual" ? "Motion is simulated." : "Motion follows the webcam."}`} /></div>
           {full && <button className="fullscreen-exit" onClick={() => void enterFullscreen()}>Exit fullscreen</button>}
         </div>
         {fullscreenError && <p className="error-message" role="alert">{fullscreenError}</p>}
         {saveError && <p className="error-message" role="alert">{saveError}</p>}
-        <div className="hold-panel"><strong role="status" aria-live="polite">{holdText}</strong><span data-testid="hold-number">{(progress.hold * holdSeconds).toFixed(1)} / {holdSeconds}s</span><progress aria-label="Gesture hold" max={holdSeconds} value={progress.hold * holdSeconds} /><span>Fade: {Math.round(progress.fade * 100)}%</span></div>
         <p className="prototype-note">Symbolic fade, not proof of medical relief.</p>
       </section>
     </div></main>

@@ -33,7 +33,7 @@ const visible = (p: Landmark | undefined) => !!p && Number.isFinite(p.x) && Numb
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
 // Mirror X once, as in the preview. Aspect correction prevents wide-camera angle bias.
-export function motionFromLandmarks(points: Landmark[], aspect = 4 / 3): Motion {
+export function motionFromLandmarks(points: Landmark[], aspect = 4 / 3, previous: Motion = REST): Motion {
   if (![11, 12].every(i => visible(points[i]))) return { ...REST };
   const angle = (a: Landmark, b: Landmark) => Math.atan2(b.y - a.y, (a.x - b.x) * aspect);
   const leftRest = Math.atan2(118, -34);
@@ -59,8 +59,13 @@ export function motionFromLandmarks(points: Landmark[], aspect = 4 / 3): Motion 
   }
   const leftVisible = [13, 15].every(i => visible(points[i]));
   const rightVisible = [14, 16].every(i => visible(points[i]));
-  const leftRaised = leftVisible && points[15].y < points[11].y - .08 && points[13].y < points[11].y + .05;
-  const rightRaised = rightVisible && points[16].y < points[12].y - .08 && points[14].y < points[12].y + .05;
+  // Enter with hands clearly above the shoulders; tolerate small jitter while held.
+  // Low confidence still releases immediately, and lowered hands cannot keep a hold.
+  const raisedArm = (s: number, e: number, w: number, wasRaised: boolean) =>
+    visible(points[e]) && visible(points[w]) && points[w].y < points[s].y - (wasRaised ? .04 : .08)
+    && points[e].y < points[s].y + (wasRaised ? .07 : .05);
+  const leftRaised = raisedArm(11, 13, 15, previous.leftRaised);
+  const rightRaised = raisedArm(12, 14, 16, previous.rightRaised);
   const leg = (h: number, k: number, a: number, thighRest: number, shinRest: number) => {
     if (![h, k, a].every(i => visible(points[i]))) return { upper: 0, lower: 0, visible: false };
     const length = (p: Landmark, q: Landmark) => Math.hypot((p.x - q.x) * aspect, p.y - q.y);

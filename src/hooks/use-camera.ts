@@ -92,7 +92,8 @@ export function useCamera(source: React.RefObject<MotionSource>) {
             lastVideoTime = video.currentTime; lastInference = now;
             const result = model.detectForVideo(video, now);
             const points = result.landmarks[0] ?? [], aspect = video.videoWidth / video.videoHeight;
-            const motion = motionFromLandmarks(points, aspect);
+            const previous = now - source.current.time < 300 ? source.current.motion : REST;
+            const motion = motionFromLandmarks(points, aspect, previous);
             source.current = { motion, time: performance.now() };
             count++;
             if (now - lastUi > 200) { setTracking(motion.tracked); lastUi = now; }

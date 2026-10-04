@@ -35,6 +35,37 @@ test("shoulder-to-hip lean detects both sides and requires visible hips", () => 
   assert.equal(motionFromLandmarks(p).leaning, false);
 });
 
+test("raised-arm jitter tolerance preserves a valid hold but lowered or missing hands release it", () => {
+  const p = standing();
+  p[15].y = .21; p[16].y = .21; p[13].y = .32; p[14].y = .32;
+  const raised = motionFromLandmarks(p);
+  assert.equal(raised.raised, true);
+  p[15].y = .24; p[16].y = .24;
+  assert.equal(motionFromLandmarks(p).raised, false);
+  assert.equal(motionFromLandmarks(p, 4 / 3, raised).raised, true);
+  p[16].y = .27;
+  assert.equal(motionFromLandmarks(p, 4 / 3, raised).raised, false);
+  p[16].y = .21; p[15].presence = .2;
+  assert.equal(motionFromLandmarks(p, 4 / 3, raised).raised, false);
+});
+
+test("a confident upper-body stretch works without visible hips or legs and loss restarts its hold", () => {
+  const p = standing();
+  p[15].y = .05; p[16].y = .05; p[13].y = .18; p[14].y = .18;
+  for (const i of [23, 24, 25, 26, 27, 28]) p[i].visibility = .1;
+  let motion = motionFromLandmarks(p), hold = { ...EMPTY_HOLD };
+  assert.equal(motion.raised, true);
+  for (let now = 0; now <= 2000; now += 100) hold = advanceHold(hold, motion.raised, now);
+  p[16].visibility = .1;
+  motion = motionFromLandmarks(p, 4 / 3, motion);
+  hold = advanceHold(hold, motion.raised, 2100);
+  assert.equal(hold.elapsed, 0); assert.equal(hold.complete, false);
+  p[16].visibility = .99;
+  motion = motionFromLandmarks(p, 4 / 3, motion);
+  for (let now = 2200; now <= 5100; now += 100) hold = advanceHold(hold, motion.raised, now);
+  assert.equal(hold.complete, true);
+});
+
 test("no person or low-confidence shoulders cannot trigger symbolic progress", () => {
   assert.equal(motionFromLandmarks([]).tracked, false);
   const p = standing(); p[11].visibility = .1;

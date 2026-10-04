@@ -1,5 +1,20 @@
 # Verification record
 
+## One focused stretch loop — 4 October 2026
+
+The active stretch is now only both arms raised. A persistent instruction above the avatar asks for both hands above the shoulders and elbows near shoulder height. Feedback progresses through Not detected, Hold still, Stretch held — fading selected color, and Completed. The default hold is three continuous seconds (adjustable only from two to three), followed by the existing 1.6-second selective fade. The shoulder circle is the initial region mapping; existing photo/area controls remain available for alignment. There is no multi-gesture chooser, and lean/leg movements animate the rig without earning stretch progress.
+
+- Static export and TypeScript: passed. Gesture/timing checks: **17 passed**, including entry/release tolerance for raised-arm landmark jitter, immediate rejection of low-confidence hands, and an upper-body hold that works without hip/leg visibility.
+- Exported-app Chromium scenarios: **18 passed** in one full run, including all three real-model reference-photo replays.
+- The focused loop showed Not detected, Hold still, a partial fade strictly between zero and one, and Completed. A known shoulder pixel changed gradually between its original and softened values. Pausing froze a partial fade; resuming finished it.
+- An incomplete hold interrupted by lowering one arm reset to zero and earned no fade. One raised arm, side lean and leg movement could not earn the arms-raised stretch. Model replays of nonmatching poses likewise stayed at zero hold/fade.
+- A full-canvas pixel comparison at a frozen pose found **zero changed pixels outside the selected shoulder region** when comparing the faded/restored drawing. More than 100 pixels changed inside the region. Unselected teal, yellow, leg and dark marks retained their expected values in the existing checks.
+- Uploaded texture, fixed hip pivot/visible rotation, pause, PNG export, alignment, camera permission/device/model recovery, cancellation/track cleanup and layouts at 320/768/1024/1440 pixels still passed.
+- Positive arms-raised detection is checked with constructed landmark sequences; successful hold-to-fade UI is checked in manual mode. Real MediaPipe inference and rejection of other poses are checked using reference-photo camera replays. **A live participant holding both arms up in a physical webcam was not tested**, so camera framing and detection still need an installation trial. No landmark outputs are injected into the real-model replay tests.
+- The supported interactive browser could not bind the old error-page preview tab because its internal error URL was blocked. That tab was left untouched; the normal HTTP preview was handed off through the app, and authored local browser scenarios supplied the rendered verification and screenshots.
+
+The earlier records below are historical. Their multi-gesture completion behavior is superseded by this single-stretch loop; the centered pelvis rotation remains current.
+
 ## Anchored pelvis rotation — 4 October 2026
 
 The pelvis pivot stays fixed at template position (300, 522), canvas position (420, 522). The detected hip line rotates the uploaded pelvis texture around that point; the torso and legs remain attached. Camera-frame position no longer translates the avatar. Manual mode has Rotate hips left/right buttons and one Hip rotation slider. Sway, height and camera recenter controls were removed. This supersedes the moving-center behavior recorded below.

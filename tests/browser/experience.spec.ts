@@ -31,10 +31,10 @@ test("actual uploaded colors reach the rig; a held gesture fades only selected c
   await page.getByRole("button", { name: "Manual demo", exact: true }).click();
   await page.screenshot({ path: "test-results/upload-rest.png", fullPage: true });
   await page.getByRole("button", { name: "Raise arms", exact: true }).click();
-  await expect(page.getByText("Hold pose")).toBeVisible();
+  await expect(page.getByTestId("stretch-status")).toBeVisible();
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-hold", /0\.[1-9]/);
   await page.screenshot({ path: "test-results/raised-arms.png", fullPage: true });
-  await expect(page.getByText("Selected color faded")).toBeVisible({ timeout: 6000 });
+  await expect(page.getByText("Completed — selected color faded")).toBeVisible({ timeout: 6000 });
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-fade", "1.00", { timeout: 4000 });
   await page.getByRole("button", { name: "Return to rest", exact: true }).click();
   await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 235, 270))[1]).toBeGreaterThan(235);
@@ -45,20 +45,28 @@ test("actual uploaded colors reach the rig; a held gesture fades only selected c
   expect(errors).toEqual([]);
 });
 
-test("interruptions reset the hold; a side lean also moves and fades the torso", async ({ page }) => {
+test("one raised arm or a side lean cannot earn progress; interruption restarts the three-second hold", async ({ page }) => {
   await page.goto("/"); await upload(page);
+  await expect(page.getByTestId("stretch-instruction")).toContainText("Raise both hands above your shoulders.");
+  await expect(page.getByRole("combobox", { name: "Gesture to hold" })).toHaveCount(0);
   await page.getByRole("button", { name: "Manual demo", exact: true }).click();
-  await page.getByRole("button", { name: "Raise arms", exact: true }).click();
-  await expect.poll(async () => +(await page.getByTestId("avatar").getAttribute("data-hold"))!).toBeGreaterThan(.2);
-  await page.getByRole("button", { name: "Return to rest", exact: true }).click();
+  await page.getByRole("slider", { name: "Manual left arm height", exact: true }).fill("1");
+  await page.waitForTimeout(700);
+  await expect(page.getByTestId("stretch-feedback")).toHaveAttribute("data-stretch-state", "not-detected");
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-hold", "0.00");
-  await page.getByRole("button", { name: "Torso", exact: true }).click();
-  await page.getByRole("combobox", { name: "Gesture to hold", exact: true }).selectOption("lean");
   await page.getByRole("button", { name: "Lean left", exact: true }).click();
-  await expect(page.getByText("Selected color faded")).toBeVisible({ timeout: 6000 });
-  await expect(page.getByTestId("avatar")).toHaveAttribute("data-fade", "1.00", { timeout: 4000 });
-  await page.getByRole("button", { name: "Return to rest", exact: true }).click();
-  await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 300, 385))[0]).toBeGreaterThan(235);
+  await page.waitForTimeout(700);
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-hold", "0.00");
+  await page.getByRole("button", { name: "Raise arms", exact: true }).click();
+  await expect(page.getByTestId("stretch-feedback")).toHaveAttribute("data-stretch-state", "holding");
+  await expect.poll(async () => +(await page.getByTestId("avatar").getAttribute("data-hold"))!).toBeGreaterThan(.2);
+  await page.getByRole("slider", { name: "Manual right arm height", exact: true }).fill("0");
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-hold", "0.00");
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-fade", "0.00");
+  await page.getByRole("slider", { name: "Manual right arm height", exact: true }).fill("1");
+  await page.waitForTimeout(1200);
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-fade", "0.00");
+  await expect(page.getByText("Completed — selected color faded")).toBeVisible({ timeout: 6000 });
 });
 
 test("permission denied is explained and manual fallback remains usable", async ({ page }) => {
@@ -68,7 +76,7 @@ test("permission denied is explained and manual fallback remains usable", async 
   await expect(page.locator("p[role=alert]")).toContainText("Camera permission was denied");
   await page.getByRole("button", { name: "Manual demo", exact: true }).click();
   await page.getByRole("button", { name: "Raise arms", exact: true }).click();
-  await expect(page.getByText("Selected color faded")).toBeVisible({ timeout: 6000 });
+  await expect(page.getByText("Completed — selected color faded")).toBeVisible({ timeout: 6000 });
 });
 
 test("no webcam and a busy camera have distinct recovery states", async ({ page }) => {
@@ -115,52 +123,48 @@ test("layout fits 320, 768, 1024 and 1440 widths and supports keyboard controls"
   await expect(page.getByRole("button", { name: "Raise arms", exact: true })).toHaveAttribute("aria-pressed", "true");
 });
 
-test("real MediaPipe moves arms and legs, holds a leg pose through fade and releases tracks", async () => {
+test("real MediaPipe moves arms and legs while an unraised pose cannot complete the stretch", async () => {
   const fixture = process.env.OOB_CAMERA_FIXTURE;
-  test.skip(!fixture, "Set OOB_CAMERA_FIXTURE to a Y4M replay. This test does not use a participant’s physical webcam.");
+  test.skip(!fixture, "Set OOB_CAMERA_FIXTURE to a Y4M replay. No physical webcam is used.");
   const browser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-video-capture=${path.resolve(fixture!)}`] });
   const context = await browser.newContext({ permissions: ["camera"], viewport: { width: 1440, height: 1100 } });
   const page = await context.newPage();
   try {
     await page.goto("http://127.0.0.1:3201"); await upload(page);
-    await page.getByRole("button", { name: "Left leg", exact: true }).click();
-    await page.getByRole("combobox", { name: "Gesture to hold", exact: true }).selectOption("left-leg");
-    await page.getByRole("slider", { name: "Hold duration", exact: true }).fill("1");
-    await page.getByRole("slider", { name: "Fade duration", exact: true }).fill("0.2");
     await page.getByRole("button", { name: "Enable camera", exact: true }).click();
     await expect(page.getByRole("button", { name: "Stop camera", exact: true })).toBeVisible({ timeout: 30000 });
     await expect(page.getByText(/Body found ·/)).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId("tracking-legs")).toHaveText("Left leg: visible · Right leg: visible");
     await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 254, 710))[3]).toBe(0);
-    await expect(page.getByText("Selected color faded")).toBeVisible({ timeout: 6000 });
+    await page.waitForTimeout(3200);
+    await expect(page.getByTestId("stretch-feedback")).toHaveAttribute("data-stretch-state", "not-detected");
+    await expect(page.getByTestId("avatar")).toHaveAttribute("data-hold", "0.00");
+    await expect(page.getByTestId("avatar")).toHaveAttribute("data-fade", "0.00");
     await page.screenshot({ path: "test-results/camera-replay.png", fullPage: true });
-    // The real model output rotates arms for the reference person’s horizontal arm pose.
-    await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 180, 390))[3]).toBe(0);
     await page.evaluate(() => { (window as unknown as { testStream: MediaStream }).testStream = document.querySelector("video")!.srcObject as MediaStream; });
     await page.getByRole("button", { name: "Stop camera", exact: true }).click();
     expect(await page.evaluate(() => (window as unknown as { testStream: MediaStream }).testStream.getTracks().every(track => track.readyState === "ended"))).toBeTruthy();
-    await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 254, 610))[0]).toBeGreaterThan(235);
+    await expect.poll(() => pixel(page, '[data-testid="avatar"]', 254, 610)).toEqual([115, 153, 180, 255]);
     await expect.poll(() => pixel(page, '[data-testid="avatar"]', 346, 720)).toEqual([161, 152, 189, 255]);
   } finally { await context.close(); await browser.close(); }
 });
 
-test("a real MediaPipe-detected lean drives the continuous hold and region fade", async () => {
+test("a real MediaPipe lean does not count as the arms-raised stretch", async () => {
   const fixture = process.env.OOB_LEAN_CAMERA_FIXTURE;
-  test.skip(!fixture, "Set OOB_LEAN_CAMERA_FIXTURE to a Y4M lean replay. No live participant webcam is used.");
+  test.skip(!fixture, "Set OOB_LEAN_CAMERA_FIXTURE to a Y4M lean replay. No physical webcam is used.");
   const browser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-video-capture=${path.resolve(fixture!)}`] });
   const context = await browser.newContext({ permissions: ["camera"], viewport: { width: 1440, height: 1100 } });
   const page = await context.newPage();
   try {
     await page.goto("http://127.0.0.1:3201"); await upload(page);
-    await page.getByRole("combobox", { name: "Gesture to hold", exact: true }).selectOption("lean");
     await page.getByRole("button", { name: "Enable camera", exact: true }).click();
     await expect(page.getByText(/Body found ·/)).toBeVisible({ timeout: 30000 });
-    await expect(page.getByText("Selected color faded")).toBeVisible({ timeout: 12000 });
-    await expect(page.getByTestId("avatar")).toHaveAttribute("data-fade", "1.00", { timeout: 4000 });
-    await page.screenshot({ path: "test-results/camera-lean-fade.png", fullPage: true });
+    await page.waitForTimeout(3200);
+    await expect(page.getByTestId("avatar")).toHaveAttribute("data-hold", "0.00");
+    await expect(page.getByTestId("avatar")).toHaveAttribute("data-fade", "0.00");
+    await expect(page.getByTestId("stretch-status")).toContainText("Not detected");
     await page.getByRole("button", { name: "Stop camera", exact: true }).click();
-    await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 235, 270))[1]).toBeGreaterThan(235);
-    expect(await pixel(page, '[data-testid="avatar"]', 300, 385)).toEqual([39, 154, 163, 255]);
+    await expect.poll(() => pixel(page, '[data-testid="avatar"]', 235, 270)).toEqual([219, 113, 93, 255]);
   } finally { await context.close(); await browser.close(); }
 });
 
@@ -176,36 +180,47 @@ test("model-load failure stops the camera and keeps manual demo working", async 
     expect(await page.locator("video").evaluate(v => (v as HTMLVideoElement).srcObject)).toBeNull();
     await page.getByRole("button", { name: "Manual demo", exact: true }).click();
     await page.getByRole("button", { name: "Raise arms", exact: true }).click();
-    await expect(page.getByText("Selected color faded")).toBeVisible({ timeout: 6000 });
+    await expect(page.getByText("Completed — selected color faded")).toBeVisible({ timeout: 6000 });
   } finally { await context.close(); await browser.close(); }
 });
 
-test("six gesture choices use individual arms and lean direction with custom timing", async ({ page }) => {
+test("the three-second stretch transitions through hold, animated fade and completion without altering pixels outside its region", async ({ page }) => {
   await page.goto("/"); await upload(page);
   await page.getByRole("button", { name: "Manual demo", exact: true }).click();
-  await page.getByRole("slider", { name: "Hold duration", exact: true }).fill("1");
-  await page.getByRole("slider", { name: "Fade duration", exact: true }).fill("0.2");
-  const arm = (side: string, value: number) => page.getByRole("slider", { name: `Manual ${side} arm height`, exact: true }).fill(String(value));
-  const lean = (value: number) => page.getByRole("slider", { name: "Manual side lean", exact: true }).fill(String(value));
-  for (const gesture of ["raise", "left-arm", "right-arm", "lean", "lean-left", "lean-right"]) {
-    await page.getByRole("button", { name: "Return to rest", exact: true }).click();
-    await page.getByRole("combobox", { name: "Gesture to hold", exact: true }).selectOption(gesture);
-    if (gesture === "raise") await arm("left", 1);
-    if (gesture === "left-arm") await arm("right", 1);
-    if (gesture === "right-arm") await arm("left", 1);
-    if (gesture === "lean-left") await lean(1);
-    if (gesture === "lean-right") await lean(-1);
-    await page.waitForTimeout(1250);
-    await expect(page.getByTestId("avatar")).toHaveAttribute("data-hold", "0.00");
-    await expect(page.getByTestId("avatar")).toHaveAttribute("data-fade", "0.00");
-    if (gesture === "raise") await arm("right", 1);
-    if (gesture === "left-arm") { await arm("right", 0); await arm("left", 1); }
-    if (gesture === "right-arm") { await arm("left", 0); await arm("right", 1); }
-    if (gesture === "lean" || gesture === "lean-left") await lean(-1);
-    if (gesture === "lean-right") await lean(1);
-    await expect(page.getByText("Selected color faded")).toBeVisible({ timeout: 3500 });
-    await expect(page.getByTestId("hold-number")).toHaveText("1.0 / 1s");
-  }
+  await expect(page.getByTestId("stretch-status")).toContainText("Not detected");
+  await expect(page.getByTestId("stretch-instruction")).toContainText("3 seconds");
+  await page.getByRole("button", { name: "Raise arms", exact: true }).click();
+  await expect(page.getByTestId("stretch-status")).toContainText("Hold still");
+  await page.waitForTimeout(2000);
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-fade", "0.00");
+  await expect(page.getByTestId("stretch-feedback")).toHaveAttribute("data-stretch-state", "fading", { timeout: 2500 });
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  const partial = +(await page.getByTestId("avatar").getAttribute("data-fade"))!;
+  expect(partial).toBeGreaterThan(0); expect(partial).toBeLessThan(1);
+  const midColor = await pixel(page, '[data-testid="avatar"]', 235, 270);
+  expect(midColor[1]).toBeGreaterThan(113); expect(midColor[1]).toBeLessThan(245);
+  await page.getByRole("button", { name: "Resume", exact: true }).click();
+  await expect(page.getByTestId("stretch-status")).toHaveText("Completed — selected color faded", { timeout: 4000 });
+  await page.getByRole("button", { name: "Return to rest", exact: true }).click();
+  await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 235, 270))[1]).toBeGreaterThan(235);
+  await page.waitForTimeout(1200);
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  const faded = await page.getByTestId("avatar").evaluate(el => Array.from((el as HTMLCanvasElement).getContext("2d")!.getImageData(0, 0, 840, 900).data));
+  await page.getByRole("button", { name: "Restore original colors", exact: true }).click();
+  await expect.poll(() => pixel(page, '[data-testid="avatar"]', 235, 270)).toEqual([219, 113, 93, 255]);
+  const changedOutside = await page.getByTestId("avatar").evaluate((el, previous) => {
+    const current = (el as HTMLCanvasElement).getContext("2d")!.getImageData(0, 0, 840, 900).data;
+    let outside = 0, inside = 0;
+    for (let i = 0; i < current.length; i += 4) {
+      if ([0, 1, 2, 3].some(channel => current[i + channel] !== previous[i + channel])) {
+        const point = i / 4, x = point % 840 - 120, y = Math.floor(point / 840);
+        if (Math.hypot(x - 232, y - 268) > 66) outside++; else inside++;
+      }
+    }
+    return { outside, inside };
+  }, faded);
+  expect(changedOutside.inside).toBeGreaterThan(100);
+  expect(changedOutside.outside).toBe(0);
 });
 
 test("several selected areas fade together while unselected color and dark marks survive", async ({ page }) => {
@@ -213,10 +228,10 @@ test("several selected areas fade together while unselected color and dark marks
   await page.getByRole("button", { name: "Add area", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Selected fade area" })).toHaveValue("1");
   await page.getByRole("button", { name: "Manual demo", exact: true }).click();
-  await page.getByRole("slider", { name: "Hold duration", exact: true }).fill("1");
+  await page.getByRole("slider", { name: "Hold duration", exact: true }).fill("2");
   await page.getByRole("slider", { name: "Fade duration", exact: true }).fill("0.2");
   await page.getByRole("button", { name: "Raise arms", exact: true }).click();
-  await expect(page.getByText("Selected color faded")).toBeVisible({ timeout: 3500 });
+  await expect(page.getByText("Completed — selected color faded")).toBeVisible({ timeout: 3500 });
   await page.getByRole("button", { name: "Return to rest", exact: true }).click();
   await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 235, 270))[1]).toBeGreaterThan(235);
   expect((await pixel(page, '[data-testid="avatar"]', 300, 385))[0]).toBeGreaterThan(235);
@@ -249,24 +264,24 @@ test("pause freezes the displayed pose and fade; resuming restarts an unfinished
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-fade", "0.00");
   await page.getByRole("button", { name: "Resume", exact: true }).click();
   await page.getByRole("button", { name: "Raise arms", exact: true }).click();
-  await expect(page.getByText("Fading selected color")).toBeVisible({ timeout: 3500 });
+  await expect(page.getByText("Stretch held — fading selected color…")).toBeVisible({ timeout: 3500 });
   await page.getByRole("button", { name: "Pause", exact: true }).click();
   await expect(page.getByText("Session paused")).toBeVisible();
   const fade = await page.getByTestId("avatar").getAttribute("data-fade");
   await page.waitForTimeout(1200);
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-fade", fade!);
   await page.getByRole("button", { name: "Resume", exact: true }).click();
-  await expect(page.getByText("Selected color faded")).toBeVisible({ timeout: 3500 });
+  await expect(page.getByText("Completed — selected color faded")).toBeVisible({ timeout: 3500 });
 });
 
 test("fade amount stays consistent across overlapping areas and PNG saves the actual result", async ({ page }, testInfo) => {
   await page.goto("/"); await upload(page);
   await page.getByRole("button", { name: "Manual demo", exact: true }).click();
-  await page.getByRole("slider", { name: "Hold duration", exact: true }).fill("1");
+  await page.getByRole("slider", { name: "Hold duration", exact: true }).fill("2");
   await page.getByRole("slider", { name: "Fade duration", exact: true }).fill("0.2");
   await page.getByRole("slider", { name: "Fade amount", exact: true }).fill("50");
   await page.getByRole("button", { name: "Raise arms", exact: true }).click();
-  await expect(page.getByText("Selected color faded")).toBeVisible({ timeout: 3500 });
+  await expect(page.getByText("Completed — selected color faded")).toBeVisible({ timeout: 3500 });
   await page.getByRole("button", { name: "Return to rest", exact: true }).click();
   await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 235, 270))[1]).toBeGreaterThan(175);
   const single = await pixel(page, '[data-testid="avatar"]', 235, 270);
@@ -274,7 +289,7 @@ test("fade amount stays consistent across overlapping areas and PNG saves the ac
   await page.getByRole("button", { name: "Add area", exact: true }).click();
   await page.getByRole("button", { name: "Shoulder", exact: true }).click();
   await page.getByRole("button", { name: "Raise arms", exact: true }).click();
-  await expect(page.getByText("Selected color faded")).toBeVisible({ timeout: 3500 });
+  await expect(page.getByText("Completed — selected color faded")).toBeVisible({ timeout: 3500 });
   await page.getByRole("button", { name: "Return to rest", exact: true }).click();
   await expect.poll(() => pixel(page, '[data-testid="avatar"]', 235, 270)).toEqual(single);
   await page.getByRole("button", { name: "Pause", exact: true }).click();
@@ -336,26 +351,14 @@ test("uploaded leg marks follow independent hip and knee controls", async ({ pag
   await page.screenshot({ path: "test-results/leg-movement.png", fullPage: true });
 });
 
-test("each held leg gesture fades its chosen leg and rejects the other leg", async ({ page }) => {
+test("manual leg motion is preserved but cannot trigger the single upper-body stretch", async ({ page }) => {
   await page.goto("/"); await upload(page);
   await page.getByRole("button", { name: "Manual demo", exact: true }).click();
-  await page.getByRole("slider", { name: "Hold duration", exact: true }).fill("1");
-  await page.getByRole("slider", { name: "Fade duration", exact: true }).fill("0.2");
   for (const side of ["left", "right"]) {
-    const name = side === "left" ? "Left" : "Right", other = side === "left" ? "right" : "left";
-    await page.getByRole("button", { name: `${name} leg`, exact: true }).click();
-    await page.getByRole("combobox", { name: "Gesture to hold", exact: true }).selectOption(`${side}-leg`);
-    await page.getByRole("button", { name: `Lift ${other} leg`, exact: true }).click();
-    await page.waitForTimeout(1300);
-    await expect(page.getByTestId("avatar")).toHaveAttribute("data-hold", "0.00");
     await page.getByRole("button", { name: `Lift ${side} leg`, exact: true }).click();
-    await expect(page.getByText("Selected color faded")).toBeVisible({ timeout: 3500 });
-    await page.getByRole("button", { name: "Return to rest", exact: true }).click();
-    const [x, y] = side === "left" ? [254, 610] : [346, 720];
-    await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', x, y))[0]).toBeGreaterThan(235);
-    expect(await pixel(page, '[data-testid="avatar"]', 300, 385)).toEqual([39, 154, 163, 255]);
-    const [otherX, otherY, color] = side === "left" ? [346, 720, [161, 152, 189, 255]] : [254, 610, [115, 153, 180, 255]];
-    expect(await pixel(page, '[data-testid="avatar"]', otherX as number, otherY as number)).toEqual(color);
+    await page.waitForTimeout(700);
+    await expect(page.getByTestId("avatar")).toHaveAttribute("data-hold", "0.00");
+    await expect(page.getByTestId("avatar")).toHaveAttribute("data-fade", "0.00");
   }
 });
 

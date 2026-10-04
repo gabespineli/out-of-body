@@ -1,18 +1,17 @@
 "use client";
 import type { useCamera } from "@/hooks/use-camera";
-import { GESTURES, REST_LEGS, REST_HIPS, type Gesture, type Motion, type ManualLegs, type ManualHips } from "@/lib/pose";
+import { REST_LEGS, REST_HIPS, type Motion, type ManualLegs, type ManualHips } from "@/lib/pose";
 
 export type ManualPose = { left: number; right: number; lean: number } & ManualLegs & ManualHips;
 export const MANUAL_REST: ManualPose = { left: 0, right: 0, lean: 0, ...REST_LEGS, ...REST_HIPS };
 type Props = {
   camera: ReturnType<typeof useCamera>;
   mode: "camera" | "manual"; setMode: (mode: "camera" | "manual") => void;
-  gesture: Gesture; setGesture: (gesture: Gesture) => void;
   manual: ManualPose; setManual: (pose: ManualPose) => void;
   detected: Motion;
 };
 
-export function MotionPanel({ camera, mode, setMode, gesture, setGesture, manual, setManual, detected }: Props) {
+export function MotionPanel({ camera, mode, setMode, manual, setManual, detected }: Props) {
   const pending = camera.status === "permission" || camera.status === "loading";
   const both = manual.left === 1 && manual.right === 1;
   return <section className="control-section motion-section" aria-labelledby="motion-title">
@@ -28,7 +27,7 @@ export function MotionPanel({ camera, mode, setMode, gesture, setGesture, manual
       {camera.status === "live" ? <button className="full-width" onClick={camera.stop}>Stop camera</button> : <button className="full-width" disabled={pending} onClick={() => void camera.start()}>{camera.status === "permission" ? "Waiting for permission…" : camera.status === "loading" ? "Starting tracking…" : camera.status === "error" ? "Try camera again" : "Enable camera"}</button>}
       {pending && <button className="full-width" onClick={camera.stop}>Cancel camera</button>}
       {camera.error && <p className="error-message" role="alert">{camera.error}</p>}
-      <p className="camera-hint">Step back so hands, knees and feet stay in view.</p>
+      <p className="camera-hint">Keep shoulders, elbows and both hands in view. Legs can be out of frame for this stretch.</p>
       <p className="tracking-parts" data-testid="tracking-parts">Left arm: {detected.leftVisible ? "visible" : "missing"} · Right arm: {detected.rightVisible ? "visible" : "missing"} · Hips: {detected.hipsVisible ? "visible" : "missing"}</p>
       <p className="tracking-parts" data-testid="tracking-legs">Left leg: {detected.leftLegVisible ? "visible" : "missing"} · Right leg: {detected.rightLegVisible ? "visible" : "missing"}</p>
     </> : <div className="manual-controls">
@@ -51,6 +50,5 @@ export function MotionPanel({ camera, mode, setMode, gesture, setGesture, manual
       <label className="slider-label">Right knee bend<input type="range" min="0" max="1" step=".01" value={manual.rightKnee} aria-label="Manual right knee bend" onChange={event => setManual({ ...manual, rightKnee: +event.target.value })} /></label>
       <button onClick={() => setManual({ ...MANUAL_REST })}>Return to rest</button>
     </div>}
-    <label className="field-label gesture-select">Gesture to hold<select aria-label="Gesture to hold" value={gesture} onChange={event => setGesture(event.target.value as Gesture)}>{GESTURES.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}</select></label>
   </section>;
 }
