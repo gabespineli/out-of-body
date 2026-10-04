@@ -9,6 +9,7 @@ type Bindings = {
   setManual: (pose: ManualPose) => void;
   restore: () => void;
   setArea: (area: BodyArea) => void;
+  startGuided: () => void;
 };
 type Tool = {
   name: string; title: string; description: string; inputSchema: object;
@@ -29,8 +30,15 @@ export function useWebMcp(bindings: Bindings) {
     };
     const tools: Tool[] = [
       {
+        name: "start_guided_session", title: "Start guided stretching",
+        description: "Start or restart the guided neck/head, arms/back, legs/feet sequence. Requires a loaded drawing. Resets progress and manual joints; never enables the camera. Gentle movement builds progress; rest preserves it.",
+        inputSchema: { type: "object", properties: {}, additionalProperties: false },
+        annotations: { readOnlyHint: false, untrustedContentHint: false },
+        execute(input) { emptyInput(input); flushSync(() => latest.current.startGuided()); return latest.current.state(); },
+      },
+      {
         name: "select_body_area", title: "Select body area",
-        description: "Select neck-head, arms-back or legs-feet using the same control as Body area. Restarts unfinished holds, resets the manual joints, and preserves completed fades in other areas.",
+        description: "Switch to individual stretches and select neck-head, arms-back or legs-feet using Body area. Switching experience clears progress. Restarts unfinished holds, resets the manual joints, and preserves completed fades in other areas.",
         inputSchema: { type: "object", properties: { area: { type: "string", enum: AREA_IDS } }, required: ["area"], additionalProperties: false },
         annotations: { readOnlyHint: false, untrustedContentHint: false },
         execute(input) {
@@ -40,7 +48,7 @@ export function useWebMcp(bindings: Bindings) {
       },
       {
         name: "get_installation_state", title: "Read installation state",
-        description: "Read the drawing source type, mode, body area, each area’s fade progress, timing, pause and fade status. Does not return photos, file names or camera frames.",
+        description: "Read the drawing source type, mode, body area, each area’s fade progress, guided sequence activity/progress, timing, pause and fade status. Does not return photos, file names or camera frames.",
         inputSchema: { type: "object", properties: {}, additionalProperties: false },
         annotations: { readOnlyHint: true, untrustedContentHint: false },
         execute(input) { emptyInput(input); return latest.current.state(); },

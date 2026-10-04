@@ -1,5 +1,27 @@
 # Verification record
 
+## Guided instructor and accumulated movement — 4 October 2026
+
+The default experience now separates a looping visual instructor from the actual uploaded drawing. A predefined sequence runs Neck / head → Arms / back → Legs / feet. The instructor uses its own animation clock/poses, with the relevant region highlighted blue. The participant canvas keeps the existing photograph texture, rig, fixed pelvis pivot, smoothing and MediaPipe tracker. No participant pose is replaced by the demonstration.
+
+Each activity requires eight seconds of credited movement. Forgiving angle displacements (head 0.09 radians, arm 0.18, torso lean 0.10, thigh/knee 0.13) grant brief participation credit between movements. Progress accumulates rather than requiring an uninterrupted exact pose. The matching color fades progressively as that progress builds. A 1.4-second completion transition advances automatically; final completion stops the sequence. Outline strokes remain visible after fading.
+
+- Optimized static export and TypeScript: **passed**. **29 logic/timing checks passed**, including six new guide checks: idle/jitter rejection, gentle movement below the strict head threshold, rest preservation, wrong-region/lost tracking/pause/gap rejection, full ordered transitions, hip-only rejection and baseline reset on transitions.
+- **26 browser scenarios validated**: 24 passed in the full run, including all five new guided scenarios and all real-model replay inputs. Two existing practice checks passed on targeted rerun after fixing their assumptions: Start fresh now defaults to guided mode, so hold controls require entering practice; both independently animated legs must be polled until they return to rest after camera stop. Application code was unchanged for those test corrections.
+- The guide visibly animated while the participant drawing stayed still; no idle progress or fade was earned. Moving the arms during neck activity also earned none. Gentle head slider motion at ±0.3 (actual ±0.12 radians, below the strict pose threshold) produced a partial fade. Exact torso, leg and dark pixels stayed unchanged.
+- The full guided browser flow advanced all three activities automatically. Neck motion, one gently moved arm, and a small leg swing each completed their own area; perfect two-arm or outward-leg target poses were unnecessary. Completed colors stayed faded as the next activity began. All three area fades and total progress reached one.
+- After returning to rest, head/torso/leg test pixels softened toward the paper color, while the black torso mark and magenta pelvis retained their exact RGB values. The contour pixel remained visibly dark. Saved PNG contained the actual faded artwork and unchanged black mark. Restart restored all area colors/progress and returned to neck/head.
+- Pausing froze both rendered canvases and progress. Resuming at rest retained the earned fade without further progress. An uncolored drawing still accepted movement instead of stalling the sequence. Camera denial preserved a working guided manual fallback.
+- Fullscreen retained both panels, the current activity and progress bar. Desktop/tablet panels were side by side; 320-pixel panels stacked, with no horizontal page overflow. Existing 320/768/1024/1440 practice layouts, keyboard controls, uploads, alignment, camera errors/cleanup/cancellation, fixed pelvis rotation, independent legs and selective PNG tests passed.
+- The real MediaPipe model processed a static reference-photo camera replay while the instructor animated. Neck activity stayed at zero movement progress/fade; demonstration motion did not leak into participant scoring. Other real-model checks still verified arm/leg tracking, strict pose rejection, leg-hold completion and fixed pelvis rotation. No landmark outputs were injected into those replay tests.
+- Supported in-app browser WebMCP checks confirmed the new guided start action, rejection without artwork, gentle manual movement credit, and visible sequence/progress state. The browser tools never enable a webcam automatically.
+
+**Remaining limits:** no physical webcam/live participant, real paper photo under installation lighting, or actual projector has been tested. Guided completion is checked with manual movement and constructed motion samples. Real-model replay verifies tracking and rejection of an idle scene, not live stretching accuracy. Movement credit and color fading are artistic approximations, not exercise-form assessment or evidence of medical relief.
+
+Evidence outside source: `outputs/out-of-body-guided-upload.png`, `outputs/out-of-body-guided-arms.png`, `outputs/out-of-body-guided-completed.png`, `outputs/out-of-body-guided-mobile.png` and the supported-browser `outputs/out-of-body-guided-preview.png`.
+
+Earlier records below describe preserved individual practice and historical releases; guided mode uses accumulated motion, not those strict hold requirements.
+
 ## Three independent body areas — 4 October 2026
 
 The current MVP has a plain **Body area** selector for Neck / head, Arms / back and Legs / feet. Each preset has its own instruction, rule-based pose matcher, continuous hold state and fixed segment fade mask. Defaults remain a three-second hold and a 1.6-second fade. This supersedes the one-stretch/circular-region behavior in the historical records below.
@@ -145,7 +167,7 @@ npx.cmd playwright install chromium
 npm.cmd run test:browser
 ```
 
-The current suite contains 17 ordinary browser scenarios and four optional real-model scenarios using three replay inputs. A run without those inputs skips the four replays. To include them, set `OOB_CAMERA_FIXTURE`, `OOB_LEAN_CAMERA_FIXTURE` and `OOB_HIP_CAMERA_FIXTURE` to Y4M replay files before running the browser suite. The local fixture inputs are outside the deliverable source and contain no participant footage.
+The current suite contains 21 ordinary browser scenarios and five optional real-model scenarios using three replay inputs. A run without those inputs skips the five replays. To include them, set `OOB_CAMERA_FIXTURE`, `OOB_LEAN_CAMERA_FIXTURE` and `OOB_HIP_CAMERA_FIXTURE` to Y4M replay files before running the browser suite. The local fixture inputs are outside the deliverable source and contain no participant footage.
 
 The reference image came from Google's [MediaPipe test assets](https://storage.googleapis.com/mediapipe-assets/pose.jpg). The webcam integration follows the [official Pose Landmarker Web guide](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker/web_js).
 

@@ -92,3 +92,37 @@ input[type="file"] { display: block; width: 100%; font-size: 12px; }
   .avatar-stage { height: 370px; }
   .avatar-frame { width: min(100%, 345px); }
 }
+
+
+.experience-options { margin-bottom: 10px; }
+.activity-steps { list-style: none; padding: 0; margin: 0 0 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+.activity-steps li { padding: 6px 10px; border: 1px solid #ccc; font-size: 14px; }
+.activity-steps li[aria-current="step"] { background: #e2eff7; border-color: #276380; font-weight: bold; }
+.activity-steps li[data-completed="true"] { border-color: #367554; }
+.guided-progress { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.guided-progress strong { flex: 1 1 200px; font-size: 16px; }
+.guided-progress progress { flex: 1 1 140px; height: 16px; accent-color: #276380; }
+.guided-feedback .stretch-instruction { font-size: 18px; }
+.guided-feedback[data-guided-state="moving"] [role="status"] { color: #185b9c; }
+.guided-feedback[data-guided-state="completed"] [role="status"] { color: #26613a; }
+.avatar-stage.duet-stage { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px; }
+.stage-pane { position: relative; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 48px; }
+.pane-title { position: absolute; inset: 0 0 auto; margin: 0; padding: 8px; text-align: center; font-size: 18px; }
+.instructor-pane { background: #edf5fa; border-right: 1px solid #c6d9e4; }
+.participant-pane .stage-status { left: 0; top: 36px; width: 100%; text-align: center; }
+.duet-stage .avatar-frame { width: min(100%, calc((100vh - 330px) * .9333)); }
+.duet-stage:fullscreen { padding-top: 140px; }
+.duet-stage:fullscreen .avatar-frame { width: min(100%, calc((100vh - 210px) * .9333)); }
+@media (max-width: 760px) {
+  [data-experience="guided"] .stage-panel { grid-row: 1; }
+  .duet-stage .avatar-frame { width: 100%; }
+  .duet-stage:fullscreen { padding-top: 165px; }
+}
+@media (max-width: 540px) {
+  .avatar-stage.duet-stage { height: auto; grid-template-columns: 1fr; }
+  .stage-pane { min-height: 320px; }
+  .duet-stage .avatar-frame { width: min(100%, 320px); }
+  .instructor-pane { border-right: 0; border-bottom: 1px solid #c6d9e4; }
+  .duet-stage:fullscreen { overflow: auto; display: block; height: 100vh; }
+  .duet-stage:fullscreen .avatar-frame { width: min(100%, 320px); }
+}

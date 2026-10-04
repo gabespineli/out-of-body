@@ -1,12 +1,12 @@
 import { WIDTH, JOINTS, SEGMENTS } from "./rig";
 import type { Artwork } from "./artwork";
 import type { Motion } from "./pose";
-import { segmentArea, type AreaFades } from "./body-areas";
+import { segmentArea, type AreaFades, type BodyArea } from "./body-areas";
 
 type SegmentKey = keyof typeof SEGMENTS;
 let cachedPaths: Record<SegmentKey, Path2D> | undefined;
 
-export function renderAvatar(ctx: CanvasRenderingContext2D, art: Artwork | null, motion: Motion, fades: AreaFades, strength = .97) {
+export function renderAvatar(ctx: CanvasRenderingContext2D, art: Artwork | null, motion: Motion, fades: AreaFades, strength = .97, instructorArea?: BodyArea) {
   cachedPaths ??= Object.fromEntries(Object.entries(SEGMENTS).map(([key, path]) => [key, new Path2D(path)])) as Record<SegmentKey, Path2D>;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.save();
@@ -20,11 +20,11 @@ export function renderAvatar(ctx: CanvasRenderingContext2D, art: Artwork | null,
       const area = segmentArea(key);
       if (area) { ctx.globalAlpha = fades[area] * strength; ctx.drawImage(art.areas[area].fadeOverlay, 0, 0); ctx.globalAlpha = 1; }
     } else {
-      ctx.fillStyle = "#f4f0e7"; ctx.fill(path);
+      ctx.fillStyle = instructorArea ? segmentArea(key) === instructorArea ? "#a9d9f2" : "#e3eff6" : "#f4f0e7"; ctx.fill(path);
     }
     ctx.restore();
-    ctx.strokeStyle = art ? "rgba(92, 82, 67, .22)" : "#bdb5a6";
-    ctx.lineWidth = art ? 1 : 1.6; ctx.stroke(path);
+    ctx.strokeStyle = art ? "rgba(62, 68, 73, .65)" : instructorArea ? "#276380" : "#bdb5a6";
+    ctx.lineWidth = art ? 1.8 : instructorArea ? 2.8 : 1.6; ctx.stroke(path);
   };
   const rotate = (pivot: { x: number; y: number }, angle: number) => {
     ctx.translate(pivot.x, pivot.y); ctx.rotate(angle); ctx.translate(-pivot.x, -pivot.y);

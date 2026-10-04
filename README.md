@@ -1,8 +1,34 @@
-# Out of Body — three-area MVP
+# Out of Body — guided stretching MVP
 
-A plain React/Next.js prototype: upload a drawing on the supplied silhouette, move its actual texture with MediaPipe Pose Landmarker, and hold a suggested movement to gradually soften color in its matching body area. All photo and camera processing happens in the browser. The Sites edition is a static export; no participant backend or persistence is added.
+A plain React/Next.js prototype: upload a drawing on the supplied silhouette, follow an independent animated instructor, and watch your actual uploaded texture mirror your movements. Gentle participation gradually softens the corresponding colors. All photo and camera processing happens in the browser. The Sites edition is a static export; no participant backend or persistence is added.
 
-## Use the prototype
+## Guided sequence (default)
+
+1. Upload a drawing or use the labeled example. Align the photo if needed.
+2. Enable the webcam, or choose Manual demo. Press **Start guided session**.
+3. Follow the blue instructor beside **Your drawing**. The instructor uses a predefined six-second looping animation; the uploaded drawing continues to follow your own camera landmarks or explicit manual controls.
+4. The sequence starts with **Neck / head**, then automatically advances to **Arms / back**, then **Legs / feet**. A simple progress bar shows participation in the current activity. Eight seconds of credited movement completes an activity, followed by a 1.4-second transition. The sequence finishes once, rather than restarting automatically.
+5. Color fades in proportion to earned movement progress, starting during participation. Other areas retain their colors until their own activity. The silhouette contour stays visible after colors fade. **Restart sequence** begins again; **Restore colors** clears all progress and returns to the first activity.
+
+| Activity | Looping visual demonstration | Forgiving participation rule |
+|---|---|---|
+| Neck / head | Gently tilt the head left and right. | Relative head-angle displacement of at least 0.09 radians, about 5 degrees. |
+| Arms / back | Slowly reach up and lower both arms. | Either visible arm moves by 0.18 radians, about 10 degrees, or the torso leans relative to the pelvis by 0.10 radians. Both arms need not match the guide. |
+| Legs / feet | Extend alternating legs sideways and return. | Either visible thigh direction or knee angle changes by 0.13 radians, about 7.5 degrees. |
+
+These are changes from a recent movement anchor, not required target poses. A threshold crossing grants up to one second of participation credit between movements. Another meaningful displacement renews it. An already-held pose or idle guide does not continuously earn progress. Small jitter, wrong-region motion, untracked points and frame gaps over 250 ms do not earn credit. Missing tracking cancels the current credit immediately. Earned progress survives rests, tracking loss and pause; resuming first re-establishes a baseline so paused motion is not rewarded.
+
+The instructor is a separate animation component using the existing template renderer with a neutral blue fill and a highlight on the active area. It never reads participant landmarks, uploaded pixels or participant progress to generate a pose. The participant canvas retains the original upload, texture masks, joint pivots, smoothing and camera tracker. This is an authored animation, not a video of a human or a pose copied into the participant drawing. No media downloads are required at runtime.
+
+An area without strong colored marks still accepts movement and advances the sequence, with a clear no-color message. That area simply has no colored pixels to soften. Back remains mapped to the front-facing torso; legs/feet remains a combined region. The pelvis stays outside all fade masks.
+
+Pause freezes both panels and progress. Fullscreen includes the instructor, participant drawing and activity/progress feedback. Desktop shows both panels side by side; narrow screens stack them. PNG export contains only the actual participant artwork, never the instructor or controls.
+
+For manual participation, move the matching sliders or alternate the relevant buttons. Leaving one button held earns only brief movement credit; continued movement is needed. Manual mode stays visibly labeled.
+
+Switching experience, motion mode, drawing or alignment resets progress. The existing individual hold-based behavior is retained under **Individual stretches**; its timing/amount controls are available there. The following instructions and strict thresholds describe that practice mode.
+
+## Individual stretches
 
 1. Get the drawing sheet, print it at its original proportions, and draw colored marks inside the silhouette. Photograph the entire page upright, straight-on and evenly lit.
 2. Upload a JPG, PNG or WebP. Use **Align photo** to match the photographed outline to the dashed template. **Try an example** supplies a clearly labeled sample drawing.
@@ -20,7 +46,7 @@ The template faces forward. **Back is represented by the torso**, not a separate
 
 Only move within a comfortable range. The fade is symbolic and does not measure pain, validate a therapeutic stretch or prove medical relief.
 
-## Simple detection rules
+## Individual stretch detection rules
 
 MediaPipe supplies 33 pose landmarks. All required points must have finite coordinates and visibility/presence of at least **0.6**. Low confidence releases a hold immediately; tracking older than **300 ms** is treated as lost. Detection uses current unsmoothed landmarks; smoothing only affects avatar animation.
 
@@ -108,8 +134,8 @@ Constructed landmarks check positive/negative head, arm and leg rules. Manual co
 
 The integration follows the [official MediaPipe Pose Landmarker documentation](https://developers.google.com/edge/mediapipe/solutions/vision/pose_landmarker). The model is from Google's [versioned model storage](https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task).
 
-WebMCP-capable browsers expose four tools tied to the visible controls: read installation state, select body area, configure a manual pose, and restore colors. They return no photos, names or video frames and never enable the camera automatically. Browsers without WebMCP run the full MVP.
+WebMCP-capable browsers expose five tools tied to the visible controls: read installation state, start/restart guided stretching, select an individual body area, configure a manual pose, and restore colors. They return no photos, names or video frames and never enable the camera automatically. Browsers without WebMCP run the full MVP.
 
 ## What stays outside the MVP
 
-No QR/mobile upload flow, shared sessions, persistent participant storage, arbitrary art recognition, automatic rigging, clinical stretch validation or exact body mirroring. Files and camera frames stay in this browser's memory; reloading clears the drawing. Only **Save PNG** creates an explicit local result. The private Site identity is retained in `.openai/hosting.json`.
+No QR/mobile upload flow, shared sessions, persistent participant storage, arbitrary art recognition, automatic rigging, clinical stretch validation or exact body mirroring. Files and camera frames stay in this browser's memory; reloading clears the drawing. Only **Save PNG** creates an explicit local result. The Site identity is retained in `.openai/hosting.json`.
