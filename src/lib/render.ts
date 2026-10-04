@@ -1,11 +1,12 @@
 import { WIDTH, JOINTS, SEGMENTS } from "./rig";
 import type { Artwork } from "./artwork";
 import type { Motion } from "./pose";
+import { segmentArea, type AreaFades } from "./body-areas";
 
 type SegmentKey = keyof typeof SEGMENTS;
 let cachedPaths: Record<SegmentKey, Path2D> | undefined;
 
-export function renderAvatar(ctx: CanvasRenderingContext2D, art: Artwork | null, motion: Motion, fade: number, strength = .97) {
+export function renderAvatar(ctx: CanvasRenderingContext2D, art: Artwork | null, motion: Motion, fades: AreaFades, strength = .97) {
   cachedPaths ??= Object.fromEntries(Object.entries(SEGMENTS).map(([key, path]) => [key, new Path2D(path)])) as Record<SegmentKey, Path2D>;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.save();
@@ -16,7 +17,8 @@ export function renderAvatar(ctx: CanvasRenderingContext2D, art: Artwork | null,
     ctx.clip(path);
     if (art) {
       ctx.drawImage(art.original, 0, 0);
-      ctx.globalAlpha = fade * strength; ctx.drawImage(art.fadeOverlay, 0, 0); ctx.globalAlpha = 1;
+      const area = segmentArea(key);
+      if (area) { ctx.globalAlpha = fades[area] * strength; ctx.drawImage(art.areas[area].fadeOverlay, 0, 0); ctx.globalAlpha = 1; }
     } else {
       ctx.fillStyle = "#f4f0e7"; ctx.fill(path);
     }
@@ -37,7 +39,8 @@ export function renderAvatar(ctx: CanvasRenderingContext2D, art: Artwork | null,
   rotate(JOINTS.pelvis, motion.hipTilt);
   leg("left"); leg("right"); draw("pelvis");
   ctx.save(); rotate(JOINTS.hip, motion.lean - motion.hipTilt);
-  draw("torso"); draw("head");
+  draw("torso");
+  ctx.save(); rotate(JOINTS.neck, motion.headTilt); draw("head"); ctx.restore();
   const arm = (side: "left" | "right") => {
     ctx.save(); rotate(JOINTS[`${side}Shoulder`], motion[`${side}Arm`]);
     draw(`${side}Upper`);

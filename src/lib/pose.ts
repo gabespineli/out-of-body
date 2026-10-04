@@ -1,3 +1,4 @@
+import type { BodyArea } from "./body-areas";
 export type Gesture = "raise" | "left-arm" | "right-arm" | "lean" | "lean-left" | "lean-right" | "left-leg" | "right-leg";
 export const GESTURES: { value: Gesture; label: string; prompt: string }[] = [
   { value: "raise", label: "Raised arms", prompt: "Raise both arms" },
@@ -13,17 +14,19 @@ export type Landmark = { x: number; y: number; visibility?: number; presence?: n
 export type Motion = {
   leftArm: number; rightArm: number; leftElbow: number; rightElbow: number;
   leftLeg: number; rightLeg: number; leftKnee: number; rightKnee: number;
-  hipTilt: number;
+  hipTilt: number; headTilt: number; headVisible: boolean; headTilted: boolean;
   lean: number; tracked: boolean; raised: boolean; leaning: boolean;
   leftRaised: boolean; rightRaised: boolean;
   leftVisible: boolean; rightVisible: boolean; hipsVisible: boolean;
   leftLegVisible: boolean; rightLegVisible: boolean; leftLegLifted: boolean; rightLegLifted: boolean;
 };
-export const REST: Motion = { leftArm: 0, rightArm: 0, leftElbow: 0, rightElbow: 0, leftLeg: 0, rightLeg: 0, leftKnee: 0, rightKnee: 0, hipTilt: 0, lean: 0, tracked: false, raised: false, leaning: false, leftRaised: false, rightRaised: false, leftVisible: false, rightVisible: false, hipsVisible: false, leftLegVisible: false, rightLegVisible: false, leftLegLifted: false, rightLegLifted: false };
+export const REST: Motion = { leftArm: 0, rightArm: 0, leftElbow: 0, rightElbow: 0, leftLeg: 0, rightLeg: 0, leftKnee: 0, rightKnee: 0, hipTilt: 0, headTilt: 0, headVisible: false, headTilted: false, lean: 0, tracked: false, raised: false, leaning: false, leftRaised: false, rightRaised: false, leftVisible: false, rightVisible: false, hipsVisible: false, leftLegVisible: false, rightLegVisible: false, leftLegLifted: false, rightLegLifted: false };
 export type ManualLegs = { leftLeg: number; rightLeg: number; leftKnee: number; rightKnee: number };
 export const REST_LEGS: ManualLegs = { leftLeg: 0, rightLeg: 0, leftKnee: 0, rightKnee: 0 };
 export type ManualHips = { hipTilt: number };
 export const REST_HIPS: ManualHips = { hipTilt: 0 };
+export type ManualHead = { headTilt: number };
+export const REST_HEAD: ManualHead = { headTilt: 0 };
 export const HOLD_MS = 3000;
 export const FADE_MS = 1600;
 export type Timing = { holdMs: number; fadeMs: number };
@@ -66,6 +69,12 @@ export function motionFromLandmarks(points: Landmark[], aspect = 4 / 3, previous
     && points[e].y < points[s].y + (wasRaised ? .07 : .05);
   const leftRaised = raisedArm(11, 13, 15, previous.leftRaised);
   const rightRaised = raisedArm(12, 14, 16, previous.rightRaised);
+  const earSpan = points[7] && points[8] ? Math.abs(points[7].x - points[8].x) * aspect : 0;
+  const shoulderSpan = Math.abs(points[11].x - points[12].x) * aspect;
+  const headVisible = [7, 8].every(i => visible(points[i])) && earSpan >= .025 && shoulderSpan >= .04;
+  const headTilt = headVisible ? clamp(wrap(Math.atan2(points[8].y - points[7].y, earSpan)
+    - Math.atan2(points[12].y - points[11].y, shoulderSpan)), -.5, .5) : 0;
+  const headTilted = headVisible && Math.abs(headTilt) >= (previous.headTilted ? .14 : .20);
   const leg = (h: number, k: number, a: number, thighRest: number, shinRest: number) => {
     if (![h, k, a].every(i => visible(points[i]))) return { upper: 0, lower: 0, visible: false };
     const length = (p: Landmark, q: Landmark) => Math.hypot((p.x - q.x) * aspect, p.y - q.y);
@@ -77,17 +86,17 @@ export function motionFromLandmarks(points: Landmark[], aspect = 4 / 3, previous
   const leftLeg = leg(23, 25, 27, Math.atan2(130, -2), Math.atan2(133, 4));
   const rightLeg = leg(24, 26, 28, Math.atan2(130, 2), Math.atan2(133, -4));
   return { leftArm: left.upper - lean, rightArm: right.upper - lean, leftElbow: left.lower, rightElbow: right.lower, lean, tracked: true, raised: leftRaised && rightRaised, leaning: hipsVisible && Math.abs(lean) >= .20, leftRaised, rightRaised, leftVisible, rightVisible, hipsVisible,
-    hipTilt,
+    hipTilt, headTilt, headVisible, headTilted,
     leftLeg: leftLeg.visible ? leftLeg.upper : hipTilt, rightLeg: rightLeg.visible ? rightLeg.upper : hipTilt, leftKnee: leftLeg.lower, rightKnee: rightLeg.lower,
     leftLegVisible: leftLeg.visible, rightLegVisible: rightLeg.visible,
-    leftLegLifted: leftLeg.visible && leftLeg.upper - hipTilt >= .28, rightLegLifted: rightLeg.visible && rightLeg.upper - hipTilt <= -.28 };
+    leftLegLifted: leftLeg.visible && leftLeg.upper - hipTilt >= (previous.leftLegLifted ? .22 : .28), rightLegLifted: rightLeg.visible && rightLeg.upper - hipTilt <= -(previous.rightLegLifted ? .22 : .28) };
 }
 
-export function manualMotion(left: number, lean: number, right = left, legs: ManualLegs = REST_LEGS, hips: ManualHips = REST_HIPS): Motion {
+export function manualMotion(left: number, lean: number, right = left, legs: ManualLegs = REST_LEGS, hips: ManualHips = REST_HIPS, head: ManualHead = REST_HEAD): Motion {
   const tilt = lean * .4;
   const hipTilt = hips.hipTilt * .35;
   return { leftArm: left * 2.55, rightArm: right * -2.55, leftElbow: left * -.18, rightElbow: right * .18, lean: tilt + hipTilt, tracked: true, raised: left >= .72 && right >= .72, leaning: Math.abs(tilt + hipTilt) >= .20, leftRaised: left >= .72, rightRaised: right >= .72, leftVisible: true, rightVisible: true, hipsVisible: true,
-    hipTilt,
+    hipTilt, headTilt: head.headTilt * .4, headVisible: true, headTilted: Math.abs(head.headTilt * .4) >= .20,
     leftLeg: legs.leftLeg * .8 + hipTilt, rightLeg: legs.rightLeg * .8 + hipTilt, leftKnee: legs.leftKnee * .9, rightKnee: legs.rightKnee * -.9,
     leftLegVisible: true, rightLegVisible: true, leftLegLifted: legs.leftLeg * .8 >= .28, rightLegLifted: legs.rightLeg * .8 <= -.28 };
 }
@@ -107,10 +116,17 @@ export function matchesGesture(motion: Motion, gesture: Gesture): boolean {
   }
 }
 
+export function matchesBodyStretch(motion: Motion, area: BodyArea): boolean {
+  if (!motion.tracked) return false;
+  if (area === "neck-head") return motion.headVisible && motion.headTilted;
+  if (area === "arms-back") return motion.leftVisible && motion.rightVisible && motion.raised;
+  return motion.leftLegVisible && motion.leftLegLifted || motion.rightLegVisible && motion.rightLegLifted;
+}
+
 export function smoothMotion(current: Motion, target: Motion, dt: number): Motion {
   const weight = 1 - Math.exp(-dt / 90);
   const mix = (a: number, b: number) => a + (b - a) * weight;
-  return { ...target, leftArm: mix(current.leftArm, target.leftArm), rightArm: mix(current.rightArm, target.rightArm), leftElbow: mix(current.leftElbow, target.leftElbow), rightElbow: mix(current.rightElbow, target.rightElbow), leftLeg: mix(current.leftLeg, target.leftLeg), rightLeg: mix(current.rightLeg, target.rightLeg), leftKnee: mix(current.leftKnee, target.leftKnee), rightKnee: mix(current.rightKnee, target.rightKnee), hipTilt: mix(current.hipTilt, target.hipTilt), lean: mix(current.lean, target.lean) };
+  return { ...target, leftArm: mix(current.leftArm, target.leftArm), rightArm: mix(current.rightArm, target.rightArm), leftElbow: mix(current.leftElbow, target.leftElbow), rightElbow: mix(current.rightElbow, target.rightElbow), leftLeg: mix(current.leftLeg, target.leftLeg), rightLeg: mix(current.rightLeg, target.rightLeg), leftKnee: mix(current.leftKnee, target.leftKnee), rightKnee: mix(current.rightKnee, target.rightKnee), hipTilt: mix(current.hipTilt, target.hipTilt), headTilt: mix(current.headTilt, target.headTilt), lean: mix(current.lean, target.lean) };
 }
 
 export type HoldState = { elapsed: number; lastTime: number | null; complete: boolean; fade: number };

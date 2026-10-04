@@ -1,5 +1,31 @@
 # Verification record
 
+## Three independent body areas — 4 October 2026
+
+The current MVP has a plain **Body area** selector for Neck / head, Arms / back and Legs / feet. Each preset has its own instruction, rule-based pose matcher, continuous hold state and fixed segment fade mask. Defaults remain a three-second hold and a 1.6-second fade. This supersedes the one-stretch/circular-region behavior in the historical records below.
+
+| Area | Movement | Color mapping |
+|---|---|---|
+| Neck / head | Gentle sideways head tilt relative to the shoulder line; either side. | Head segment including the neck. |
+| Arms / back | Both wrists above shoulders, elbows near shoulder height. | Both arms and torso; the front-facing torso is the artistic proxy for back. |
+| Legs / feet | Either leg extended outward relative to hip-line rotation. | Both thighs and shins/feet. |
+
+- TypeScript and optimized static export: **passed**. Rule/timing tests: **23 passed**, including head tilt on either side, shoulder-roll cancellation, jitter tolerance, missing/collapsed ear rejection, independent area confidence, leg matching, partial-hold reset on switching, completed-fade preservation and all-area pause/restore.
+- Exported-app Chromium: **20 scenarios passed in one full run** with all three reference-photo camera fixtures enabled. One additional neck/foot pixel scenario was added and **passed in its targeted run**, making **21 validated scenarios**. The application code was unchanged between these browser runs.
+- The uploaded yellow head color faded only after a head hold; the coral arm and teal torso colors faded only after the arms/back hold; blue/purple leg colors faded only after the legs/feet hold. Switching areas kept the previously earned fades, reset unfinished time and reset manual joints. All three completed statuses were visible together.
+- Uploaded head pixels moved with the new neck-pivot rotation. Dedicated colored neck and foot marks also softened in their assigned areas, while the teal torso and magenta pelvis retained their exact original RGB values. Restore returned the neck/foot colors exactly.
+- At a frozen pose, a full-canvas faded/restored comparison found **zero changed pixels outside the uploaded colored arm/torso marks**; more than 10,000 pixels changed inside. Yellow head, blue legs, dark marks and pelvis/pivot colors stayed unchanged during that fade.
+- The 50% amount check and downloaded 840 × 900 PNG preserved independent head and arm/torso fades, untouched leg/pelvis pixels and an opaque paper background.
+- **Real MediaPipe inference** completed a continuous three-second leg-extension hold and its fade from a reference-photo camera replay. Only the legs/feet fade advanced. Stopping the camera returned the pose to neutral without clearing that earned fade; exact head, torso and pelvis pixels remained unchanged. No landmark outputs were injected.
+- Other real-model replays rejected unraised arms/side lean for the arms/back preset and verified the rotating uploaded pelvis around its fixed center. Translation of the camera input still did not translate the pivot.
+- Existing upload validation, no-color blocking, alignment/reset, camera permission/missing/busy/model-load recovery, pending-request cancellation, track cleanup, pause/resume, independent hip/knee rigging and layouts at 320/768/1024/1440 passed.
+- The supported in-app browser registered **four WebMCP tools**. Selecting each area updated the visible selector and instruction; manual head/arm/leg inputs updated the visible controls and completed all three fades. Invalid area and out-of-range head input were rejected without changing the visible preset/joints. Legacy arm/lean input reset omitted head/leg controls. Restore reset all three fades. No camera was enabled through these tools.
+- **Physical webcam/live participant performance remains unverified.** Positive head/arm rules are checked with constructed landmarks and their complete visual loops in manual mode. Positive leg completion is additionally checked with the real model on a replay. None of these checks establishes therapeutic effectiveness or accuracy with a person, paper photo or installation projector.
+
+Fixed mapping is intentional: no automatic discomfort/art recognition. Head/neck uses the head segment; back uses the front torso; either leg earns the grouped two-leg/feet fade. The pelvis does not fade. Pale/gray/dark marks are mostly excluded by the existing color threshold. Small joint overlaps/seams remain a 2D rig limitation.
+
+Evidence outside source: `outputs/out-of-body-three-areas.png`, `outputs/out-of-body-camera-legs.png`, `outputs/out-of-body-areas-upload.png` and `outputs/out-of-body-areas-mobile.png`.
+
 ## One focused stretch loop — 4 October 2026
 
 The active stretch is now only both arms raised. A persistent instruction above the avatar asks for both hands above the shoulders and elbows near shoulder height. Feedback progresses through Not detected, Hold still, Stretch held — fading selected color, and Completed. The default hold is three continuous seconds (adjustable only from two to three), followed by the existing 1.6-second selective fade. The shoulder circle is the initial region mapping; existing photo/area controls remain available for alignment. There is no multi-gesture chooser, and lean/leg movements animate the rig without earning stretch progress.
@@ -119,10 +145,10 @@ npx.cmd playwright install chromium
 npm.cmd run test:browser
 ```
 
-The current browser run executes fifteen non-replay scenarios and explicitly skips the three optional real-model replay checks. To include them, set `OOB_CAMERA_FIXTURE`, `OOB_LEAN_CAMERA_FIXTURE` and `OOB_HIP_CAMERA_FIXTURE` to Y4M replay files before running the browser suite. The local fixture inputs are outside the deliverable source and contain no participant footage.
+The current suite contains 17 ordinary browser scenarios and four optional real-model scenarios using three replay inputs. A run without those inputs skips the four replays. To include them, set `OOB_CAMERA_FIXTURE`, `OOB_LEAN_CAMERA_FIXTURE` and `OOB_HIP_CAMERA_FIXTURE` to Y4M replay files before running the browser suite. The local fixture inputs are outside the deliverable source and contain no participant footage.
 
 The reference image came from Google's [MediaPipe test assets](https://storage.googleapis.com/mediapipe-assets/pose.jpg). The webcam integration follows the [official Pose Landmarker Web guide](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker/web_js).
 
 ## Before a live showing
 
-Use the real printed sheet, actual drawing/photo, webcam and projector. Check that shoulders, hands, hips, knees and feet stay in frame; that the chosen arm, lean and leg gestures are detected; that the selected colored area visibly softens; and that the manual demo works if camera access is unavailable. This short installation trial is the remaining practical validation.
+Use the real printed sheet, actual drawing/photo, webcam and projector. Check that shoulders, hands, hips, knees and feet stay in frame; that head tilt, both raised arms and either outward leg are detected for their matching area; that only the corresponding colored area softens; and that the manual demo works if camera access is unavailable. This short installation trial is the remaining practical validation.

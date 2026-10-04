@@ -1,7 +1,9 @@
-import { WIDTH, HEIGHT, SEGMENTS, type Region } from "./rig";
+import { WIDTH, HEIGHT, SEGMENTS } from "./rig";
+import { BODY_AREAS, type BodyArea } from "./body-areas";
 export type Alignment = { scale: number; x: number; y: number; rotation: number };
 export const DEFAULT_ALIGNMENT: Alignment = { scale: 1, x: 0, y: 0, rotation: 0 };
-export type Artwork = { original: HTMLCanvasElement; fadeOverlay: HTMLCanvasElement; coloredPixels: number; regionPixels: number[]; name: string };
+export type AreaMask = { fadeOverlay: HTMLCanvasElement; coloredPixels: number };
+export type Artwork = { original: HTMLCanvasElement; areas: Record<BodyArea, AreaMask>; name: string };
 
 export function canvas(width = WIDTH, height = HEIGHT) {
   const element = document.createElement("canvas");
@@ -31,41 +33,35 @@ export function normalizePhoto(image: HTMLImageElement, alignment: Alignment) {
   return output;
 }
 
-export function buildArtwork(original: HTMLCanvasElement, regions: Region[], name: string): Artwork {
-  const fadeOverlay = canvas();
-  const ctx = original.getContext("2d", { willReadFrequently: true })!;
-  const pixels = ctx.getImageData(0, 0, WIDTH, HEIGHT);
-  const overlay = fadeOverlay.getContext("2d")!;
-  const out = overlay.createImageData(WIDTH, HEIGHT);
-  const paths = Object.values(SEGMENTS).map(d => new Path2D(d));
-  let coloredPixels = 0;
-  const regionPixels = regions.map(() => 0);
-  const counted = new Uint8Array(WIDTH * HEIGHT);
-  for (const [index, { x, y, radius }] of regions.entries()) {
-    for (let py = Math.max(0, Math.floor(y - radius)); py < Math.min(HEIGHT, y + radius); py++) {
-      for (let px = Math.max(0, Math.floor(x - radius)); px < Math.min(WIDTH, x + radius); px++) {
-        const distance = Math.hypot(px - x, py - y) / radius;
-        if (distance >= 1 || !paths.some(path => ctx.isPointInPath(path, px, py))) continue;
-        const i = (py * WIDTH + px) * 4;
-        const r = pixels.data[i], g = pixels.data[i + 1], b = pixels.data[i + 2];
-        const max = Math.max(r, g, b), min = Math.min(r, g, b);
-        const saturation = max ? (max - min) / max : 0;
-        // A color threshold is a visual mask, never art recognition or a diagnosis.
-        if (saturation < .17 || max < 55) continue;
-        const feather = Math.min(1, (1 - distance) / .2);
-        out.data[i] = 250; out.data[i + 1] = 248; out.data[i + 2] = 243;
-        // Combine overlapping circles without multiplying their fade strength.
-        if (!counted[i / 4]) { coloredPixels++; counted[i / 4] = 1; }
-        out.data[i + 3] = Math.max(out.data[i + 3], Math.round(255 * feather));
-        regionPixels[index]++;
-      }
-    }
-  }
-  overlay.putImageData(out, 0, 0);
-  return { original, fadeOverlay, coloredPixels, regionPixels, name };
+let shapes: Record<BodyArea, Uint8ClampedArray> | undefined;
+function areaShapes() {
+  if (!shapes) shapes = Object.fromEntries(BODY_AREAS.map(area => {
+    const mask = canvas(), ctx = mask.getContext("2d", { willReadFrequently: true })!;
+    ctx.fillStyle = "white";
+    for (const key of area.segments) ctx.fill(new Path2D(SEGMENTS[key]));
+    return [area.id, ctx.getImageData(0, 0, WIDTH, HEIGHT).data];
+  })) as Record<BodyArea, Uint8ClampedArray>;
+  return shapes;
 }
 
-export function regionHasBody(point: { x: number; y: number }) {
-  const ctx = canvas(1, 1).getContext("2d")!;
-  return Object.values(SEGMENTS).some(d => ctx.isPointInPath(new Path2D(d), point.x, point.y));
+// Fixed template masks select pixels; saturated color is never a diagnosis or art recognition.
+export function buildArtwork(original: HTMLCanvasElement, name: string): Artwork {
+  const pixels = original.getContext("2d", { willReadFrequently: true })!.getImageData(0, 0, WIDTH, HEIGHT).data;
+  const masks = areaShapes();
+  const areas = Object.fromEntries(BODY_AREAS.map(area => {
+    const fadeOverlay = canvas(), ctx = fadeOverlay.getContext("2d")!;
+    const out = ctx.createImageData(WIDTH, HEIGHT);
+    let coloredPixels = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+      const alpha = masks[area.id][i + 3];
+      if (!alpha) continue;
+      const max = Math.max(pixels[i], pixels[i + 1], pixels[i + 2]), min = Math.min(pixels[i], pixels[i + 1], pixels[i + 2]);
+      if (max < 55 || (max - min) / max < .17) continue;
+      out.data[i] = 250; out.data[i + 1] = 248; out.data[i + 2] = 243; out.data[i + 3] = alpha;
+      coloredPixels++;
+    }
+    ctx.putImageData(out, 0, 0);
+    return [area.id, { fadeOverlay, coloredPixels }];
+  })) as Record<BodyArea, AreaMask>;
+  return { original, areas, name };
 }

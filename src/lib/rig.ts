@@ -29,6 +29,7 @@ export const SEGMENTS = {
 } as const;
 export const JOINTS = {
   hip: { x: 300, y: 480 },
+  neck: { x: 300, y: 208 },
   pelvis: { x: 300, y: 522 },
   leftHip: { x: 256, y: 522 },
   rightHip: { x: 344, y: 522 },

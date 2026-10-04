@@ -2,11 +2,13 @@
 import { useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import type { ManualPose } from "@/components/motion-panel";
+import { AREA_IDS, type BodyArea } from "@/lib/body-areas";
 
 type Bindings = {
   state: () => object;
   setManual: (pose: ManualPose) => void;
   restore: () => void;
+  setArea: (area: BodyArea) => void;
 };
 type Tool = {
   name: string; title: string; description: string; inputSchema: object;
@@ -27,22 +29,32 @@ export function useWebMcp(bindings: Bindings) {
     };
     const tools: Tool[] = [
       {
+        name: "select_body_area", title: "Select body area",
+        description: "Select neck-head, arms-back or legs-feet using the same control as Body area. Restarts unfinished holds, resets the manual joints, and preserves completed fades in other areas.",
+        inputSchema: { type: "object", properties: { area: { type: "string", enum: AREA_IDS } }, required: ["area"], additionalProperties: false },
+        annotations: { readOnlyHint: false, untrustedContentHint: false },
+        execute(input) {
+          if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).length !== 1 || !("area" in input) || !AREA_IDS.includes(input.area as BodyArea)) throw new Error("Supply one area: neck-head, arms-back or legs-feet.");
+          flushSync(() => latest.current.setArea(input.area as BodyArea)); return latest.current.state();
+        },
+      },
+      {
         name: "get_installation_state", title: "Read installation state",
-        description: "Read the drawing source type, mode, gesture, timing, pause and fade status. Does not return photos, file names or camera frames.",
+        description: "Read the drawing source type, mode, body area, each area’s fade progress, timing, pause and fade status. Does not return photos, file names or camera frames.",
         inputSchema: { type: "object", properties: {}, additionalProperties: false },
         annotations: { readOnlyHint: true, untrustedContentHint: false },
         execute(input) { emptyInput(input); return latest.current.state(); },
       },
       {
         name: "configure_manual_pose", title: "Configure manual pose",
-        description: "Switch to manual simulation. Set arm heights (0–1), lean (-1–1), optional leg swings (-1–1), knee bends (0–1) and hipTilt (-1–1). Omitted controls reset to rest. Positive left leg / negative right leg moves outward. Hip rotation keeps the pelvis pivot fixed at the stage center. Releases the camera and uses the visible rig and hold timer.",
-        inputSchema: { type: "object", properties: { left: { type: "number", minimum: 0, maximum: 1 }, right: { type: "number", minimum: 0, maximum: 1 }, lean: { type: "number", minimum: -1, maximum: 1 }, leftLeg: { type: "number", minimum: -1, maximum: 1 }, rightLeg: { type: "number", minimum: -1, maximum: 1 }, leftKnee: { type: "number", minimum: 0, maximum: 1 }, rightKnee: { type: "number", minimum: 0, maximum: 1 }, hipTilt: { type: "number", minimum: -1, maximum: 1 } }, required: ["left", "right", "lean"], additionalProperties: false },
+        description: "Switch to manual simulation. Set arm heights (0–1), lean (-1–1), optional leg swings (-1–1), knee bends (0–1) hipTilt and headTilt (-1–1). Omitted controls reset to rest. Positive left leg / negative right leg moves outward. Hip rotation keeps the pelvis pivot fixed at the stage center. Releases the camera and uses the visible rig and hold timer.",
+        inputSchema: { type: "object", properties: { left: { type: "number", minimum: 0, maximum: 1 }, right: { type: "number", minimum: 0, maximum: 1 }, lean: { type: "number", minimum: -1, maximum: 1 }, leftLeg: { type: "number", minimum: -1, maximum: 1 }, rightLeg: { type: "number", minimum: -1, maximum: 1 }, leftKnee: { type: "number", minimum: 0, maximum: 1 }, rightKnee: { type: "number", minimum: 0, maximum: 1 }, hipTilt: { type: "number", minimum: -1, maximum: 1 }, headTilt: { type: "number", minimum: -1, maximum: 1 } }, required: ["left", "right", "lean"], additionalProperties: false },
         annotations: { readOnlyHint: false, untrustedContentHint: false },
         execute(input) {
           if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Use an object of manual pose controls.");
-          const ranges = { left: [0, 1], right: [0, 1], lean: [-1, 1], leftLeg: [-1, 1], rightLeg: [-1, 1], leftKnee: [0, 1], rightKnee: [0, 1], hipTilt: [-1, 1] } as const;
+          const ranges = { left: [0, 1], right: [0, 1], lean: [-1, 1], leftLeg: [-1, 1], rightLeg: [-1, 1], leftKnee: [0, 1], rightKnee: [0, 1], hipTilt: [-1, 1], headTilt: [-1, 1] } as const;
           const value = input as Record<string, unknown>;
-          if (Object.keys(value).some(key => !Object.hasOwn(ranges, key)) || ["left", "right", "lean"].some(key => !Object.hasOwn(value, key))) throw new Error("Supply left, right and lean; optional controls are leftLeg, rightLeg, leftKnee, rightKnee and hipTilt.");
+          if (Object.keys(value).some(key => !Object.hasOwn(ranges, key)) || ["left", "right", "lean"].some(key => !Object.hasOwn(value, key))) throw new Error("Supply left, right and lean; optional controls are leftLeg, rightLeg, leftKnee, rightKnee, hipTilt and headTilt.");
           const pose = {} as ManualPose;
           for (const key of Object.keys(ranges) as (keyof ManualPose)[]) {
             const number = Object.hasOwn(value, key) ? value[key] : 0;

@@ -1,17 +1,19 @@
 "use client";
 import type { useCamera } from "@/hooks/use-camera";
-import { REST_LEGS, REST_HIPS, type Motion, type ManualLegs, type ManualHips } from "@/lib/pose";
+import { REST_LEGS, REST_HIPS, REST_HEAD, type Motion, type ManualLegs, type ManualHips, type ManualHead } from "@/lib/pose";
 
-export type ManualPose = { left: number; right: number; lean: number } & ManualLegs & ManualHips;
-export const MANUAL_REST: ManualPose = { left: 0, right: 0, lean: 0, ...REST_LEGS, ...REST_HIPS };
+import { areaConfig, type BodyArea } from "@/lib/body-areas";
+export type ManualPose = { left: number; right: number; lean: number } & ManualLegs & ManualHips & ManualHead;
+export const MANUAL_REST: ManualPose = { left: 0, right: 0, lean: 0, ...REST_LEGS, ...REST_HIPS, ...REST_HEAD };
 type Props = {
+  area: BodyArea;
   camera: ReturnType<typeof useCamera>;
   mode: "camera" | "manual"; setMode: (mode: "camera" | "manual") => void;
   manual: ManualPose; setManual: (pose: ManualPose) => void;
   detected: Motion;
 };
 
-export function MotionPanel({ camera, mode, setMode, manual, setManual, detected }: Props) {
+export function MotionPanel({ area, camera, mode, setMode, manual, setManual, detected }: Props) {
   const pending = camera.status === "permission" || camera.status === "loading";
   const both = manual.left === 1 && manual.right === 1;
   return <section className="control-section motion-section" aria-labelledby="motion-title">
@@ -27,11 +29,14 @@ export function MotionPanel({ camera, mode, setMode, manual, setManual, detected
       {camera.status === "live" ? <button className="full-width" onClick={camera.stop}>Stop camera</button> : <button className="full-width" disabled={pending} onClick={() => void camera.start()}>{camera.status === "permission" ? "Waiting for permission…" : camera.status === "loading" ? "Starting tracking…" : camera.status === "error" ? "Try camera again" : "Enable camera"}</button>}
       {pending && <button className="full-width" onClick={camera.stop}>Cancel camera</button>}
       {camera.error && <p className="error-message" role="alert">{camera.error}</p>}
-      <p className="camera-hint">Keep shoulders, elbows and both hands in view. Legs can be out of frame for this stretch.</p>
+      <p className="camera-hint">{areaConfig(area).framing}</p>
       <p className="tracking-parts" data-testid="tracking-parts">Left arm: {detected.leftVisible ? "visible" : "missing"} · Right arm: {detected.rightVisible ? "visible" : "missing"} · Hips: {detected.hipsVisible ? "visible" : "missing"}</p>
+      <p className="tracking-parts" data-testid="tracking-head">Head: {detected.headVisible ? "visible" : "missing"}</p>
       <p className="tracking-parts" data-testid="tracking-legs">Left leg: {detected.leftLegVisible ? "visible" : "missing"} · Right leg: {detected.rightLegVisible ? "visible" : "missing"}</p>
     </> : <div className="manual-controls">
       <div className="manual-pose-buttons">
+        <button aria-pressed={manual.headTilt === -1} onClick={() => setManual({ ...MANUAL_REST, headTilt: manual.headTilt === -1 ? 0 : -1 })}>Tilt head left</button>
+        <button aria-pressed={manual.headTilt === 1} onClick={() => setManual({ ...MANUAL_REST, headTilt: manual.headTilt === 1 ? 0 : 1 })}>Tilt head right</button>
         <button aria-pressed={both} onClick={() => setManual({ ...MANUAL_REST, left: both ? 0 : 1, right: both ? 0 : 1 })}>Raise arms</button>
         <button aria-pressed={manual.lean === -1} onClick={() => setManual({ ...MANUAL_REST, lean: manual.lean === -1 ? 0 : -1 })}>Lean left</button>
         <button aria-pressed={manual.lean === 1} onClick={() => setManual({ ...MANUAL_REST, lean: manual.lean === 1 ? 0 : 1 })}>Lean right</button>
@@ -40,6 +45,7 @@ export function MotionPanel({ camera, mode, setMode, manual, setManual, detected
         <button aria-pressed={manual.hipTilt === -1} onClick={() => setManual({ ...manual, hipTilt: manual.hipTilt === -1 ? 0 : -1 })}>Rotate hips left</button>
         <button aria-pressed={manual.hipTilt === 1} onClick={() => setManual({ ...manual, hipTilt: manual.hipTilt === 1 ? 0 : 1 })}>Rotate hips right</button>
       </div>
+      <label className="slider-label">Head tilt<input type="range" min="-1" max="1" step=".01" value={manual.headTilt} aria-label="Manual head tilt" onChange={event => setManual({ ...manual, headTilt: +event.target.value })} /></label>
       <label className="slider-label">Left arm<input type="range" min="0" max="1" step=".01" value={manual.left} aria-label="Manual left arm height" onChange={event => setManual({ ...manual, left: +event.target.value })} /></label>
       <label className="slider-label">Right arm<input type="range" min="0" max="1" step=".01" value={manual.right} aria-label="Manual right arm height" onChange={event => setManual({ ...manual, right: +event.target.value })} /></label>
       <label className="slider-label">Side lean<input type="range" min="-1" max="1" step=".01" value={manual.lean} aria-label="Manual side lean" onChange={event => setManual({ ...manual, lean: +event.target.value })} /></label>

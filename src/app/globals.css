@@ -15,10 +15,12 @@ a { color: #185b9c; }
 .experience-grid { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 16px; align-items: start; }
 .control-panel { min-width: 0; }
 .control-section { border: 1px solid #ccc; padding: 12px; margin-bottom: 12px; }
+.control-section > select { width: 100%; padding: 4px; }
+.area-progress { font-size: 12px; line-height: 1.5; }
 input[type="file"] { display: block; width: 100%; font-size: 12px; }
 .upload-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; font-size: 12px; }
 .artwork-loaded { display: flex; gap: 10px; margin-top: 10px; }
-.artwork-preview { display: block; width: 110px; height: 165px; cursor: crosshair; border: 1px solid #ddd; }
+.artwork-preview { display: block; width: 110px; height: 165px; border: 1px solid #ddd; }
 .artwork-details { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; min-width: 0; font-size: 12px; }
 .filename { overflow-wrap: anywhere; width: 100%; }
 .region-picker { margin-top: 10px; font-size: 12px; }
