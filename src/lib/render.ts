@@ -33,8 +33,8 @@ export function renderAvatar(ctx: CanvasRenderingContext2D, art: Artwork | null,
     rotate(JOINTS[`${side}Knee`], motion[`${side}Knee`]);
     draw(`${side}Shin`); ctx.restore();
   };
-  // The textured pelvis is the parent of both legs and the upper body.
-  ctx.translate(motion.hipX, motion.hipY); rotate(JOINTS.pelvis, motion.hipTilt);
+  // Rotate the textured pelvis and attached body around a fixed stage-center pivot.
+  rotate(JOINTS.pelvis, motion.hipTilt);
   leg("left"); leg("right"); draw("pelvis");
   ctx.save(); rotate(JOINTS.hip, motion.lean - motion.hipTilt);
   draw("torso"); draw("head");

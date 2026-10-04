@@ -5,8 +5,9 @@ import path from "node:path";
 import { readFile } from "node:fs/promises";
 
 let drawing: Buffer;
+const atRotated = (x: number, y: number, pivotX: number, pivotY: number, angle: number) => ({ x: Math.round(pivotX + (x - pivotX) * Math.cos(angle) - (y - pivotY) * Math.sin(angle)), y: Math.round(pivotY + (x - pivotX) * Math.sin(angle) + (y - pivotY) * Math.cos(angle)) });
 test.beforeAll(async () => {
-  const svg = silhouetteSvg(false).replace("</svg>", '<rect x="219" y="248" width="40" height="55" fill="#db715d"/><rect x="256" y="324" width="87" height="130" fill="#279aa3"/><rect x="280" y="110" width="40" height="30" fill="#e5b543"/><rect x="292" y="427" width="16" height="16" fill="#222222"/><rect x="240" y="590" width="30" height="130" fill="#7399b4"/><rect x="334" y="690" width="24" height="70" fill="#a198bd"/><rect x="284" y="498" width="32" height="22" fill="#d35fa4"/></svg>');
+  const svg = silhouetteSvg(false).replace("</svg>", '<rect x="219" y="248" width="40" height="55" fill="#db715d"/><rect x="256" y="324" width="87" height="130" fill="#279aa3"/><rect x="280" y="110" width="40" height="30" fill="#e5b543"/><rect x="292" y="427" width="16" height="16" fill="#222222"/><rect x="240" y="590" width="30" height="130" fill="#7399b4"/><rect x="334" y="690" width="24" height="70" fill="#a198bd"/><rect x="284" y="498" width="32" height="22" fill="#d35fa4"/><rect x="296" y="518" width="8" height="8" fill="#58b36e"/></svg>');
   drawing = await sharp(Buffer.from(svg)).png().toBuffer();
 });
 
@@ -318,7 +319,6 @@ test("uploaded leg marks follow independent hip and knee controls", async ({ pag
   await page.getByRole("button", { name: "Manual demo", exact: true }).click();
   await expect.poll(() => pixel(page, '[data-testid="avatar"]', 254, 610)).toEqual([115, 153, 180, 255]);
   expect(await pixel(page, '[data-testid="avatar"]', 254, 710)).toEqual([115, 153, 180, 255]);
-  const atRotated = (x: number, y: number, pivotX: number, pivotY: number, angle: number) => ({ x: Math.round(pivotX + (x - pivotX) * Math.cos(angle) - (y - pivotY) * Math.sin(angle)), y: Math.round(pivotY + (x - pivotX) * Math.sin(angle) + (y - pivotY) * Math.cos(angle)) });
   await page.getByRole("slider", { name: "Manual left knee bend", exact: true }).fill("1");
   const shin = atRotated(254, 710, 254, 652, .9);
   await expect.poll(() => pixel(page, '[data-testid="avatar"]', shin.x, shin.y)).toEqual([115, 153, 180, 255]);
@@ -359,69 +359,84 @@ test("each held leg gesture fades its chosen leg and rejects the other leg", asy
   }
 });
 
-test("the uploaded pelvis visibly shifts and tilts with its attached body, pauses and resets", async ({ page }, testInfo) => {
+test("the uploaded pelvis rotates around its fixed center, carries the body, pauses and resets", async ({ page }, testInfo) => {
   await page.goto("/"); await upload(page);
   await page.getByRole("button", { name: "Manual demo", exact: true }).click();
-  await expect.poll(() => pixel(page, '[data-testid="avatar"]', 300, 509)).toEqual([211, 95, 164, 255]);
-  await page.getByRole("button", { name: "Shift hips right", exact: true }).click();
-  await expect.poll(() => pixel(page, '[data-testid="avatar"]', 380, 509)).toEqual([211, 95, 164, 255]);
-  expect(await pixel(page, '[data-testid="avatar"]', 300, 509)).not.toEqual([211, 95, 164, 255]);
-  expect(await pixel(page, '[data-testid="avatar"]', 380, 385)).toEqual([39, 154, 163, 255]);
-  expect(await pixel(page, '[data-testid="avatar"]', 334, 710)).toEqual([115, 153, 180, 255]);
-  await page.getByRole("slider", { name: "Manual hip height", exact: true }).fill("0.6");
-  await expect.poll(() => pixel(page, '[data-testid="avatar"]', 380, 539)).toEqual([211, 95, 164, 255]);
-  await page.getByRole("slider", { name: "Manual hip tilt", exact: true }).fill("1");
-  await expect.poll(() => pixel(page, '[data-testid="avatar"]', 384, 540)).toEqual([211, 95, 164, 255]);
-  await expect.poll(() => pixel(page, '[data-testid="avatar"]', 272, 713)).toEqual([115, 153, 180, 255]);
-  // The hip mark has left its original point even if another part of the body overlaps it.
-  expect(await pixel(page, '[data-testid="avatar"]', 300, 509)).not.toEqual([211, 95, 164, 255]);
-  await page.screenshot({ path: "test-results/hip-motion.png", fullPage: true });
+  await expect.poll(() => pixel(page, '[data-testid="avatar"]', 300, 522)).toEqual([88, 179, 110, 255]);
+  const marker = atRotated(286, 501, 300, 522, .35);
+  await page.getByRole("button", { name: "Rotate hips right", exact: true }).click();
+  await expect(page.getByRole("slider", { name: "Manual hip rotation", exact: true })).toHaveValue("1");
+  await expect.poll(() => pixel(page, '[data-testid="avatar"]', marker.x, marker.y)).toEqual([211, 95, 164, 255]);
+  expect(await pixel(page, '[data-testid="avatar"]', 286, 501)).not.toEqual([211, 95, 164, 255]);
+  // A mark centered on the pelvis pivot stays at the same canvas pixel.
+  expect(await pixel(page, '[data-testid="avatar"]', 300, 522)).toEqual([88, 179, 110, 255]);
+  const torso = atRotated(300, 385, 300, 522, .35), leg = atRotated(254, 710, 300, 522, .35);
+  expect(await pixel(page, '[data-testid="avatar"]', torso.x, torso.y)).toEqual([39, 154, 163, 255]);
+  expect(await pixel(page, '[data-testid="avatar"]', leg.x, leg.y)).toEqual([115, 153, 180, 255]);
+  for (const control of ["Manual hip sway", "Manual hip height"]) await expect(page.getByRole("slider", { name: control, exact: true })).toHaveCount(0);
+  await page.screenshot({ path: "test-results/hip-rotation.png", fullPage: true });
   await page.getByRole("button", { name: "Pause", exact: true }).click();
   const before = await page.getByTestId("avatar").evaluate(el => (el as HTMLCanvasElement).toDataURL());
-  await page.getByRole("button", { name: "Shift hips left", exact: true }).click();
+  await page.getByRole("button", { name: "Rotate hips left", exact: true }).click();
   await page.waitForTimeout(400);
   expect(await page.getByTestId("avatar").evaluate(el => (el as HTMLCanvasElement).toDataURL())).toBe(before);
   const downloadEvent = page.waitForEvent("download");
   await page.getByRole("button", { name: "Save PNG", exact: true }).click();
-  const filename = testInfo.outputPath("hip-motion.png"); await (await downloadEvent).saveAs(filename);
+  const filename = testInfo.outputPath("hip-rotation.png"); await (await downloadEvent).saveAs(filename);
   const { data, info } = await sharp(filename).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  const offset = (540 * info.width + 384 + 120) * 4;
+  const offset = (marker.y * info.width + marker.x + 120) * 4;
   expect(Array.from(data.subarray(offset, offset + 4))).toEqual([211, 95, 164, 255]);
-  await page.getByRole("button", { name: "Return to rest", exact: true }).click();
   await page.getByRole("button", { name: "Resume", exact: true }).click();
+  const leftMarker = atRotated(314, 501, 300, 522, -.35);
+  await expect.poll(() => pixel(page, '[data-testid="avatar"]', leftMarker.x, leftMarker.y)).toEqual([211, 95, 164, 255]);
+  expect(await pixel(page, '[data-testid="avatar"]', 300, 522)).toEqual([88, 179, 110, 255]);
+  await page.getByRole("slider", { name: "Manual hip rotation", exact: true }).fill("0.5");
+  await expect.poll(() => pixel(page, '[data-testid="avatar"]', 300, 522)).toEqual([88, 179, 110, 255]);
+  await page.getByRole("button", { name: "Return to rest", exact: true }).click();
   await expect.poll(() => pixel(page, '[data-testid="avatar"]', 300, 509)).toEqual([211, 95, 164, 255]);
-  for (const control of ["Manual hip sway", "Manual hip height", "Manual hip tilt"]) await expect(page.getByRole("slider", { name: control, exact: true })).toHaveValue("0");
+  await expect(page.getByRole("slider", { name: "Manual hip rotation", exact: true })).toHaveValue("0");
 });
 
-test("real MediaPipe hip movement shifts the textured pelvis and can recenter", async () => {
+test("real MediaPipe rotates the textured pelvis while camera position changes leave its pivot fixed", async () => {
+  // Model startup plus a complete replay cycle needs extra time on the CPU runner.
+  test.setTimeout(75000);
   const fixture = process.env.OOB_HIP_CAMERA_FIXTURE;
   test.skip(!fixture, "Set OOB_HIP_CAMERA_FIXTURE to a moving Y4M photo replay. No physical webcam is used.");
   const browser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-video-capture=${path.resolve(fixture!)}`] });
   const context = await browser.newContext({ permissions: ["camera"], viewport: { width: 1440, height: 1100 } });
   const page = await context.newPage();
-  const center = () => page.getByTestId("avatar").evaluate(el => {
+  const marks = () => page.getByTestId("avatar").evaluate(el => {
     const canvas = el as HTMLCanvasElement, data = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data;
-    let x = 0, y = 0, count = 0;
-    for (let i = 0; i < data.length; i += 4) if (data[i] === 211 && data[i + 1] === 95 && data[i + 2] === 164 && data[i + 3] === 255) { const p = i / 4; x += p % canvas.width; y += Math.floor(p / canvas.width); count++; }
-    return count ? { x: x / count - 120, y: y / count, count } : null;
+    const marker = (r: number, g: number, b: number) => {
+      let x = 0, y = 0, xx = 0, yy = 0, xy = 0, count = 0;
+      for (let i = 0; i < data.length; i += 4) if (data[i] === r && data[i + 1] === g && data[i + 2] === b && data[i + 3] === 255) {
+        const p = i / 4, px = p % canvas.width - 120, py = Math.floor(p / canvas.width);
+        x += px; y += py; xx += px * px; yy += py * py; xy += px * py; count++;
+      }
+      if (!count) return null;
+      x /= count; y /= count;
+      return { x, y, count, angle: .5 * Math.atan2(2 * (xy / count - x * y), xx / count - x * x - yy / count + y * y) };
+    };
+    return { hip: marker(211, 95, 164), pivot: marker(88, 179, 110) };
   });
   try {
     await page.goto("http://127.0.0.1:3201"); await upload(page);
     await page.getByRole("button", { name: "Enable camera", exact: true }).click();
     await expect(page.getByText(/Body found ·/)).toBeVisible({ timeout: 30000 });
-    const centers: { x: number; y: number }[] = [];
-    await expect.poll(async () => {
-      const point = await center(); if (point && point.count > 100) centers.push(point);
-      return centers.length ? Math.max(...centers.map(p => p.x)) - Math.min(...centers.map(p => p.x)) : 0;
-    }, { timeout: 12000, intervals: [200, 400] }).toBeGreaterThan(40);
-    await expect.poll(async () => {
-      const point = await center(); if (point && point.count > 100) centers.push(point);
-      return Math.max(...centers.map(p => p.y)) - Math.min(...centers.map(p => p.y));
-    }, { timeout: 12000, intervals: [200, 400] }).toBeGreaterThan(15);
-    await page.getByRole("button", { name: "Recenter position", exact: true }).click();
-    // Recentering brings the pelvis back near center; slight hip-line tilt remains real.
-    await expect.poll(async () => { const point = await center(); return point ? Math.abs(point.x - 300) : Infinity; }, { timeout: 3000, intervals: [100] }).toBeLessThan(12);
-    await page.screenshot({ path: "test-results/camera-hip-motion.png", fullPage: true });
+    const angles: number[] = [];
+    // Watch a complete replay cycle, including both shifted/rotated camera frames.
+    for (let frame = 0; frame < 40; frame++) {
+      const { hip, pivot } = await marks();
+      expect(hip?.count).toBeGreaterThan(100); expect(pivot?.count).toBeGreaterThan(20);
+      expect(Math.abs(pivot!.x - 299.5)).toBeLessThan(2);
+      expect(Math.abs(pivot!.y - 521.5)).toBeLessThan(2);
+      expect(Math.abs(hip!.x - 300)).toBeLessThan(10);
+      angles.push(hip!.angle);
+      await page.waitForTimeout(200);
+    }
+    expect(Math.max(...angles) - Math.min(...angles)).toBeGreaterThan(.15);
+    await expect(page.getByRole("button", { name: "Recenter position", exact: true })).toHaveCount(0);
+    await page.screenshot({ path: "test-results/camera-hip-rotation.png", fullPage: true });
     await page.getByRole("button", { name: "Stop camera", exact: true }).click();
     await expect.poll(() => pixel(page, '[data-testid="avatar"]', 300, 509)).toEqual([211, 95, 164, 255]);
   } finally { await context.close(); await browser.close(); }

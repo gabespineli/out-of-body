@@ -1,5 +1,19 @@
 # Verification record
 
+## Anchored pelvis rotation — 4 October 2026
+
+The pelvis pivot stays fixed at template position (300, 522), canvas position (420, 522). The detected hip line rotates the uploaded pelvis texture around that point; the torso and legs remain attached. Camera-frame position no longer translates the avatar. Manual mode has Rotate hips left/right buttons and one Hip rotation slider. Sway, height and camera recenter controls were removed. This supersedes the moving-center behavior recorded below.
+
+- TypeScript and static export: passed. Gesture/timing checks: **15 passed**.
+- **18 browser scenarios validated**: 17 passed in the full exported-app run. The final real-model hip replay passed on its targeted rerun with a 75-second test limit. The first run exceeded the original 45-second limit after its rotation/anchor assertions and screenshot, while finishing the camera-stop/rest check. The rerun finished in 28.6 seconds; application code was unchanged.
+- A generated uploaded magenta pelvis mark retained exact **RGB 211, 95, 164** at its rotated position. The teal torso and blue leg pixels followed the same parent rotation. A green test mark centered on the pelvis pivot stayed at the same canvas pixel during left/right rotation. Pause froze the rendered pose, the downloaded PNG preserved the rotated magenta pixel, and Return to rest reset the rotation.
+- The real MediaPipe model processed the complete eight-second reference-photo replay, including frames shifted horizontally/vertically and rotated in both directions. The rendered magenta mark visibly changed angle by more than 0.15 radians across observations; the pivot mark stayed within two pixels of its starting center throughout. No landmark results were injected. Stopping the camera returned the rig to rest.
+- Existing uploads, arm/lean/leg holds and fade, permission/device/model failures, cancellation/cleanup, masks, PNG export and 320/768/1024/1440 layouts passed.
+- In the supported in-app browser, WebMCP hipTilt changed the visible rotation control. Out-of-range rotation and obsolete hipSway inputs were rejected without changing state. Legacy arm/lean-only input reset hip rotation to neutral. The plain manual UI was visually checked and captured locally.
+- This is 2D hip-line rotation, bounded to about 20 degrees either way. Physical-webcam/live-participant and deployed-domain camera permission behavior still require an installation trial. Model replays use a reference photograph, not participant footage.
+
+The following records describe earlier releases; their translation behavior is historical.
+
 ## Moving center pelvis — 3 October 2026
 
 The pelvis now translates sideways/vertically and tilts with the detected hip line. Both legs and the upper body inherit that moving parent, retaining their relative joints and actual uploaded textures. Manual hip sway, height and tilt controls and left/right shift buttons exercise the same renderer. Camera position centers from the first confident pose and can be recentered explicitly.
@@ -12,7 +26,7 @@ The pelvis now translates sideways/vertically and tilts with the detected hip li
 - WebMCP in the supported in-app browser accepted hip parameters and changed the visible controls; an invalid hip range was rejected without changing state. Omitted hip parameters default to neutral.
 - This is bounded 2D motion, not full walking or 3D pelvis reconstruction. Real physical-webcam/live-participant and deployed-domain camera permission behavior still need a trial.
 
-The following records describe earlier releases; the former anchored-pelvis constraint is superseded above.
+The records below describe releases before the moving-center update. The current anchored rotation behavior is documented in the 4 October record above.
 
 ## Leg movement update — 3 October 2026
 

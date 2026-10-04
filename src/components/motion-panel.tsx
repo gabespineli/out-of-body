@@ -27,7 +27,6 @@ export function MotionPanel({ camera, mode, setMode, gesture, setGesture, manual
     {mode === "camera" ? <>
       {camera.status === "live" ? <button className="full-width" onClick={camera.stop}>Stop camera</button> : <button className="full-width" disabled={pending} onClick={() => void camera.start()}>{camera.status === "permission" ? "Waiting for permission…" : camera.status === "loading" ? "Starting tracking…" : camera.status === "error" ? "Try camera again" : "Enable camera"}</button>}
       {pending && <button className="full-width" onClick={camera.stop}>Cancel camera</button>}
-      {camera.status === "live" && <button className="full-width" onClick={camera.recenter}>Recenter position</button>}
       {camera.error && <p className="error-message" role="alert">{camera.error}</p>}
       <p className="camera-hint">Step back so hands, knees and feet stay in view.</p>
       <p className="tracking-parts" data-testid="tracking-parts">Left arm: {detected.leftVisible ? "visible" : "missing"} · Right arm: {detected.rightVisible ? "visible" : "missing"} · Hips: {detected.hipsVisible ? "visible" : "missing"}</p>
@@ -39,15 +38,13 @@ export function MotionPanel({ camera, mode, setMode, gesture, setGesture, manual
         <button aria-pressed={manual.lean === 1} onClick={() => setManual({ ...MANUAL_REST, lean: manual.lean === 1 ? 0 : 1 })}>Lean right</button>
         <button aria-pressed={manual.leftLeg === 1} onClick={() => setManual({ ...MANUAL_REST, leftLeg: manual.leftLeg === 1 ? 0 : 1, leftKnee: manual.leftLeg === 1 ? 0 : .5 })}>Lift left leg</button>
         <button aria-pressed={manual.rightLeg === -1} onClick={() => setManual({ ...MANUAL_REST, rightLeg: manual.rightLeg === -1 ? 0 : -1, rightKnee: manual.rightLeg === -1 ? 0 : .5 })}>Lift right leg</button>
-        <button aria-pressed={manual.hipSway === -1} onClick={() => setManual({ ...manual, hipSway: manual.hipSway === -1 ? 0 : -1 })}>Shift hips left</button>
-        <button aria-pressed={manual.hipSway === 1} onClick={() => setManual({ ...manual, hipSway: manual.hipSway === 1 ? 0 : 1 })}>Shift hips right</button>
+        <button aria-pressed={manual.hipTilt === -1} onClick={() => setManual({ ...manual, hipTilt: manual.hipTilt === -1 ? 0 : -1 })}>Rotate hips left</button>
+        <button aria-pressed={manual.hipTilt === 1} onClick={() => setManual({ ...manual, hipTilt: manual.hipTilt === 1 ? 0 : 1 })}>Rotate hips right</button>
       </div>
       <label className="slider-label">Left arm<input type="range" min="0" max="1" step=".01" value={manual.left} aria-label="Manual left arm height" onChange={event => setManual({ ...manual, left: +event.target.value })} /></label>
       <label className="slider-label">Right arm<input type="range" min="0" max="1" step=".01" value={manual.right} aria-label="Manual right arm height" onChange={event => setManual({ ...manual, right: +event.target.value })} /></label>
       <label className="slider-label">Side lean<input type="range" min="-1" max="1" step=".01" value={manual.lean} aria-label="Manual side lean" onChange={event => setManual({ ...manual, lean: +event.target.value })} /></label>
-      <label className="slider-label">Hip sway<input type="range" min="-1" max="1" step=".01" value={manual.hipSway} aria-label="Manual hip sway" onChange={event => setManual({ ...manual, hipSway: +event.target.value })} /></label>
-      <label className="slider-label">Hip height<input type="range" min="-1" max="1" step=".01" value={manual.hipHeight} aria-label="Manual hip height" onChange={event => setManual({ ...manual, hipHeight: +event.target.value })} /></label>
-      <label className="slider-label">Hip tilt<input type="range" min="-1" max="1" step=".01" value={manual.hipTilt} aria-label="Manual hip tilt" onChange={event => setManual({ ...manual, hipTilt: +event.target.value })} /></label>
+      <label className="slider-label">Hip rotation<input type="range" min="-1" max="1" step=".01" value={manual.hipTilt} aria-label="Manual hip rotation" onChange={event => setManual({ ...manual, hipTilt: +event.target.value })} /></label>
       <label className="slider-label">Left leg swing<input type="range" min="-1" max="1" step=".01" value={manual.leftLeg} aria-label="Manual left leg swing" onChange={event => setManual({ ...manual, leftLeg: +event.target.value })} /></label>
       <label className="slider-label">Right leg swing<input type="range" min="-1" max="1" step=".01" value={manual.rightLeg} aria-label="Manual right leg swing" onChange={event => setManual({ ...manual, rightLeg: +event.target.value })} /></label>
       <label className="slider-label">Left knee bend<input type="range" min="0" max="1" step=".01" value={manual.leftKnee} aria-label="Manual left knee bend" onChange={event => setManual({ ...manual, leftKnee: +event.target.value })} /></label>
