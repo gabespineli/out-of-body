@@ -12,7 +12,7 @@ p { margin: 8px 0; }
 a { color: #185b9c; }
 .installation-shell { padding: 14px; }
 .site-header { margin-bottom: 14px; }
-.experience-grid { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 16px; align-items: start; }
+.experience-grid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px; align-items: start; }
 .control-panel { min-width: 0; }
 .control-section { border: 1px solid #ccc; padding: 12px; margin-bottom: 12px; }
 .control-section > select { width: 100%; padding: 4px; }
@@ -37,12 +37,17 @@ input[type="file"] { display: block; width: 100%; font-size: 12px; }
 .tracking-parts { font-size: 12px; }
 .error-message { color: #a12222; font-size: 12px; line-height: 1.5; }
 .color-note { color: #8c4512; font-size: 12px; }
-.camera-preview { position: relative; width: 100%; aspect-ratio: 16/9; background: #eee; margin-top: 10px; overflow: hidden; }
+.camera-preview { position: relative; width: 100%; aspect-ratio: 4/3; background: #eee; margin-top: 10px; overflow: hidden; }
 .camera-preview video { width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); visibility: hidden; }
 .camera-preview .video-visible { visibility: visible; }
 .manual-preview { display: none; }
 .camera-placeholder { position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; padding: 10px; text-align: center; }
-.preview-status { position: absolute; bottom: 5px; left: 5px; right: 5px; background: #fffe; padding: 4px; font-size: 12px; }
+.camera-status { font-size: 12px; margin: 6px 0; }
+.secondary-controls, .tracking-details { margin-top: 10px; font-size: 12px; }
+summary { cursor: pointer; padding: 4px 0; }
+summary:focus-visible { outline: 2px solid #2563a6; outline-offset: 3px; }
+.secondary-controls .experience-options { margin-top: 6px; }
+.comfort-note { font-size: 12px; color: #555; margin: 4px 0 8px; }
 .full-width { width: 100%; margin-top: 8px; }
 .camera-hint { font-size: 12px; color: #555; }
 .manual-controls { margin-top: 10px; }
@@ -75,6 +80,7 @@ input[type="file"] { display: block; width: 100%; font-size: 12px; }
 .avatar-stage:fullscreen { width: 100vw; height: 100vh; min-height: 0; border: 0; }
 .avatar-stage:fullscreen .avatar-frame { width: min(100vw, 93.33vh); }
 .fullscreen-exit { position: absolute; right: 10px; bottom: 10px; }
+.fullscreen-actions { margin: 8px 0; }
 @media (max-width: 760px) {
   .installation-shell { padding: 10px; }
   .experience-grid { grid-template-columns: 1fr; gap: 6px; }
@@ -111,12 +117,12 @@ input[type="file"] { display: block; width: 100%; font-size: 12px; }
 .instructor-pane { background: #edf5fa; border-right: 1px solid #c6d9e4; }
 .participant-pane .stage-status { left: 0; top: 36px; width: 100%; text-align: center; }
 .duet-stage .avatar-frame { width: min(100%, calc((100vh - 330px) * .9333)); }
-.duet-stage:fullscreen { padding-top: 140px; }
+.duet-stage:fullscreen { padding-top: 180px; }
 .duet-stage:fullscreen .avatar-frame { width: min(100%, calc((100vh - 210px) * .9333)); }
 @media (max-width: 760px) {
   [data-experience="guided"] .stage-panel { grid-row: 1; }
   .duet-stage .avatar-frame { width: 100%; }
-  .duet-stage:fullscreen { padding-top: 165px; }
+  .duet-stage:fullscreen { padding-top: 205px; }
 }
 @media (max-width: 540px) {
   .avatar-stage.duet-stage { height: auto; grid-template-columns: 1fr; }

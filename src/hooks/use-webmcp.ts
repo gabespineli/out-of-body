@@ -55,14 +55,14 @@ export function useWebMcp(bindings: Bindings) {
       },
       {
         name: "configure_manual_pose", title: "Configure manual pose",
-        description: "Switch to manual simulation. Set arm heights (0–1), lean (-1–1), optional leg swings (-1–1), knee bends (0–1) hipTilt and headTilt (-1–1). Omitted controls reset to rest. Positive left leg / negative right leg moves outward. Hip rotation keeps the pelvis pivot fixed at the stage center. Releases the camera and uses the visible rig and hold timer.",
-        inputSchema: { type: "object", properties: { left: { type: "number", minimum: 0, maximum: 1 }, right: { type: "number", minimum: 0, maximum: 1 }, lean: { type: "number", minimum: -1, maximum: 1 }, leftLeg: { type: "number", minimum: -1, maximum: 1 }, rightLeg: { type: "number", minimum: -1, maximum: 1 }, leftKnee: { type: "number", minimum: 0, maximum: 1 }, rightKnee: { type: "number", minimum: 0, maximum: 1 }, hipTilt: { type: "number", minimum: -1, maximum: 1 }, headTilt: { type: "number", minimum: -1, maximum: 1 } }, required: ["left", "right", "lean"], additionalProperties: false },
+        description: "Switch to manual simulation. Set arm heights (0–1), lean (-1–1), optional leg swings (-1–1), knee bends (0–1) hipTilt and headTilt (-1–1), heelRaise (0–1). Omitted controls reset to rest. Positive left leg / negative right leg moves outward. Hip rotation keeps the pelvis pivot fixed at the stage center. Releases the camera and uses the visible rig and hold timer.",
+        inputSchema: { type: "object", properties: { left: { type: "number", minimum: 0, maximum: 1 }, right: { type: "number", minimum: 0, maximum: 1 }, lean: { type: "number", minimum: -1, maximum: 1 }, leftLeg: { type: "number", minimum: -1, maximum: 1 }, rightLeg: { type: "number", minimum: -1, maximum: 1 }, leftKnee: { type: "number", minimum: 0, maximum: 1 }, rightKnee: { type: "number", minimum: 0, maximum: 1 }, hipTilt: { type: "number", minimum: -1, maximum: 1 }, headTilt: { type: "number", minimum: -1, maximum: 1 }, heelRaise: { type: "number", minimum: 0, maximum: 1 } }, required: ["left", "right", "lean"], additionalProperties: false },
         annotations: { readOnlyHint: false, untrustedContentHint: false },
         execute(input) {
           if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Use an object of manual pose controls.");
-          const ranges = { left: [0, 1], right: [0, 1], lean: [-1, 1], leftLeg: [-1, 1], rightLeg: [-1, 1], leftKnee: [0, 1], rightKnee: [0, 1], hipTilt: [-1, 1], headTilt: [-1, 1] } as const;
+          const ranges = { left: [0, 1], right: [0, 1], lean: [-1, 1], leftLeg: [-1, 1], rightLeg: [-1, 1], leftKnee: [0, 1], rightKnee: [0, 1], hipTilt: [-1, 1], headTilt: [-1, 1], heelRaise: [0, 1] } as const;
           const value = input as Record<string, unknown>;
-          if (Object.keys(value).some(key => !Object.hasOwn(ranges, key)) || ["left", "right", "lean"].some(key => !Object.hasOwn(value, key))) throw new Error("Supply left, right and lean; optional controls are leftLeg, rightLeg, leftKnee, rightKnee, hipTilt and headTilt.");
+          if (Object.keys(value).some(key => !Object.hasOwn(ranges, key)) || ["left", "right", "lean"].some(key => !Object.hasOwn(value, key))) throw new Error("Supply left, right and lean; optional controls are leftLeg, rightLeg, leftKnee, rightKnee, hipTilt, headTilt and heelRaise.");
           const pose = {} as ManualPose;
           for (const key of Object.keys(ranges) as (keyof ManualPose)[]) {
             const number = Object.hasOwn(value, key) ? value[key] : 0;
@@ -76,7 +76,7 @@ export function useWebMcp(bindings: Bindings) {
       },
       {
         name: "restore_artwork_colors", title: "Restore artwork colors",
-        description: "Restore the loaded artwork's original colors and reset the gesture timer, using the same action as Restore colors. Requires a loaded drawing.",
+        description: "Restore the loaded artwork's original colors and reset the gesture timer, Reset all three guided areas and return to the first activity. Requires a loaded drawing.",
         inputSchema: { type: "object", properties: {}, additionalProperties: false },
         annotations: { readOnlyHint: false, untrustedContentHint: false },
         execute(input) { emptyInput(input); flushSync(() => latest.current.restore()); return latest.current.state(); },

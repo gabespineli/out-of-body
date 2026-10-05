@@ -4,29 +4,29 @@ A plain React/Next.js prototype: upload a drawing on the supplied silhouette, fo
 
 ## Guided sequence (default)
 
-1. Upload a drawing or use the labeled example. Align the photo if needed.
-2. Enable the webcam, or choose Manual demo. Press **Start guided session**.
-3. Follow the blue instructor beside **Your drawing**. The instructor uses a predefined six-second looping animation; the uploaded drawing continues to follow your own camera landmarks or explicit manual controls.
-4. The sequence starts with **Neck / head**, then automatically advances to **Arms / back**, then **Legs / feet**. A simple progress bar shows participation in the current activity. Eight seconds of credited movement completes an activity, followed by a 1.4-second transition. The sequence finishes once, rather than restarting automatically.
-5. Color fades in proportion to earned movement progress, starting during participation. Other areas retain their colors until their own activity. The silhouette contour stays visible after colors fade. **Restart sequence** begins again; **Restore colors** clears all progress and returns to the first activity.
+Upload your drawing, enable the camera (or select **Manual demo**) and press **Start guided session**. Follow the instructor beside **Your drawing**. The instructor is authored independently; the uploaded pixels still follow the participant's own MediaPipe landmarks.
 
-| Activity | Looping visual demonstration | Forgiving participation rule |
-|---|---|---|
-| Neck / head | Gently tilt the head left and right. | Relative head-angle displacement of at least 0.09 radians, about 5 degrees. |
-| Arms / back | Slowly reach up and lower both arms. | Either visible arm moves by 0.18 radians, about 10 degrees, or the torso leans relative to the pelvis by 0.10 radians. Both arms need not match the guide. |
-| Legs / feet | Extend alternating legs sideways and return. | Either visible thigh direction or knee angle changes by 0.13 radians, about 7.5 degrees. |
+| Activity | Matching demonstration and recognition |
+|---|---|
+| Neck / head | Gentle side-to-side neck tilts, measured relative to the shoulder line. A 0.09-radian change (about 5 degrees) counts. |
+| Arms / back | Four credited seconds of reaching overhead and lowering, then four of gentle side stretches with at least one arm raised. Reach needs a visible hand near/above shoulder level and a 0.14-radian arm change; side stretch needs visible hips and a 0.07-radian torso change relative to the pelvis. One raised arm is acceptable. Waving low hands and leaning with both hands lowered do not count. |
+| Legs / feet | Four credited seconds of small alternating side steps, then four of supported heel raises. Side steps need hip/knee/ankle confidence, outward thigh displacement of 0.09 radians and evidence from both sides; knee flexion or hip rotation alone does not count. |
 
-These are changes from a recent movement anchor, not required target poses. A threshold crossing grants up to one second of participation credit between movements. Another meaningful displacement renews it. An already-held pose or idle guide does not continuously earn progress. Small jitter, wrong-region motion, untracked points and frame gaps over 250 ms do not earn credit. Missing tracking cancels the current credit immediately. Earned progress survives rests, tracking loss and pause; resuming first re-establishes a baseline so paused motion is not rewarded.
+Each outer activity still has eight seconds of accumulated movement progress and a 1.4-second automatic transition. The active instruction, looping demonstration and detector switch together at the midpoint. Movements need not match the instructor's timing or exact range. A displacement above the jitter deadband grants up to 0.8 seconds of credit between motions; a static held pose eventually stops earning credit. Rests retain progress. Pause, hidden tabs, stale tracking, missing required points and frame gaps over 250 ms do not earn credit.
 
-The instructor is a separate animation component using the existing template renderer with a neutral blue fill and a highlight on the active area. It never reads participant landmarks, uploaded pixels or participant progress to generate a pose. The participant canvas retains the original upload, texture masks, joint pivots, smoothing and camera tracker. This is an authored animation, not a video of a human or a pose copied into the participant drawing. No media downloads are required at runtime.
+**Heel raises where tracking permits:** hold a stable chair and slowly lift/lower the heels while the toes remain planted. The instructor shows a side view with hand support and planted toes for clarity. Detection uses MediaPipe ankles (27/28), heels (29/30) and foot indices (31/32). A usable projected heel-to-toe span and visibility/presence ≥0.6 are required. Relative heel-height changes ≥0.055 shin lengths and ankle-height changes ≥0.03 shin lengths must agree in direction, while the toe's vertical position stays within 0.015 image heights. Feet lifting together, small jitter and whole-body translation do not qualify. Repositioning establishes a fresh baseline without movement credit.
 
-An area without strong colored marks still accepts movement and advances the sequence, with a clear no-color message. That area simply has no colored pixels to soften. Back remains mapped to the front-facing torso; legs/feet remains a combined region. The pelvis stays outside all fade masks.
+If legs remain tracked but usable foot points are absent for 2.5 seconds, the instruction **explicitly changes to more side steps**, and the visual instructor and detector change with it. The remaining half is earned by alternating steps. Losing the entire person does not trigger this fallback or award progress. Chair support itself is not detected or validated. These thresholds are exhibition approximations, not a validated exercise classifier; heel tracking needs a physical-camera trial.
 
-Pause freezes both panels and progress. Fullscreen includes the instructor, participant drawing and activity/progress feedback. Desktop shows both panels side by side; narrow screens stack them. PNG export contains only the actual participant artwork, never the instructor or controls.
+Only the current region's existing colored-pixel mask fades as progress accumulates. Other regions, the original outline and the pelvis mapping are preserved. An uncolored area still allows participation, with a short note. Back remains mapped to the front-facing torso, and legs/feet remains a combined region. No artwork recognition or new fade mapping is added.
 
-For manual participation, move the matching sliders or alternate the relevant buttons. Leaving one button held earns only brief movement credit; continued movement is needed. Manual mode stays visibly labeled.
+**Skip activity** advances immediately without completing the skipped fade; any partial fade remains. The sequence records skipped activities and does not report them as successfully completed. Use a comfortable range and skip anything uncomfortable. **Reset experience** restores all colors and progress, resets the guide/manual pose and returns to the first activity, while retaining the drawing and current camera connection. Start again explicitly. **Replay sequence** appears after the sequence finishes.
 
-Switching experience, motion mode, drawing or alignment resets progress. The existing individual hold-based behavior is retained under **Individual stretches**; its timing/amount controls are available there. The following instructions and strict thresholds describe that practice mode.
+The main screen keeps only Start, Pause/Resume, Skip, Reset and Fullscreen. Export, the existing individual practice mode and **Start fresh** are grouped under **More controls**. Start fresh remains the full participant reset: it removes the photo and releases the camera. Manual guided controls show only the current routine's sliders. The camera preview uses its full 4:3 frame; tracking feedback sits below it, with no FPS overlay. Detailed landmark diagnostics are collapsed.
+
+Fullscreen includes both panels and activity feedback; narrow screens stack them. PNG export contains only the actual participant drawing. The instructor's supported-heel illustration is an authored animation; the participant retains the existing front-facing segment rig with feet attached to the shins and a fixed pelvis pivot. Independent foot rotation and body translation are still outside this MVP. Manual heel input simulates the detector measurements; it does not add a new ankle rig.
+
+Switching experience, motion mode, drawing or alignment resets progress. The existing individual hold-based behavior is retained under **More controls → Individual stretches**, with its original strict matcher and timing/amount controls. The next sections describe that practice mode.
 
 ## Individual stretches
 
@@ -34,7 +34,7 @@ Switching experience, motion mode, drawing or alignment resets progress. The exi
 2. Upload a JPG, PNG or WebP. Use **Align photo** to match the photographed outline to the dashed template. **Try an example** supplies a clearly labeled sample drawing.
 3. Choose **Body area**, then follow the instruction above the avatar. Enable the camera and keep the relevant landmarks visible. The dashed outline in the drawing preview shows the current fade mask.
 4. A matching pose changes **Not detected** to **Hold still**. Hold continuously for **3 seconds**; the corresponding colored pixels then fade over **1.6 seconds**, followed by **Completed**. Releasing the pose or losing tracking before completion restarts the hold.
-5. Switch areas to perform another movement. Completed fades stay visible; unfinished holds reset. **Restore colors** resets all three areas. **Start fresh** releases the camera, removes the photo and restores defaults.
+5. Switch areas to perform another movement. Completed fades stay visible; unfinished holds reset. **Reset experience** resets all three areas. **Start fresh** releases the camera, removes the photo and restores defaults.
 
 | Body area | Suggested movement | Fixed fade mapping |
 |---|---|---|
@@ -60,15 +60,15 @@ Each area has its own continuous timer and fade value. Only the selected area ca
 
 ## Manual fallback and existing controls
 
-**Manual demo** runs the same matcher, rig, timer and fade using explicit controls instead of a camera. Use **Tilt head left/right**, **Raise arms**, or **Lift left/right leg** for the matching selected area. The mode remains visibly labeled **Manual simulation**. Changing area resets manual joints to rest so the previous pose does not accidentally start a new hold.
+Selecting **Manual demo** in Motion source runs the same matcher, rig, timer and fade using explicit controls instead of a camera. Use **Tilt head left/right**, **Raise arms**, or **Lift left/right leg** for the matching selected area. The mode remains visibly labeled **Manual simulation**. Changing area resets manual joints to rest so the previous pose does not accidentally start a new hold.
 
-Independent head, arm, lean, hip, leg and knee controls remain available. **Return to rest** resets them all. **Rotate hips left/right** rotates the pelvis texture and attached body around its fixed stage-center pivot; its center does not translate.
+In individual practice mode, independent head, arm, lean, hip, leg and knee controls remain available. **Return to rest** resets them all. **Rotate hips left/right** rotates the pelvis texture and attached body around its fixed stage-center pivot; its center does not translate.
 
 - **Hold and fade:** hold 2–3 seconds, fade 0.2–5 seconds, amount 25–100%. Defaults are 3 seconds, 1.6 seconds, 97%. Setting changes reset all areas.
 - **Pause / Resume:** freezes the displayed pose and earned fades. Partial holds restart after resuming. The camera may continue tracking while paused; **Stop camera** releases it.
 - **Save PNG:** explicitly downloads the displayed artwork/pose/fades as an opaque 840 × 900 image. No automatic saving or recording.
 - **Fullscreen:** enlarges the avatar and keeps the stretch instruction/status visible for projection. Escape exits.
-- **Tracking feedback:** head, arms, hips and legs show visible/missing states. **Cancel camera** releases a delayed stream/model if startup is canceled.
+- **Tracking feedback:** head, arms, hips and legs show visible/missing states under **Tracking details**. **Cancel camera** releases a delayed stream/model if startup is canceled.
 - **No color:** if the chosen mask contains fewer than 40 strongly colored pixels, a clear message asks for a colored mark or alignment. No hold advances in that area.
 
 ## Template and rendering constraints

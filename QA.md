@@ -1,5 +1,23 @@
 # Verification record
 
+## Movement refinement and simpler controls — 5 October 2026
+
+The working uploader, artwork texture renderer, pelvis pivot, camera lifecycle and region masks were preserved. Changes are confined to authored guide routines, their rule-based scoring, skip/reset handling and reducing visible controls.
+
+- **36 logic checks passed.** The guide now requires overhead reach before raised-arm side stretches. Low hand waving and unsupported lean fail; a gentle one-arm reach is accepted. Side steps require evidence from both sides; knee flexion alone fails. Heel scoring requires changing relative heel/ankle height with planted toes; jitter, foot lifts and translation fail. Missing/poorly projected feet explicitly select a matching side-step fallback after 2.5 seconds, without granting progress. Loss of the whole body does not activate fallback. Skip keeps only earned fade and advances in order.
+- **27 browser scenarios validated:** 23 passed in the full exported-app run including all five real-model replay scenarios; the four guided interaction checks passed on targeted rerun after fixing the test helper's range-input strings (Chromium requires a leading zero). Application logic was unchanged for that test correction. A subsequent fullscreen control/status refinement was built and checked in its targeted fullscreen/responsive scenario.
+- The refined full manual sequence completed head tilts → reach → raised-arm side stretch → alternating steps → heel raises, with automatic outer-stage transitions. The instructor's active part and instruction matched the detector's part. The heel guide clearly showed a side view of hand support, planted toes and heel motion.
+- Actual uploaded test pixels faded progressively in their assigned masks. Dark torso marks, the magenta pelvis and the silhouette outline stayed visible. Previously earned fades remained through transitions. Export retained the actual participant drawing.
+- Skip advanced immediately, kept a partial neck fade, and left skipped arm/leg colors at zero fade. The finished state reported three skips rather than claiming successful stretches. Reset restored exact original pixels, cleared progress/skips and retained the uploaded drawing.
+- The camera replay verified a 4:3 preview with its status positioned below the video. No FPS text or overlay occupied the image. The real MediaPipe model still processed the reference-photo camera input; the guide alone earned no head progress.
+- The standard guided screen now shows only relevant manual sliders. Existing practice, PNG export and full participant reset remain under **More controls**; landmark diagnostics remain under **Tracking details**. Camera errors, cancellation and stream cleanup still passed.
+- Both canvases, activity feedback, Pause, Skip and Reset are available in fullscreen. Layouts at 320, 768 and 1440 pixels fit without horizontal overflow; the preserved practice checks also covered 1024 pixels.
+- A supported in-app browser independently uploaded a generated participant PNG, started guided mode, skipped neck, and configured raised arms through the page's manual control tool. The visible guide stayed independent, the participant texture moved, relevant progress appeared and hidden secondary controls stayed collapsed.
+
+**Limits:** this is still an artistic, rule-based prototype. Manual and constructed-landmark checks verify positive routines. Reference-photo replays verify real model inference and regression behavior, not a person performing the refined stretches. Physical webcam/heel visibility, a real paper drawing under exhibition lighting and the projector remain untested. Chair support is instructed and illustrated, not recognized. The participant's existing 2D feet stay attached to the shins; no separate foot rig/body translation was added. Heel input in Manual demo simulates detection measurements.
+
+Evidence outside source: `outputs/out-of-body-refined-preview.png`, `outputs/out-of-body-refined-camera.png`, `outputs/out-of-body-refined-heels.png`, `outputs/out-of-body-refined-completed.png`, `outputs/out-of-body-refined-partial.png`, `outputs/out-of-body-refined-mobile.png`.
+
 ## Guided instructor and accumulated movement — 4 October 2026
 
 The default experience now separates a looping visual instructor from the actual uploaded drawing. A predefined sequence runs Neck / head → Arms / back → Legs / feet. The instructor uses its own animation clock/poses, with the relevant region highlighted blue. The participant canvas keeps the existing photograph texture, rig, fixed pelvis pivot, smoothing and MediaPipe tracker. No participant pose is replaced by the demonstration.

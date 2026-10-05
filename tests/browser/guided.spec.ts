@@ -17,14 +17,22 @@ async function pixel(page: Page, x: number, y: number) {
 }
 async function prepare(page: Page) {
   await page.goto("/"); await upload(page);
-  await page.getByRole("button", { name: "Manual demo", exact: true }).click();
+  await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
   await page.getByRole("button", { name: "Start guided session", exact: true }).click();
 }
 async function move(page: Page, area: string, times: number) {
-  const control = area === "neck-head" ? "Manual head tilt" : area === "arms-back" ? "Manual left arm height" : "Manual left leg swing";
-  const values = area === "neck-head" ? ["-0.3", "0.3"] : area === "arms-back" ? ["0", "0.25"] : ["0", "0.25"];
   for (let i = 0; i < times; i++) {
-    await page.getByRole("slider", { name: control, exact: true }).fill(values[i % 2]);
+    const step = await page.getByTestId("avatar").getAttribute("data-step");
+    if (area === "neck-head") await page.getByRole("slider", { name: "Manual head tilt", exact: true }).fill(i % 2 ? "0.3" : "-0.3");
+    else if (step === "reach") await page.getByRole("slider", { name: "Manual left arm height", exact: true }).fill(i % 2 ? "0.8" : "0.5");
+    else if (step === "side-stretch") {
+      await page.getByRole("slider", { name: "Manual left arm height", exact: true }).fill("0.65");
+      await page.getByRole("slider", { name: "Manual side lean", exact: true }).fill(i % 2 ? "0.3" : "-0.3");
+    } else if (step === "heel-raise") await page.getByRole("slider", { name: "Manual heel raise", exact: true }).fill(i % 2 ? "0.6" : "0");
+    else {
+      await page.getByRole("slider", { name: "Manual left leg swing", exact: true }).fill(i % 2 ? "0" : "0.25");
+      await page.getByRole("slider", { name: "Manual right leg swing", exact: true }).fill(i % 2 ? "-0.25" : "0");
+    }
     await page.waitForTimeout(450);
   }
 }
@@ -37,9 +45,6 @@ test("independent visual guide loops without earning participant progress; gentl
   await page.waitForTimeout(1400);
   expect(await page.getByTestId("instructor").evaluate(el => (el as HTMLCanvasElement).toDataURL())).not.toBe(instructor);
   expect(await page.getByTestId("avatar").evaluate(el => (el as HTMLCanvasElement).toDataURL())).toBe(still);
-  await expect(page.getByTestId("avatar")).toHaveAttribute("data-guided-progress", "0.000");
-  await page.getByRole("button", { name: "Raise arms", exact: true }).click();
-  await page.waitForTimeout(500);
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-guided-progress", "0.000");
   await move(page, "neck-head", 5);
   await expect.poll(async () => +(await page.getByTestId("avatar").getAttribute("data-head-fade"))!).toBeGreaterThan(.1);
@@ -70,12 +75,13 @@ test("three activities advance automatically from forgiving motion and save the 
   for (const [area, completedAttribute] of [["neck-head", "data-head-fade"], ["arms-back", "data-arms-fade"], ["legs-feet", "data-legs-fade"]]) {
     await expect(page.getByTestId("avatar")).toHaveAttribute("data-area", area);
     const started = Date.now();
-    while ((await page.getByTestId("avatar").getAttribute(completedAttribute)) !== "1.00" && Date.now() - started < 12000) await move(page, area, 2);
+    if (area !== "neck-head") await page.getByRole("button", { name: "Return to rest", exact: true }).click();
+    while ((await page.getByTestId("avatar").getAttribute(completedAttribute)) !== "1.00" && Date.now() - started < 15000) await move(page, area, 2);
     await expect(page.getByTestId("avatar")).toHaveAttribute(completedAttribute, "1.00");
     await page.screenshot({ path: `test-results/guided-${area}.png`, fullPage: true });
     if (area !== "legs-feet") await expect(page.getByTestId("avatar")).not.toHaveAttribute("data-area", area, { timeout: 3000 });
   }
-  await expect(page.getByTestId("guided-status")).toHaveText("Sequence completed — all three activities finished", { timeout: 3000 });
+  await expect(page.getByTestId("guided-status")).toHaveText("Sequence completed", { timeout: 3000 });
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-guided-total", "1.000");
   await page.getByRole("button", { name: "Return to rest", exact: true }).click();
   await page.waitForTimeout(1200);
@@ -88,12 +94,13 @@ test("three activities advance automatically from forgiving motion and save the 
   expect(outline[0]).toBeLessThan(180); expect(outline[3]).toBeGreaterThan(100);
   await page.screenshot({ path: "test-results/guided-sequence-completed.png", fullPage: true });
   const event = page.waitForEvent("download");
+  await page.locator("details.secondary-controls > summary").click();
   await page.getByRole("button", { name: "Save PNG", exact: true }).click();
   const file = testInfo.outputPath("guided-result.png"); await (await event).saveAs(file);
   const { data, info } = await sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const start = (435 * info.width + 420) * 4;
   expect(Array.from(data.subarray(start, start + 4))).toEqual([34, 34, 34, 255]);
-  await page.getByRole("button", { name: "Restart sequence", exact: true }).click();
+  await page.getByRole("button", { name: "Replay sequence", exact: true }).click();
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-area", "neck-head");
   for (const attribute of ["data-head-fade", "data-arms-fade", "data-legs-fade"]) await expect(page.getByTestId("avatar")).toHaveAttribute(attribute, "0.00");
 });
@@ -104,20 +111,29 @@ test("camera denial retains a guided manual fallback and an uncolored area does 
   await upload(page, blank);
   await page.getByRole("button", { name: "Enable camera", exact: true }).click();
   await expect(page.locator("p[role=alert]")).toContainText("Camera permission was denied");
-  await page.getByRole("button", { name: "Manual demo", exact: true }).click();
+  await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
   await page.getByRole("button", { name: "Start guided session", exact: true }).click();
-  await expect(page.getByText("No strong color in this area. Your movement still counts.")).toBeVisible();
+  await expect(page.getByText("No colored marks here. Movement still counts.")).toBeVisible();
   await move(page, "neck-head", 4);
   await expect.poll(async () => +(await page.getByTestId("avatar").getAttribute("data-guided-progress"))!).toBeGreaterThan(.1);
 });
 test("both panels and activity feedback survive fullscreen and responsive layouts", async ({ page }) => {
   await page.goto("/"); await upload(page);
+  await page.getByRole("button", { name: "Start guided session", exact: true }).click();
   await page.getByRole("button", { name: "Open installation fullscreen", exact: true }).click();
   await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBeTruthy();
   await expect(page.getByTestId("instructor")).toBeVisible();
   await expect(page.getByTestId("avatar")).toBeVisible();
   await expect(page.getByTestId("current-activity")).toBeVisible();
   await expect(page.getByRole("progressbar", { name: "Activity progress", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Skip activity", exact: true }).last().click();
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-area", "arms-back");
+  await expect(page.getByTestId("current-activity")).toContainText("reach overhead");
+  await page.getByRole("button", { name: "Pause", exact: true }).last().click();
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-paused", "true");
+  await page.getByRole("button", { name: "Reset experience", exact: true }).last().click();
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-area", "neck-head");
+  await expect(page.getByTestId("art-source")).toHaveText("Uploaded drawing");
   await page.getByRole("button", { name: "Exit fullscreen", exact: true }).last().click();
   await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBeFalsy();
   for (const width of [320, 768, 1440]) {
@@ -140,11 +156,44 @@ test("real MediaPipe static-camera replay does not earn progress from the visual
   try {
     await page.goto("http://127.0.0.1:3201/"); await upload(page);
     await page.getByRole("button", { name: "Enable camera", exact: true }).click();
-    await expect(page.getByText(/Body found ·/)).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText("Body found", { exact: true })).toBeVisible({ timeout: 30000 });
+    const video = await page.getByLabel("Mirrored webcam preview").boundingBox();
+    const caption = await page.locator(".camera-status").boundingBox();
+    expect(caption!.y).toBeGreaterThanOrEqual(video!.y + video!.height);
+    expect(video!.width / video!.height).toBeCloseTo(4 / 3, 1);
+    await expect(page.getByText(/\d+ fps/)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Save PNG", exact: true })).not.toBeVisible();
+    await page.screenshot({ path: "test-results/refined-camera.png", fullPage: true });
     await page.getByRole("button", { name: "Start guided session", exact: true }).click();
     await page.waitForTimeout(4500);
     await expect(page.getByTestId("avatar")).toHaveAttribute("data-guided-progress", "0.000");
     await expect(page.getByTestId("avatar")).toHaveAttribute("data-head-fade", "0.00");
     await page.getByRole("button", { name: "Stop camera", exact: true }).click();
   } finally { await context.close(); await browser.close(); }
+});
+test("skip retains a partial fade without awarding completion; reset preserves the upload", async ({ page }) => {
+  await prepare(page);
+  await move(page, "neck-head", 3);
+  const earned = +(await page.getByTestId("avatar").getAttribute("data-head-fade"))!;
+  expect(earned).toBeGreaterThan(0); expect(earned).toBeLessThan(1);
+  await page.getByRole("button", { name: "Skip activity", exact: true }).click();
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-area", "arms-back");
+  const preserved = await page.getByTestId("avatar").getAttribute("data-head-fade");
+  expect(+preserved!).toBeLessThan(1);
+  await expect(page.getByTestId("current-activity")).toContainText("reach overhead");
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-arms-fade", "0.00");
+  await page.getByRole("button", { name: "Skip activity", exact: true }).click();
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-area", "legs-feet");
+  await expect(page.getByTestId("instructor")).toHaveAttribute("data-step", "side-step");
+  await page.getByRole("button", { name: "Skip activity", exact: true }).click();
+  await expect(page.getByTestId("guided-status")).toHaveText("Finished · 3 skipped");
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-head-fade", preserved!);
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-arms-fade", "0.00");
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-legs-fade", "0.00");
+  await page.getByRole("button", { name: "Reset experience", exact: true }).click();
+  await expect(page.getByTestId("art-source")).toHaveText("Uploaded drawing");
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-area", "neck-head");
+  for (const a of ["data-head-fade", "data-arms-fade", "data-legs-fade"]) await expect(page.getByTestId("avatar")).toHaveAttribute(a, "0.00");
+  expect(await pixel(page, 300, 120)).toEqual([229, 181, 67, 255]);
+  await expect(page.getByRole("button", { name: "Start guided session", exact: true })).toBeVisible();
 });

@@ -18,15 +18,22 @@ export type Motion = {
   lean: number; tracked: boolean; raised: boolean; leaning: boolean;
   leftRaised: boolean; rightRaised: boolean;
   leftVisible: boolean; rightVisible: boolean; hipsVisible: boolean;
+  leftReaching: boolean; rightReaching: boolean;
+  leftFootVisible: boolean; rightFootVisible: boolean;
+  leftHeel: number; rightHeel: number; leftAnkleHeight: number; rightAnkleHeight: number;
+  leftToeY: number; rightToeY: number;
   leftLegVisible: boolean; rightLegVisible: boolean; leftLegLifted: boolean; rightLegLifted: boolean;
 };
-export const REST: Motion = { leftArm: 0, rightArm: 0, leftElbow: 0, rightElbow: 0, leftLeg: 0, rightLeg: 0, leftKnee: 0, rightKnee: 0, hipTilt: 0, headTilt: 0, headVisible: false, headTilted: false, lean: 0, tracked: false, raised: false, leaning: false, leftRaised: false, rightRaised: false, leftVisible: false, rightVisible: false, hipsVisible: false, leftLegVisible: false, rightLegVisible: false, leftLegLifted: false, rightLegLifted: false };
+export const REST: Motion = { leftArm: 0, rightArm: 0, leftElbow: 0, rightElbow: 0, leftLeg: 0, rightLeg: 0, leftKnee: 0, rightKnee: 0, hipTilt: 0, headTilt: 0, headVisible: false, headTilted: false, lean: 0, tracked: false, raised: false, leaning: false, leftRaised: false, rightRaised: false, leftVisible: false, rightVisible: false, hipsVisible: false, leftLegVisible: false, rightLegVisible: false, leftLegLifted: false, rightLegLifted: false,
+  leftReaching: false, rightReaching: false, leftFootVisible: false, rightFootVisible: false, leftHeel: 0, rightHeel: 0, leftAnkleHeight: 0, rightAnkleHeight: 0, leftToeY: 0, rightToeY: 0 };
 export type ManualLegs = { leftLeg: number; rightLeg: number; leftKnee: number; rightKnee: number };
 export const REST_LEGS: ManualLegs = { leftLeg: 0, rightLeg: 0, leftKnee: 0, rightKnee: 0 };
 export type ManualHips = { hipTilt: number };
 export const REST_HIPS: ManualHips = { hipTilt: 0 };
 export type ManualHead = { headTilt: number };
 export const REST_HEAD: ManualHead = { headTilt: 0 };
+export type ManualFeet = { heelRaise: number };
+export const REST_FEET: ManualFeet = { heelRaise: 0 };
 export const HOLD_MS = 3000;
 export const FADE_MS = 1600;
 export type Timing = { holdMs: number; fadeMs: number };
@@ -85,18 +92,40 @@ export function motionFromLandmarks(points: Landmark[], aspect = 4 / 3, previous
   };
   const leftLeg = leg(23, 25, 27, Math.atan2(130, -2), Math.atan2(133, 4));
   const rightLeg = leg(24, 26, 28, Math.atan2(130, 2), Math.atan2(133, -4));
+  // Heel/toe height relative to shin length rejects whole-body translation. A foot
+  // needs a usable projected heel-to-toe span; a frontal/occluded foot may not qualify.
+  // MediaPipe indices: https://ai.google.dev/edge/api/mediapipe/python/mp/tasks/vision/PoseLandmark
+  const foot = (k: number, a: number, h: number, t: number) => {
+    if (![k, a, h, t].every(i => visible(points[i]) && points[i].x >= 0 && points[i].x <= 1 && points[i].y >= 0 && points[i].y <= 1))
+      return { visible: false, heel: 0, ankle: 0, toeY: 0 };
+    const shin = Math.hypot((points[k].x - points[a].x) * aspect, points[k].y - points[a].y);
+    const span = Math.abs(points[h].x - points[t].x) * aspect;
+    if (shin < .04 || span < Math.max(.015, shin * .10)) return { visible: false, heel: 0, ankle: 0, toeY: 0 };
+    return { visible: true, heel: clamp((points[t].y - points[h].y) / shin, -.6, .8),
+      ankle: clamp((points[t].y - points[a].y) / shin, -.6, 1), toeY: points[t].y };
+  };
+  const leftFoot = foot(25, 27, 29, 31), rightFoot = foot(26, 28, 30, 32);
+  const reaching = (s: number, e: number, w: number) => visible(points[e]) && visible(points[w])
+    && points[w].y <= points[s].y + .02 && points[e].y <= points[s].y + .08;
   return { leftArm: left.upper - lean, rightArm: right.upper - lean, leftElbow: left.lower, rightElbow: right.lower, lean, tracked: true, raised: leftRaised && rightRaised, leaning: hipsVisible && Math.abs(lean) >= .20, leftRaised, rightRaised, leftVisible, rightVisible, hipsVisible,
     hipTilt, headTilt, headVisible, headTilted,
+    leftReaching: reaching(11, 13, 15), rightReaching: reaching(12, 14, 16),
+    leftFootVisible: leftLeg.visible && leftFoot.visible, rightFootVisible: rightLeg.visible && rightFoot.visible,
+    leftHeel: leftFoot.heel, rightHeel: rightFoot.heel, leftAnkleHeight: leftFoot.ankle, rightAnkleHeight: rightFoot.ankle,
+    leftToeY: leftFoot.toeY, rightToeY: rightFoot.toeY,
     leftLeg: leftLeg.visible ? leftLeg.upper : hipTilt, rightLeg: rightLeg.visible ? rightLeg.upper : hipTilt, leftKnee: leftLeg.lower, rightKnee: rightLeg.lower,
     leftLegVisible: leftLeg.visible, rightLegVisible: rightLeg.visible,
     leftLegLifted: leftLeg.visible && leftLeg.upper - hipTilt >= (previous.leftLegLifted ? .22 : .28), rightLegLifted: rightLeg.visible && rightLeg.upper - hipTilt <= -(previous.rightLegLifted ? .22 : .28) };
 }
 
-export function manualMotion(left: number, lean: number, right = left, legs: ManualLegs = REST_LEGS, hips: ManualHips = REST_HIPS, head: ManualHead = REST_HEAD): Motion {
+export function manualMotion(left: number, lean: number, right = left, legs: ManualLegs = REST_LEGS, hips: ManualHips = REST_HIPS, head: ManualHead = REST_HEAD, feet: ManualFeet = REST_FEET): Motion {
   const tilt = lean * .4;
   const hipTilt = hips.hipTilt * .35;
   return { leftArm: left * 2.55, rightArm: right * -2.55, leftElbow: left * -.18, rightElbow: right * .18, lean: tilt + hipTilt, tracked: true, raised: left >= .72 && right >= .72, leaning: Math.abs(tilt + hipTilt) >= .20, leftRaised: left >= .72, rightRaised: right >= .72, leftVisible: true, rightVisible: true, hipsVisible: true,
     hipTilt, headTilt: head.headTilt * .4, headVisible: true, headTilted: Math.abs(head.headTilt * .4) >= .20,
+    leftReaching: left >= .5, rightReaching: right >= .5, leftFootVisible: true, rightFootVisible: true,
+    leftHeel: feet.heelRaise * .25, rightHeel: feet.heelRaise * .25,
+    leftAnkleHeight: .18 + feet.heelRaise * .15, rightAnkleHeight: .18 + feet.heelRaise * .15, leftToeY: .9, rightToeY: .9,
     leftLeg: legs.leftLeg * .8 + hipTilt, rightLeg: legs.rightLeg * .8 + hipTilt, leftKnee: legs.leftKnee * .9, rightKnee: legs.rightKnee * -.9,
     leftLegVisible: true, rightLegVisible: true, leftLegLifted: legs.leftLeg * .8 >= .28, rightLegLifted: legs.rightLeg * .8 <= -.28 };
 }

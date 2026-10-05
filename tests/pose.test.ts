@@ -13,6 +13,21 @@ function standing(): Landmark[] {
   return p;
 }
 
+test("heel/toe measurements distinguish a heel raise, reject poor foot geometry and survive body translation", () => {
+  const p = standing();
+  p[29] = { ...p[29], x: .56, y: .975 }; p[31] = { ...p[31], x: .61, y: .975 };
+  p[30] = { ...p[30], x: .44, y: .975 }; p[32] = { ...p[32], x: .39, y: .975 };
+  const flat = motionFromLandmarks(p); assert.equal(flat.leftFootVisible, true);
+  p[29].y -= .012; p[27].y -= .012;
+  const raised = motionFromLandmarks(p);
+  assert.ok(raised.leftHeel - flat.leftHeel > .055); assert.ok(raised.leftAnkleHeight - flat.leftAnkleHeight > .03);
+  assert.equal(raised.leftToeY, flat.leftToeY);
+  const translated = motionFromLandmarks(p.map(q => ({ ...q, x: q.x + .003, y: q.y + .003 })));
+  assert.ok(Math.abs(translated.leftHeel - raised.leftHeel) < 1e-9);
+  p[31].presence = .2; assert.equal(motionFromLandmarks(p).leftFootVisible, false);
+  p[31].presence = .99; p[31].x = p[29].x; assert.equal(motionFromLandmarks(p).leftFootVisible, false);
+});
+
 test("confident raised wrists and elbows detect a two-arm hold", () => {
   const p = standing();
   assert.equal(motionFromLandmarks(p).raised, false);
