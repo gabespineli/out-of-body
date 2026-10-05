@@ -154,7 +154,7 @@ test("real MediaPipe static-camera replay does not earn progress from the visual
   const context = await browser.newContext({ permissions: ["camera"] });
   const page = await context.newPage();
   try {
-    await page.goto("http://127.0.0.1:3201/"); await upload(page);
+    await page.goto("http://127.0.0.1:3202/"); await upload(page);
     await page.getByRole("button", { name: "Enable camera", exact: true }).click();
     await expect(page.getByText("Body found", { exact: true })).toBeVisible({ timeout: 30000 });
     const video = await page.getByLabel("Mirrored webcam preview").boundingBox();

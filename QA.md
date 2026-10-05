@@ -1,5 +1,34 @@
 # Verification record
 
+## GitHub / Vercel migration — 5 October 2026
+
+This record applies only to the separate `out-of-body-vercel` copy on branch `migration/vercel`. Earlier sections below describe the original Sites releases. No GitHub push or Vercel deployment was performed.
+
+| Check | Observed result |
+|---|---|
+| Fresh dependency install | `npm ci` succeeded from the public npm registry using the existing lockfile. Node 24.13.1 / npm 11.8.0. Only the lockfile's root Node engine changed; package versions stayed identical. |
+| Generated camera assets | Fresh postinstall downloaded the pinned Lite v1 model (5,777,746 bytes) and copied the package-matched WASM/JS. |
+| TypeScript | `npm run typecheck` passed after the migration and new installer checks. |
+| Logic / asset setup | **39 tests passed**: all 36 existing pose/progress tests plus three isolated installer checks. |
+| Production build | `npm run build` passed using native Next.js 16.3.8. The prebuild camera-asset requirement passed. `/`, `/_not-found` and `/drawing-sheet.svg` were prerendered successfully. |
+| Production browser suite | **27 / 27 passed in one run (3.6 minutes), zero skipped**, against `next start` on port 3202, with all three replay fixture variables set. |
+| HTTP / static assets | Seven production routes returned HTTP 200: page, favicon, drawing sheet, WASM loader, SIMD/non-SIMD WASM and model. Served camera asset bytes matched installed files by SHA-256. WASM used `application/wasm`; model used `application/octet-stream`. |
+| Headers | The page and assets carried `Permissions-Policy: camera=(self), microphone=()` and `X-Content-Type-Options: nosniff`. The printable SVG retained its download disposition. |
+| Protected source | Original HEAD remained `903c004c7a52befb6d63f94af06266cfafb8043d`; SHA-256 matched for all **40 tracked files**, and the original working tree remained clean. |
+| Application preservation | `git diff 903c004 -- src` was empty. All participant interface, renderer, tracker, guide, scoring and fade source files are unchanged. |
+
+The browser suite checked actual drawing upload and alignment, uploaded-pixel mirroring, the fixed rotating pelvis and independent legs, all three area fades, unchanged unrelated/dark pixels, the complete automatic guided sequence, independent instructor animation, partial progress/pause, Skip, Reset and full participant reset, PNG contents, fullscreen, keyboard controls and layouts at 320/768/1024/1440 pixels. Camera denial, missing/busy webcam, model failure, pending-request cancellation and stream cleanup passed.
+
+All five optional replay scenarios ran with the actual MediaPipe model and local reference-photo Y4M camera inputs. They verified arm/leg tracking, pose rejection, fixed pelvis rotation, real-model leg-hold completion and rejection of progress from an idle participant while the guide animates. These are camera replays, not live participants; no landmarks were injected into those replay scenarios.
+
+The new installer checks used disposable local fixtures and simulated unavailable network responses. Optional installation warned and retained manual development; the required production check failed; an undersized cached model was replaced; and an installed model was reused offline. They did not alter the application's installed camera assets.
+
+Visually inspected production screenshots showed the uploaded drawing beside its independent guide, a partial head-only fade with torso/leg/pelvis colors intact, an unobstructed camera replay and the stacked narrow-screen layout.
+
+**Remaining verification boundary:** a Vercel cloud deployment and physical participant/projector trial have not been performed. The preparation verifies native local production behavior, not live stretching accuracy, heel visibility under exhibition lighting or medical relief.
+
+Evidence outside source: `outputs/out-of-body-vercel-preview.png`, `outputs/out-of-body-vercel-camera.png`, `outputs/out-of-body-vercel-mobile.png`, `work/vercel-production-http-checks.json`, `work/vercel-source-preservation-check.json` and this copy's ignored `test-results/` screenshots. Optional camera replay files are local QA inputs and are not distributed in the source archive.
+
 ## Movement refinement and simpler controls — 5 October 2026
 
 The working uploader, artwork texture renderer, pelvis pivot, camera lifecycle and region masks were preserved. Changes are confined to authored guide routines, their rule-based scoring, skip/reset handling and reducing visible controls.

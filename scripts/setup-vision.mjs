@@ -1,7 +1,8 @@
-import { mkdir, readdir, copyFile, access, writeFile, rename } from "node:fs/promises";
+import { mkdir, readdir, copyFile, stat, writeFile, rename } from "node:fs/promises";
 import path from "node:path";
 
 // Serve the package-matched WASM and a pinned model locally; no runtime CDN dependency.
+const required = process.argv.includes("--required");
 const root = process.cwd();
 const destination = path.join(root, "public/vision");
 await mkdir(destination, { recursive: true });
@@ -11,7 +12,7 @@ for (const file of await readdir(wasmDirectory)) {
 }
 const model = path.join(destination, "pose_landmarker_lite.task");
 try {
-  await access(model);
+  if ((await stat(model)).size < 1_000_000) throw new Error("Installed model is incomplete");
   console.log("Pose model already installed. Local camera tracking is ready.");
 } catch {
   try {
@@ -25,7 +26,8 @@ try {
     await rename(`${model}.partial`, model);
     console.log(`Installed pose model (${(bytes.length / 1024 / 1024).toFixed(1)} MB).`);
   } catch (error) {
-    // Installation remains usable offline in the explicitly labeled manual mode.
+    if (required) throw new Error(`Production build requires the pose model: ${error.message}. Run npm run setup:vision when online.`);
+    // Installation remains usable offline; a production build must include the model.
     console.warn(`Camera model unavailable: ${error.message}. Run npm run setup:vision when online. Manual demo still works.`);
   }
 }

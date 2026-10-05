@@ -146,7 +146,7 @@ test("real MediaPipe moves arms and legs while an unraised pose cannot complete 
   const context = await browser.newContext({ permissions: ["camera"], viewport: { width: 1440, height: 1100 } });
   const page = await context.newPage();
   try {
-    await page.goto("http://127.0.0.1:3201"); await upload(page);
+    await page.goto("http://127.0.0.1:3202"); await upload(page);
     await page.getByRole("button", { name: "Enable camera", exact: true }).click();
     await expect(page.getByRole("button", { name: "Stop camera", exact: true })).toBeVisible({ timeout: 30000 });
     await expect(page.getByText("Body found", { exact: true })).toBeVisible({ timeout: 10000 });
@@ -172,7 +172,7 @@ test("a real MediaPipe lean does not count as the arms-raised stretch", async ()
   const context = await browser.newContext({ permissions: ["camera"], viewport: { width: 1440, height: 1100 } });
   const page = await context.newPage();
   try {
-    await page.goto("http://127.0.0.1:3201"); await upload(page);
+    await page.goto("http://127.0.0.1:3202"); await upload(page);
     await page.getByRole("button", { name: "Enable camera", exact: true }).click();
     await expect(page.getByText("Body found", { exact: true })).toBeVisible({ timeout: 30000 });
     await page.waitForTimeout(3200);
@@ -190,7 +190,7 @@ test("model-load failure stops the camera and keeps manual demo working", async 
   const page = await context.newPage();
   try {
     await page.route("**/vision/pose_landmarker_lite.task", route => route.fulfill({ status: 404, body: "Missing fixture model" }));
-    await page.goto("http://127.0.0.1:3201"); await upload(page);
+    await page.goto("http://127.0.0.1:3202"); await upload(page);
     await page.getByRole("button", { name: "Enable camera", exact: true }).click();
     await expect(page.locator("p[role=alert]")).toContainText("pose model could not load", { timeout: 30000 });
     expect(await page.locator("video").evaluate(v => (v as HTMLVideoElement).srcObject)).toBeNull();
@@ -504,7 +504,7 @@ test("real MediaPipe rotates the textured pelvis while camera position changes l
     return { hip: marker(211, 95, 164), pivot: marker(88, 179, 110) };
   });
   try {
-    await page.goto("http://127.0.0.1:3201"); await upload(page);
+    await page.goto("http://127.0.0.1:3202"); await upload(page);
     await page.getByRole("button", { name: "Enable camera", exact: true }).click();
     await expect(page.getByText("Body found", { exact: true })).toBeVisible({ timeout: 30000 });
     const angles: number[] = [];
@@ -556,7 +556,7 @@ test("real MediaPipe leg extension earns only the legs and feet fade", async () 
   const context = await browser.newContext({ permissions: ["camera"], viewport: { width: 1440, height: 1100 } });
   const page = await context.newPage();
   try {
-    await page.goto("http://127.0.0.1:3201"); await upload(page);
+    await page.goto("http://127.0.0.1:3202"); await upload(page);
     await page.getByRole("combobox", { name: "Body area", exact: true }).selectOption("legs-feet");
     await page.getByRole("button", { name: "Enable camera", exact: true }).click();
     await expect(page.getByText("Body found", { exact: true })).toBeVisible({ timeout: 30000 });
