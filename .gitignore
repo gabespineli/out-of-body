@@ -7,3 +7,16 @@ playwright-report/
 public/vision/
 *.tsbuildinfo
 .env*
+*.log
+*.tmp
+*.temp
+*.partial
+tmp/
+temp/
+.npmrc
+.netrc
+*.pem
+*.key
+credentials*.json
+service-account*.json
+secrets/

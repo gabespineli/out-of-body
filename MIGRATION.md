@@ -1,6 +1,10 @@
 # GitHub + Vercel migration
 
-Prepared on 5 October 2026 in a separate copy, branch `migration/vercel`, from source commit `903c004c7a52befb6d63f94af06266cfafb8043d`. The original `out-of-body-sites` checkout and its working Sites deployment are protected. No hosting connector, publish, GitHub push or Vercel deployment was used.
+Initially prepared on 5 October 2026 in a separate copy, branch `migration/vercel`, from source commit `903c004c7a52befb6d63f94af06266cfafb8043d`. The original `out-of-body-sites` checkout and its working Sites deployment are protected. No Sites publish or Vercel deployment was performed.
+
+## GitHub handoff
+
+The production branch is now **main**, targeting [gabespineli/out-of-body](https://github.com/gabespineli/out-of-body). The remote had no refs before preparation. Local `main` was fast-forwarded to the migration commit, preserving the existing application history; no history rewrite or force push is needed. README instructions and Vercel branch selection now use `main`. Temporary files and common local credential files are excluded alongside the existing dependencies, build output and environment files.
 
 ## Architecture and dependency audit
 
@@ -34,13 +38,13 @@ No participant UI, artwork processing, avatar rigging, webcam lifecycle, visual 
 
 Fresh `npm ci`, TypeScript and the native Next.js production build passed. All **39 logic/asset tests** and **27 browser scenarios** passed, including five real-model camera replays. Production HTTP checks verified the same-origin model/WASM bytes, MIME types, printable SVG and camera headers. The verification record and interaction results are in [QA.md](QA.md).
 
-All 40 tracked original source files matched their pre-migration SHA-256 values; the original HEAD and clean working tree were unchanged. The migration has no diff in `src/` relative to that source commit. No remote is attached and no cloud deployment has been performed.
+All 40 tracked original source files matched their pre-migration SHA-256 values; the original HEAD and clean working tree were unchanged. The migration has no diff in `src/` relative to that source commit. A GitHub remote is attached only to this migration copy. No Vercel cloud deployment has been performed.
 
 ## External requirements
 
 - Node.js 24.x and npm for local builds; Vercel supports this runtime.
 - Build-time access to public npm and Google's versioned model storage. Model/WASM binaries are generated into ignored `public/vision/` and included in deployment output.
-- A GitHub repository and Vercel project owned by the deployer. No remote is attached to this prepared copy; no accounts/project identifiers are embedded.
+- The GitHub repository and a Vercel project owned by the deployer. Only the public repository URL is recorded; no account credentials or Vercel project identifiers are embedded.
 - A browser with webcam support on localhost or HTTPS and explicit camera permission.
 - No runtime database, upload bucket, participant auth provider, OpenAI API, paid inference service or environment variables.
 

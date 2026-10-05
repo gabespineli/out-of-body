@@ -30,28 +30,23 @@ If model setup fails, retry `npm run setup:vision` when online. Development and 
 
 ## GitHub and Vercel
 
-The prepared Git checkout is on branch **migration/vercel**, with no remote attached. If you extracted the source zip instead, first initialize its Git history:
+The repository is [gabespineli/out-of-body](https://github.com/gabespineli/out-of-body). **main** is the production branch. Clone it to preserve the existing application history:
 
 ```sh
-git init -b migration/vercel
-git add .
-git commit -m "Prepare Out of Body for Vercel"
+git clone https://github.com/gabespineli/out-of-body.git
+cd out-of-body
+npm ci
 ```
 
-Create a new empty GitHub repository, then from this project directory:
+The source zip contains files without Git history. It can be used for local development after extraction and `npm ci`; use the Git checkout when contributing to this repository.
 
-```sh
-git remote add origin <YOUR_GITHUB_REPOSITORY_URL>
-git push -u origin migration/vercel
-```
-
-Do not copy `node_modules/`, `.next/`, `out/`, `public/vision/`, `.vercel/` or local test artifacts into Git. The lockfile and install script reproduce the runtime dependencies and generated assets.
+Do not copy dependencies, build output, generated `public/vision/` binaries, local test artifacts, temporary files or credentials into Git. These are excluded by `.gitignore`, including `.env.local`. The lockfile and install script reproduce the runtime dependencies and generated assets.
 
 Import that repository into a **new Vercel project**:
 
 | Setting | Value |
 |---|---|
-| Production branch | `migration/vercel` |
+| Production branch | `main` |
 | Root directory | `.` when this folder is the repository root |
 | Framework preset | Next.js |
 | Node.js version | 24.x |
@@ -62,7 +57,7 @@ Import that repository into a **new Vercel project**:
 
 `vercel.json` records the framework/install/build settings. Do not set the output directory to `out` or `public`; this copy uses an ordinary Next.js production build. If this folder is placed inside a larger repository, select its actual relative folder as the Vercel root directory.
 
-Keep the existing Sites URL and domain configuration unchanged. GitHub repository creation, pushing and Vercel deployment are separate steps; they have not been performed as part of preparing this copy. On the new HTTPS deployment, verify camera permission, upload, a manual guided sequence and PNG export before using it in an exhibition.
+Keep the existing Sites URL and domain configuration unchanged. Import the GitHub repository into Vercel to create the new deployment. On its HTTPS URL, verify camera permission, upload, a manual guided sequence and PNG export before using it in an exhibition.
 
 Vercel supports [native Next.js deployments](https://vercel.com/docs/frameworks/full-stack/nextjs) and [Node.js 24.x](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions). Next.js also supports [running the production build with `next start`](https://nextjs.org/docs/app/guides/self-hosting).
 
