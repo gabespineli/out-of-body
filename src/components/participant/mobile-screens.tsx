@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { SEGMENTS } from "@/lib/rig";
-import { normalizePhoto } from "@/lib/artwork";
+import { drawAlignedPhoto } from "@/lib/artwork";
+import { usePhotoGestures } from "@/hooks/use-photo-gestures";
 import type { usePhotoPreview } from "@/hooks/use-photo-preview";
 import type { useMobileCamera } from "@/hooks/use-mobile-camera";
 export function TemplateGuide() {
@@ -29,14 +30,29 @@ export function MobileCapture({ camera, onCapture, onChoose, busy }: { camera: R
 }
 export function MobilePreview({ photo, onRetake, onSend, sending }: { photo: ReturnType<typeof usePhotoPreview>; onRetake: () => void; onSend: () => void; sending: boolean }) {
   const preview = useRef<HTMLCanvasElement>(null);
+  const gestures = usePhotoGestures(photo.alignment, photo.setAlignment, sending, photo.image);
   useEffect(() => {
     if (!photo.image || !preview.current) return;
-    preview.current.getContext("2d")!.drawImage(normalizePhoto(photo.image, photo.alignment), 0, 0);
+    const frame = requestAnimationFrame(() => {
+      if (photo.image && preview.current) drawAlignedPhoto(preview.current.getContext("2d")!, photo.image, photo.alignment);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [photo.image, photo.alignment]);
   return <section aria-labelledby="mobile-preview-title"><h2 id="mobile-preview-title">Preview your drawing</h2>
-    <p>Align the photo before sending.</p>
-    <div className="phone-photo"><canvas ref={preview} width="600" height="900" data-testid="mobile-preview" aria-label="Prepared drawing preview" /><TemplateGuide /></div>
-    <details><summary>Adjust alignment</summary>{([
+    <p id="photo-gesture-hint">Drag to move. Pinch to zoom. Match the outline.</p>
+    <div className={`phone-photo touch-align${gestures.active ? " is-aligning" : ""}`} ref={gestures.surface} {...gestures.handlers}
+      tabIndex={sending ? -1 : 0} role="group" aria-label="Align your drawing" aria-disabled={sending} aria-describedby="photo-gesture-hint photo-keyboard-hint"
+      data-testid="photo-alignment" data-scale={photo.alignment.scale} data-x={photo.alignment.x} data-y={photo.alignment.y} data-rotation={photo.alignment.rotation}>
+      <canvas ref={preview} width="600" height="900" data-testid="mobile-preview" aria-label="Prepared drawing preview" /><TemplateGuide />
+    </div>
+    <span className="visually-hidden" id="photo-keyboard-hint">Arrow keys move the photo. Plus and minus zoom. Fine adjustment includes rotation.</span>
+    <div className="button-row photo-quick-controls" aria-label="Photo alignment controls">
+      <button type="button" aria-label="Zoom out" disabled={sending || photo.alignment.scale <= .5} onClick={() => gestures.zoom(1 / 1.2)}>−</button>
+      <output aria-label="Photo zoom" aria-live="off">{Math.round(photo.alignment.scale * 100)}%</output>
+      <button type="button" aria-label="Zoom in" disabled={sending || photo.alignment.scale >= 3} onClick={() => gestures.zoom(1.2)}>+</button>
+      <button type="button" disabled={sending} onClick={gestures.reset}>Reset alignment</button>
+    </div>
+    <details><summary>Fine adjustment</summary>{([
       ["scale", "Zoom", .5, 3, .01], ["x", "Horizontal", -250, 250, 1], ["y", "Vertical", -400, 400, 1], ["rotation", "Rotation", -30, 30, 1],
     ] as const).map(([key, label, min, max, step]) => <label key={key} className="slider-label">{label}<input type="range" aria-label={`Mobile photo ${label.toLowerCase()}`}
       value={photo.alignment[key]} min={min} max={max} step={step} disabled={sending} onChange={event => photo.setAlignment({ ...photo.alignment, [key]: +event.target.value })} /></label>)}</details>

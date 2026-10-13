@@ -14,6 +14,14 @@
 .phone-camera, .phone-photo { position: relative; width: 100%; aspect-ratio: 2/3; background: #eee; margin: 12px 0; }
 .phone-camera video, .phone-photo canvas { display: block; width: 100%; height: 100%; object-fit: cover; }
 .photo-template { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.touch-align { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: grab; }
+.touch-align.is-aligning { cursor: grabbing; }
+.touch-align:focus-visible { outline: 2px solid #2563a6; outline-offset: 3px; }
+.touch-align[aria-disabled="true"] { cursor: default; }
+.photo-quick-controls { align-items: center; }
+.photo-quick-controls button { min-width: 44px; }
+.photo-quick-controls output { min-width: 44px; text-align: center; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 * { box-sizing: border-box; }
 body { margin: 0; background: white; color: #222; font: 14px Arial, sans-serif; }
 button, input, select { font: inherit; }

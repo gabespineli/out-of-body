@@ -6,6 +6,8 @@ This is the separate GitHub/Vercel migration of the existing application. The or
 
 The participant-journey implementation adds `/installation` for desktop QR pairing and `/mobile` for phone capture, preview and upload. It uses a new dedicated Supabase project for private temporary artwork and session capabilities. The original `/` experience remains available. See [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for Docker startup/cloud instructions and [PARTICIPANT_JOURNEY.md](PARTICIPANT_JOURNEY.md) for component boundaries and Figma structural references. Detailed styling is deferred.
 
+On the mobile photo preview, drag with one finger to position the drawing and pinch with two fingers to zoom around their midpoint. The silhouette guide stays fixed. Zoom buttons and Reset alignment are available beside the preview; Fine adjustment retains the sliders, including rotation. The prepared upload uses exactly the same alignment as the preview. Page scrolling and browser zoom remain available outside the photo surface.
+
 ## Local development
 
 Use Node.js **24.x** and npm. The included `.nvmrc` and `package.json` record this version.

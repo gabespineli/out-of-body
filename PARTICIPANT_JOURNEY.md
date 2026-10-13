@@ -17,6 +17,7 @@ The camera and preview are separate functional steps around the Figma upload str
 - `src/components/participant/`: screen markup, buttons and stage coordination.
 - `src/hooks/use-mobile-camera.ts`: rear-camera request/capture/cancellation/stream disposal.
 - `src/hooks/use-photo-preview.ts`: local photo validation and alignment using the existing normalizer.
+- `src/hooks/use-photo-gestures.ts` and `src/lib/photo-alignment.ts`: pointer capture, anchored pinch/drag, cancellation, limits and keyboard/button equivalents. Gesture state feeds the existing alignment; it does not change the upload or session protocol.
 - `src/lib/participant-api.ts`, `participant-session.ts`: browser transport, shared session types and QR URL format.
 - `src/server/`: authorization, session state/storage, bounded PNG validation.
 - `src/app/api/participant/`: small route handlers; no participant secrets or storage keys in browser code.
@@ -24,6 +25,8 @@ The camera and preview are separate functional steps around the Figma upload str
 - Existing pose detector, guide progression, fixed rig, color masks, renderer, webcam hook and artwork hook remain unchanged.
 
 The existing `Installation` accepts an optional prepared File and lifecycle callbacks. Without those props, `/` keeps its original behavior. The new `/installation` wrapper supplies remote artwork and reacts to receipt/completion/reset. Visual updates can replace screen markup/CSS without changing capability authorization, storage or movement logic.
+
+Mobile preview and PNG preparation share `drawAlignedPhoto`, with the existing canvas transform. The preview reuses its canvas and paints on animation frames during gestures. Pointer count changes rebase the current alignment to avoid jumps; resize, cancellation, reset and upload disablement clear active contacts. Custom touch handling is scoped to the photo surface, leaving navigation/scrolling outside it available.
 
 ## Session lifecycle
 

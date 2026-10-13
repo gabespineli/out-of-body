@@ -23,14 +23,19 @@ export function loadImage(url: string): Promise<HTMLImageElement> {
 export function normalizePhoto(image: HTMLImageElement, alignment: Alignment) {
   const output = canvas();
   const ctx = output.getContext("2d", { willReadFrequently: true })!;
+  drawAlignedPhoto(ctx, image, alignment);
+  return output;
+}
+
+// Preview and export share the same transform; reuse the preview canvas during gestures.
+export function drawAlignedPhoto(ctx: CanvasRenderingContext2D, image: HTMLImageElement, alignment: Alignment) {
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = "#faf8f3"; ctx.fillRect(0, 0, WIDTH, HEIGHT);
   const scale = Math.min(WIDTH / image.naturalWidth, HEIGHT / image.naturalHeight) * alignment.scale;
-  ctx.save();
   ctx.translate(WIDTH / 2 + alignment.x, HEIGHT / 2 + alignment.y);
   ctx.rotate(alignment.rotation * Math.PI / 180);
   ctx.drawImage(image, -image.naturalWidth * scale / 2, -image.naturalHeight * scale / 2, image.naturalWidth * scale, image.naturalHeight * scale);
   ctx.restore();
-  return output;
 }
 
 let shapes: Record<BodyArea, Uint8ClampedArray> | undefined;

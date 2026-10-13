@@ -1,5 +1,21 @@
 # Verification record
 
+## Mobile pinch and drag alignment — 14 October 2026
+
+The mobile preview now supports one-finger positioning and two-finger zoom around the moving midpoint. The silhouette guide stays fixed. Zoom buttons, a percentage readout and Reset alignment provide quick alternatives; Fine adjustment retains the existing sliders and rotation control. Gestures feed the existing alignment object and prepared PNG.
+
+- Production build and TypeScript: **passed**. **50 logic/validation/asset tests passed**, including six new coordinate/focal-point/limit/contact-transition checks.
+- **33 browser scenarios passed together in one run (3.0 minutes), zero skipped**: the 27 existing upload/rig/camera/stretch/fade/export/fullscreen scenarios, including five actual MediaPipe replay cases, and six new mobile alignment scenarios.
+- Chromium's native injected touch input verified one-finger drag and off-center two-finger pinch. The tracked colored photo point stayed under the pinch midpoint; the SVG guide stayed fixed and the browser viewport did not zoom.
+- Contact transitions, cancellation and viewport resize were checked. CDP cannot release just one touch using touchEnd, so the contact-transition scenario supplies one pointer-up event before continuing the remaining native contact. The unit test separately verifies the transition geometry.
+- Verified zoom bounds, reset, keyboard pan/zoom, retained rotation sliders, and widths 320/768/1024/1440. Custom gesture handling is limited to the preview; swiping outside it still scrolls the page.
+- The submitted 600 × 900 PNG matched the adjusted preview's entire decoded pixel buffer by SHA-256. The same submitted file loaded into the existing avatar with its actual colors. Sending disabled further edits and reset until upload finished.
+- WebKit also passed native pointer drag and the zoom/reset controls. Physical iPhone/Android finger behavior still needs a short device check after deployment; desktop WebKit is not a physical Safari device.
+- Preview painting reuses its canvas on animation frames. Preview/export share the existing transform through a small extracted drawing helper. No gesture library or dependency was added.
+- The new mobile tests use controlled session/upload responses and capture the submitted PNG; no Supabase instance was created, started or modified for this change. Cloud session, storage and cleanup code is unchanged.
+
+Visual evidence: `outputs/out-of-body-mobile-touch-alignment.png`. This is a functional UX update; final Figma styling remains deferred.
+
 ## Mobile participant journey — 13 October 2026
 
 The new journey uses a dedicated local Supabase instance, not an in-memory storage substitute. Figma screens were read as structural references; final styling/shader effects are deferred.
