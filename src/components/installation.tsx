@@ -16,8 +16,17 @@ import { VisualInstructor } from "./visual-instructor";
 
 const EMPTY_PROGRESS = { hold: 0, fade: 0, complete: false, active: false };
 
-export function Installation() {
+export type InstallationResult = { snapshot: string; skipped: BodyArea[] };
+type InstallationProps = { initialArtwork?: File; onArtworkReady?: () => void; onComplete?: (result: InstallationResult) => void; onParticipantReset?: () => void };
+export function Installation({ initialArtwork, onArtworkReady, onComplete, onParticipantReset }: InstallationProps = {}) {
   const artwork = useArtwork();
+  const uploadedExternal = useRef<File | null>(null), notifiedArtwork = useRef<File | null>(null), notifiedComplete = useRef(false);
+  useEffect(() => {
+    if (initialArtwork && uploadedExternal.current !== initialArtwork) { uploadedExternal.current = initialArtwork; artwork.upload(initialArtwork); }
+  }, [initialArtwork, artwork.upload]);
+  useEffect(() => {
+    if (initialArtwork && artwork.art && notifiedArtwork.current !== initialArtwork) { notifiedArtwork.current = initialArtwork; onArtworkReady?.(); }
+  }, [initialArtwork, artwork.art, onArtworkReady]);
   const source = useRef<MotionSource>({ motion: { ...REST }, time: 0 });
   const camera = useCamera(source);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -44,6 +53,14 @@ export function Installation() {
   const [full, setFull] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+
+  useEffect(() => {
+    if (!journey.done) { notifiedComplete.current = false; return; }
+    if (guidedRunning && onComplete && !notifiedComplete.current && canvas.current) {
+      notifiedComplete.current = true;
+      onComplete({ snapshot: canvas.current.toDataURL("image/png"), skipped: [...journey.skipped] });
+    }
+  }, [journey.done, journey.skipped, guidedRunning, onComplete]);
 
   const restore = useCallback(() => {
     holds.current = createAreaHolds();
@@ -134,6 +151,7 @@ export function Installation() {
     camera.stop(); setMode("camera"); setManual({ ...MANUAL_REST });
     setArea("arms-back"); setExperience("guided"); setGuidedRunning(false); setPaused(false); setTiming({ ...DEFAULT_TIMING }); setStrength(.97);
     displayed.current = { ...REST }; artwork.reset(); restore(); setSaveError(""); setFullscreenError("");
+    onParticipantReset?.();
   };
   const enterFullscreen = async () => {
     setFullscreenError("");

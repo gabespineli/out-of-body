@@ -1,0 +1,44 @@
+project_id = "out-of-body-participant-mvp"
+
+[api]
+enabled = true
+port = 55321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 55322
+shadow_port = 55320
+major_version = 17
+
+[db.seed]
+enabled = false
+
+[studio]
+enabled = true
+port = 55323
+api_url = "http://127.0.0.1"
+
+[local_smtp]
+enabled = false
+port = 55324
+
+[storage]
+enabled = true
+file_size_limit = "3MiB"
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3202"
+enable_signup = false
+
+[realtime]
+enabled = false
+
+[analytics]
+enabled = false
+port = 55327
+
+[edge_runtime]
+enabled = false

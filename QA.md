@@ -1,5 +1,27 @@
 # Verification record
 
+## Mobile participant journey — 13 October 2026
+
+The new journey uses a dedicated local Supabase instance, not an in-memory storage substitute. Figma screens were read as structural references; final styling/shader effects are deferred.
+
+- **Production build and TypeScript passed.** Native Next.js exposes the preserved pages plus `/mobile`, `/installation` and authorized participant routes.
+- **44 logic/asset/validation tests passed**, including five new capability/origin/PNG checks.
+- **38 browser scenarios passed in one full run (4.2 minutes), zero skipped**: all 27 existing scenarios, including the five actual MediaPipe reference-camera replays, plus 11 new participant scenarios.
+- After switching the backend to the current Supabase secret/publishable key format, the production build passed again and **all 11 participant scenarios passed** in their focused rerun (1.4 minutes).
+- The rendered QR PNG was independently decoded and used to open a separate mobile browser context. Pairing was exchanged once for a private cookie and removed from the phone's address bar.
+- The phone landing, camera/file fallback, prepared/aligned preview and explicit upload led to private storage and automatic desktop retrieval. Exact uploaded colors appeared in the existing rig. The complete three-activity guide ended at the new completion screen; black marks stayed unchanged in its PNG.
+- A portrait synthetic Y4M drawing replay exercised actual browser video capture. Its captured preview pixels matched the stored PNG. Camera denial retained photo selection; invalid images stayed out of preview; retake and pending-permission cancellation worked. A late camera stream was stopped.
+- Verified table RLS, a private bucket, and denial using the actual anonymous/publishable key and a public Storage URL. An unpaired browser could neither upload nor retrieve art. Cross-origin creation was denied. A second installation could not retrieve the first installation's image.
+- Duplicate and simultaneous uploads could not replace the first image. A network-failed phone upload retained the preview and retried successfully. Reset made a new session/QR and revoked the old phone. Completion/reset deleted the stored object.
+- Expired pairing/session capabilities were rejected. Protected cleanup removed both the actual object and its row. The minute scheduler separately deleted an expired image **without a manual cleanup request**, proving the local Cron → Vault → app → Storage deletion path.
+- The existing detector, rig, guide scoring, renderer, masks, webcam hook and artwork hook were unchanged. The existing Installation received only optional remote-file and lifecycle props; all original local/manual features passed regression checks.
+
+The first targeted run exposed a localhost/127.0.0.1 origin mismatch, which was fixed by checking the browser-facing host. A test error report included the local installation test key; that key was rotated, the input is cleared when submitted, and credential-bearing participant tests now disable retained network traces and authenticate setup outside UI snapshots.
+
+**Boundary:** no dedicated hosted Supabase project was provisioned or linked, and no new Vercel deployment was made. The same service implementation was tested against real local Supabase. Live phone HTTPS pairing, physical participant stretching, real paper photos and projector output still require the hosted/exhibition trial. No clinical accuracy or medical relief is claimed.
+
+Startup/cloud directions are in `SUPABASE_SETUP.md`. Local services use project ID `out-of-body-participant-mvp` and ports 55321–55323; other Supabase projects and the original Sites source/deployment were not modified. Generated synthetic test sessions/objects were removed.
+
 ## GitHub main preparation — 5 October 2026
 
 The production branch in the separate Vercel copy is now `main`, targeting `https://github.com/gabespineli/out-of-body.git`. The target repository had no refs. Local `main` was fast-forwarded to migration commit `756e5f7`, preserving all nine existing application/migration commits. The README now selects `main` for Vercel.

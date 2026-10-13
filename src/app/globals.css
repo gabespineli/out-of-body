@@ -1,4 +1,19 @@
 :root { color-scheme: light; }
+/* Functional participant screens. Figma styling stays separate from session logic. */
+.participant-entry, .participant-completion { max-width: 800px; margin: 0 auto; padding: 24px; }
+.participant-pairing img { display: block; max-width: 100%; height: auto; }
+.participant-completion { min-height: 70vh; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+.participant-completion h1 { font-size: 30px; }
+.participant-session-bar { display: flex; gap: 10px; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #ccc; flex-wrap: wrap; }
+.participant-note { color: #555; font-size: 12px; }
+.participant-error { margin: 16px; }
+.mobile-participant { max-width: 480px; margin: 0 auto; padding: 16px; min-height: 100svh; }
+.mobile-participant header { margin-bottom: 24px; }
+.mobile-participant button { min-height: 44px; margin: 6px 0; }
+.mobile-participant input[type="file"] { margin: 10px 0; }
+.phone-camera, .phone-photo { position: relative; width: 100%; aspect-ratio: 2/3; background: #eee; margin: 12px 0; }
+.phone-camera video, .phone-photo canvas { display: block; width: 100%; height: 100%; object-fit: cover; }
+.photo-template { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 * { box-sizing: border-box; }
 body { margin: 0; background: white; color: #222; font: 14px Arial, sans-serif; }
 button, input, select { font: inherit; }

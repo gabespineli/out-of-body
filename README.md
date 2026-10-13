@@ -2,7 +2,9 @@
 
 An interactive art prototype. Upload a drawing on the supplied human silhouette, follow an independent animated stretching guide, and watch the actual drawing mirror your movements. Participation gradually fades the corresponding colored marks while preserving the outline.
 
-This is the separate GitHub/Vercel migration of the existing application. The original ChatGPT Sites checkout and deployment are not part of this deployment. See [MIGRATION.md](MIGRATION.md) for the architecture audit and [QA.md](QA.md) for verification evidence.
+This is the separate GitHub/Vercel migration of the existing application. The original ChatGPT Sites checkout and deployment remain unchanged. See [MIGRATION.md](MIGRATION.md) for the original migration audit and [QA.md](QA.md) for verification evidence.
+
+The participant-journey implementation adds `/installation` for desktop QR pairing and `/mobile` for phone capture, preview and upload. It uses a new dedicated Supabase project for private temporary artwork and session capabilities. The original `/` experience remains available. See [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for Docker startup/cloud instructions and [PARTICIPANT_JOURNEY.md](PARTICIPANT_JOURNEY.md) for component boundaries and Figma structural references. Detailed styling is deferred.
 
 ## Local development
 
@@ -26,7 +28,17 @@ A different port can be selected with `npm run dev -- --port 3202` or `npm start
 
 Installation copies the matching MediaPipe WASM files and downloads Google's pinned Pose Landmarker Lite v1 model into `public/vision/`. These generated assets are ignored by Git and served from this application's own origin. `npm run build` rechecks them and fails if the model cannot be installed, preventing a successful deployment with a missing camera model.
 
-If model setup fails, retry `npm run setup:vision` when online. Development and Manual demo remain available; a production build requires the model. No environment variables, API keys, database or participant accounts are required.
+If model setup fails, retry `npm run setup:vision` when online. Development and Manual demo remain available; a production build requires the model. The original local-upload experience needs no cloud configuration. The new QR journey needs the Supabase/server settings in `.env.example`; participants need no accounts.
+
+For the full local journey, with Docker running:
+
+```sh
+npm run backend:start
+npm run backend:env
+npm run dev
+```
+
+Open `http://localhost:3000/installation`. Local Supabase Studio is `http://localhost:55323`. These ports and containers are separate from other projects. The environment helper also configures automatic cleanup. Use the generated `OOB_INSTALLATION_KEY` from your ignored `.env.local` once on the desktop pairing screen.
 
 ## GitHub and Vercel
 
@@ -53,7 +65,7 @@ Import that repository into a **new Vercel project**:
 | Install command | `npm ci` |
 | Build command | `npm run build` |
 | Output directory | Leave at the Next.js framework default |
-| Environment variables | None required |
+| Environment variables | `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `OOB_INSTALLATION_KEY`, `OOB_CLEANUP_SECRET`; optional `OOB_PUBLIC_URL` |
 
 `vercel.json` records the framework/install/build settings. Do not set the output directory to `out` or `public`; this copy uses an ordinary Next.js production build. If this folder is placed inside a larger repository, select its actual relative folder as the Vercel root directory.
 
@@ -69,11 +81,15 @@ out-of-body-vercel/
 │   ├── app/                     # Page, layout, CSS and printable drawing-sheet route
 │   ├── components/              # Installation, upload, motion controls and visual instructor
 │   ├── hooks/                   # Artwork, webcam/MediaPipe and optional WebMCP bindings
-│   └── lib/                     # Fixed rig, pixel rendering, detectors, progress and PNG export
+│   ├── lib/                     # Fixed rig, pixel rendering, detectors, progress and PNG export
+│   └── server/                  # Private sessions, authorization and upload validation
 ├── public/
 │   ├── favicon.svg
 │   └── vision/                  # Generated WASM/model assets; not committed
 ├── scripts/setup-vision.mjs
+├── scripts/setup-local.mjs
+├── scripts/start-backend.mjs
+├── supabase/                    # Dedicated local config, private schema and cleanup schedule
 ├── tests/                       # Pose/progress logic and browser interaction scenarios
 ├── next.config.ts               # Native Next.js settings and permission/security headers
 ├── vercel.json
@@ -83,10 +99,12 @@ out-of-body-vercel/
 ├── .nvmrc
 ├── README.md
 ├── MIGRATION.md
+├── SUPABASE_SETUP.md
+├── PARTICIPANT_JOURNEY.md
 └── QA.md
 ```
 
-The page is a Next.js App Router shell around browser-side React/Canvas logic. The only route handler generates the printable SVG. There is no participant API or persistent storage.
+The page is a Next.js App Router shell around browser-side React/Canvas logic. The only route handler generates the printable SVG. The QR journey adds server routes and temporary Supabase storage. The direct local-upload page still processes its drawing in browser memory.
 
 ## Using the existing experience
 
@@ -115,7 +133,7 @@ Manual demo uses the existing sliders and progress system. Manual heel input sim
 - Region-specific masks fade saturated colored pixels toward paper color. Black/gray outline strokes, other regions and the pelvis remain unchanged. Back uses the front-facing torso as its artistic proxy.
 - Alignment does not correct perspective, remove shadows or recognize discomfort. Pale colors may be excluded; colored lighting can be included. Retake skewed/poorly lit photographs.
 - Uploads support JPEG/PNG/WebP up to 20 MB, with minimum 100-pixel dimensions and a 50-megapixel ceiling.
-- All participant photos and camera frames stay in browser memory. Reloading clears the drawing; **Save PNG** explicitly downloads an opaque 840 × 900 result. There is no QR/mobile handoff, shared session or participant database.
+- Direct uploads and webcam frames stay in browser memory. In the QR journey, only a prepared opaque 600 × 900 PNG is sent to private temporary storage; camera video and the original photo are never uploaded. The desktop retrieves it through its own authorized route. Completion/reset deletes the temporary object; expired objects are cleaned automatically when the configured scheduler/app are reachable. **Save PNG** explicitly downloads an opaque 840 × 900 result.
 - Color fading represents symbolic artistic progress, not proof of medical relief or exercise-form validation.
 
 ## Camera recovery and external requirements
@@ -133,7 +151,7 @@ Use Chrome or Edge on localhost or HTTPS, with a physical webcam and permission 
 
 The MediaPipe CPU model runs at up to 20 inference calls per second; device performance varies. Build-time network access is needed for public npm packages and the [pinned Google model](https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task). Runtime model/WASM requests go to `/vision` on the app's own origin.
 
-Optional WebMCP tools are feature-detected and tied to visible controls. They require no Sites SDK, login or OpenAI API key. Browsers without WebMCP run the full application. Deployment requires your GitHub/Vercel accounts; the application itself requires no external auth, storage, database or paid API.
+Optional WebMCP tools are feature-detected and tied to visible controls. They require no Sites SDK, login or OpenAI API key. Browsers without WebMCP run the application. QR pairing uses a dedicated Supabase database/private bucket and server secrets. New-project setup and Cron/Vault activation are documented in `SUPABASE_SETUP.md`; the original local/manual flow continues to work without them.
 
 ## Verification
 
@@ -147,6 +165,6 @@ npm run test:browser
 
 Browser tests launch the production server on port 3202. Optional real-model replay tests need `OOB_CAMERA_FIXTURE`, `OOB_LEAN_CAMERA_FIXTURE` and `OOB_HIP_CAMERA_FIXTURE` pointing to local Y4M reference-photo camera replays. Those files are not shipped with the source. Without them, the five replay scenarios are skipped; manual/error/upload/guided scenarios still run.
 
-See [QA.md](QA.md) for the migration's actual results. Automated replay verifies real model inference and regressions; a physical participant performing the routines, paper photographs under exhibition lighting and the projector still need a practical trial. The migration does not claim new movement accuracy.
+See [QA.md](QA.md) for the participant journey and migration results. Automated replay verifies real model inference and regressions; a physical participant performing the routines, paper photographs under exhibition lighting and the projector still need a practical trial. The migration does not claim new movement accuracy.
 
 The existing tracker follows the [MediaPipe Pose Landmarker documentation](https://developers.google.com/edge/mediapipe/solutions/vision/pose_landmarker).

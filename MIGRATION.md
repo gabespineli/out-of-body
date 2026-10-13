@@ -1,5 +1,7 @@
 # GitHub + Vercel migration
 
+This document records the original hosting migration. The new participant journey adds a dedicated temporary Supabase backend; its current architecture and setup are in [PARTICIPANT_JOURNEY.md](PARTICIPANT_JOURNEY.md) and [SUPABASE_SETUP.md](SUPABASE_SETUP.md). The original Sites deployment remains unchanged.
+
 Initially prepared on 5 October 2026 in a separate copy, branch `migration/vercel`, from source commit `903c004c7a52befb6d63f94af06266cfafb8043d`. The original `out-of-body-sites` checkout and its working Sites deployment are protected. No Sites publish or Vercel deployment was performed.
 
 ## GitHub handoff

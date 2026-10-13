@@ -1,0 +1,51 @@
+"use client";
+import { useEffect, useRef } from "react";
+import { SEGMENTS } from "@/lib/rig";
+import { normalizePhoto } from "@/lib/artwork";
+import type { usePhotoPreview } from "@/hooks/use-photo-preview";
+import type { useMobileCamera } from "@/hooks/use-mobile-camera";
+export function TemplateGuide() {
+  return <svg className="photo-template" viewBox="0 0 600 900" aria-hidden="true">{Object.values(SEGMENTS).map((path, index) =>
+    <path key={index} d={path} fill="none" stroke="#ad3156" strokeWidth="2" strokeDasharray="9 7" />)}</svg>;
+}
+export function MobileLanding({ connected, onContinue }: { connected: boolean; onContinue: () => void }) {
+  return <section aria-labelledby="mobile-landing-title"><h2 id="mobile-landing-title">Your drawing, in motion</h2>
+    <p>{connected ? "Photograph your drawing, then move to the installation." : "Scan the QR code on the installation to connect your phone."}</p>
+    <button disabled={!connected} onClick={onContinue}>Upload drawing</button>
+    <details><summary>About Out of Body</summary><p>Draw how your body feels, then follow gentle movement. Fading colors represent symbolic progress.</p></details>
+  </section>;
+}
+export function MobileCapture({ camera, onCapture, onChoose, busy }: { camera: ReturnType<typeof useMobileCamera>; onCapture: () => void; onChoose: (file: File) => void; busy: boolean }) {
+  return <section aria-labelledby="mobile-camera-title"><h2 id="mobile-camera-title">Photograph your drawing</h2>
+    <p>Keep the whole page upright. Match the outline.</p>
+    <div className="phone-camera"><video ref={camera.video} autoPlay playsInline muted aria-label="Drawing camera preview" /><TemplateGuide /></div>
+    <div className="button-row">{camera.status === "live" ? <button onClick={onCapture} disabled={busy}>Take photo</button>
+      : <button onClick={() => void camera.start()} disabled={busy || camera.status === "requesting"}>{camera.status === "requesting" ? "Opening camera…" : "Open camera"}</button>}
+      {camera.status === "requesting" && <button onClick={camera.stop}>Cancel camera</button>}</div>
+    <label className="field-label">Or choose a photo<input data-testid="mobile-photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy}
+      onChange={event => { const file = event.target.files?.[0]; if (file) onChoose(file); event.target.value = ""; }} /></label>
+    {camera.error && <p role="alert" className="error-message">{camera.error}</p>}
+  </section>;
+}
+export function MobilePreview({ photo, onRetake, onSend, sending }: { photo: ReturnType<typeof usePhotoPreview>; onRetake: () => void; onSend: () => void; sending: boolean }) {
+  const preview = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (!photo.image || !preview.current) return;
+    preview.current.getContext("2d")!.drawImage(normalizePhoto(photo.image, photo.alignment), 0, 0);
+  }, [photo.image, photo.alignment]);
+  return <section aria-labelledby="mobile-preview-title"><h2 id="mobile-preview-title">Preview your drawing</h2>
+    <p>Align the photo before sending.</p>
+    <div className="phone-photo"><canvas ref={preview} width="600" height="900" data-testid="mobile-preview" aria-label="Prepared drawing preview" /><TemplateGuide /></div>
+    <details><summary>Adjust alignment</summary>{([
+      ["scale", "Zoom", .5, 3, .01], ["x", "Horizontal", -250, 250, 1], ["y", "Vertical", -400, 400, 1], ["rotation", "Rotation", -30, 30, 1],
+    ] as const).map(([key, label, min, max, step]) => <label key={key} className="slider-label">{label}<input type="range" aria-label={`Mobile photo ${label.toLowerCase()}`}
+      value={photo.alignment[key]} min={min} max={max} step={step} disabled={sending} onChange={event => photo.setAlignment({ ...photo.alignment, [key]: +event.target.value })} /></label>)}</details>
+    <div className="button-row"><button onClick={onSend} disabled={sending}>{sending ? "Sending drawing…" : "Send to installation"}</button><button onClick={onRetake} disabled={sending}>Retake / choose again</button></div>
+  </section>;
+}
+export function MobileSent({ received }: { received: boolean }) {
+  return <section aria-labelledby="mobile-sent-title"><h2 id="mobile-sent-title">Drawing uploaded</h2>
+    <p role="status">{received ? "Your drawing is on the installation." : "The installation is retrieving your drawing."}</p>
+    <p>Move to the screen and start stretching.</p><p className="participant-note">The temporary copy is deleted when the session ends or expires.</p>
+  </section>;
+}
