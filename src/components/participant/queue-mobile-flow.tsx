@@ -6,6 +6,7 @@ import { useMobileCamera } from "@/hooks/use-mobile-camera";
 import { usePhotoPreview } from "@/hooks/use-photo-preview";
 import { useVisiblePoll } from "@/hooks/use-visible-poll";
 import { MobileCapture, MobilePreview } from "./mobile-screens";
+import { BrandLogo, DesignIcon } from "../design-brand";
 export function QueueMobileFlow({ notice }: { notice: string }) {
   const camera = useMobileCamera(), photo = usePhotoPreview();
   const [ticket, setTicket] = useState<QueueTicket | null>(null), [queue, setQueue] = useState<QueuePublic | null>(null);
@@ -69,24 +70,26 @@ export function QueueMobileFlow({ notice }: { notice: string }) {
     finally { locked.current = false; setBusy(false); }
   };
   const ended = ticket && terminalTicket(ticket.status);
-  return <main className="mobile-participant" data-testid="mobile-flow" data-step={step}><header><h1>Out of Body</h1></header>
+  return <main className="mobile-participant" data-testid="mobile-flow" data-step={step} data-terminal={!!ended}><header className="mobile-brand"><h1><BrandLogo /></h1></header>
     {notice && <p className="participant-note">{notice}</p>}
-    {!initialized ? <p role="status">Checking the installation…</p> : step === "about" ? <section><h2>About Out of Body</h2>
-      <p>Draw how your body feels, then bring that drawing to life through gentle movement. Follow the guide as the colored marks gradually fade.</p>
-      <p>Take your time, stay comfortable, and skip any activity. The changing colors represent symbolic progress.</p><button onClick={() => setStep("landing")}>Back to home</button></section>
-      : step === "landing" ? <section><h2 className="visually-hidden">Your drawing, in motion</h2><p>Prepare your drawing while another participant stretches.</p>
-        <p role="status">{!queue ? "Checking available slots…" : !queue.online ? "The installation is not accepting participants yet." : !queue.accepting ? "The queue is currently full. Please try again shortly." : `${queue.waiting} of ${queue.capacity} waiting slots reserved.`}</p>
-        <div className="mobile-primary-actions"><button className="primary-action" onClick={() => ticket && !terminalTicket(ticket.status) ? setStep(ticket.status === "preparing" ? "camera" : "waiting") : void join()} disabled={busy || (!ticket || terminalTicket(ticket.status)) && !queue?.accepting}>{busy ? "Reserving your slot…" : ticket && !terminalTicket(ticket.status) ? ticket.status === "preparing" ? "Continue my drawing" : "View my ticket" : "Upload drawing"}</button>
-        <button className="quiet-action" onClick={() => setStep("about")}>About Out of Body</button></div></section>
-      : ended ? <section><h2>{ticket.status === "completed" ? "Thank you for moving!" : ticket.status === "expired" ? "Your ticket expired" : "Ticket cancelled"}</h2>
+    {!initialized ? <p className="mobile-loading" role="status">Checking the installation…</p> : step === "about" ? <section className="mobile-about"><h2 className="visually-hidden">About Out of Body</h2>
+      <button className="primary-action about-home" aria-label="Back to home" onClick={() => setStep("landing")}><DesignIcon name="home" /></button>
+      <p>Out of Body revolves around an artistic release of the self. Participants have the chance to release sensations and emotions that their body and mind are going through. This design bridges a digital interface real-time feedback together with tangible tactile expression, where users are encouraged to regain their dynamic body movement.</p>
+      <p>By reflecting on how your body has been feeling lately, this interactive, experiential space provides a process that anyone can use to reconnect with their body in a few minutes, without equipment, and move freely!</p>
+      <p>This project gives an avenue for people who either sit too long from studying or those who work out a lot to release any tensions that may be building up in their bodies because people tend to ignore what their body is actually telling them. When they put their discomfort into color, they can actually see it, instead of just pushing through. As they move according to the colors, they feel that doing so makes them feel better. That&apos;s what makes them want to check in with their body and move again next time until it turns into a habit.</p></section>
+      : step === "landing" ? <section className="mobile-landing"><h2 className="visually-hidden">Your drawing, in motion</h2><p className="visually-hidden">Prepare your drawing while another participant stretches.</p>
+        <div className="mobile-primary-actions"><button className="primary-action" onClick={() => ticket && !terminalTicket(ticket.status) ? setStep(ticket.status === "preparing" ? "camera" : "waiting") : void join()} disabled={busy || (!ticket || terminalTicket(ticket.status)) && !queue?.accepting}><DesignIcon name="camera" />{busy ? "Reserving your slot…" : ticket && !terminalTicket(ticket.status) ? ticket.status === "preparing" ? "Continue my drawing" : "View my ticket" : "Upload drawing"}</button>
+        <button className="about-action" onClick={() => setStep("about")}>About <em>Out of Body</em></button></div>
+        <p className="intake-status" role="status">{!queue ? "Checking available slots…" : !queue.online ? "The installation is not accepting participants yet." : !queue.accepting ? "The queue is currently full. Please try again shortly." : `${queue.waiting} of ${queue.capacity} waiting slots reserved.`}</p></section>
+      : ended ? <section className="mobile-ended"><h2>{ticket.status === "completed" ? "Thank you for moving!" : ticket.status === "expired" ? "Your ticket expired" : "Ticket cancelled"}</h2>
         <p>{ticket.status === "completed" ? "Please take home a care card and remember to look after your body." : "Your temporary drawing is scheduled for deletion."}</p>
-        <button onClick={() => setStep("landing")}>Back to home</button></section>
+        <button className="primary-action home-action" onClick={() => setStep("landing")}><DesignIcon name="home" />Back to home</button></section>
       : step === "camera" ? <MobileCapture camera={camera} onCapture={() => void capture()} onChoose={file => void choose(file)} busy={busy || photo.busy} />
       : step === "preview" ? <MobilePreview photo={photo} name={name} onName={setName} sending={busy} onSend={() => void send()} onRetake={() => { photo.clear(); setStep("camera"); }} />
       : ticket && <section className="mobile-ticket" data-testid="queue-ticket"><h2>{ticket.status === "called" ? "It’s your turn" : ticket.status === "active" ? "Your drawing is on screen" : "Drawing uploaded"}</h2>
         <p className="ticket-number">Ticket {ticket.number}</p>{ticket.name && <p>{ticket.name}</p>}
         <p role="status">{ticket.status === "called" ? "Please move to the stretching screen. Staff will start your session." : ticket.status === "active" ? "Follow the guide on the installation." : `${ticket.ahead} ${ticket.ahead === 1 ? "person" : "people"} ahead of you. Listen for your ticket or name.`}</p>
-        <p className="participant-note">Keep this page open to see when you are called. Tickets expire after 90 minutes of waiting.</p><button className="quiet-action" onClick={() => setStep("landing")}>Back to home</button></section>}
+        <p className="participant-note">Keep this page open to see when you are called. Tickets expire after 90 minutes of waiting.</p><button className="primary-action home-action" onClick={() => setStep("landing")}><DesignIcon name="home" />Back to home</button></section>}
     {ticket && !ended && <div className="ticket-footer"><span>Ticket {ticket.number}{ticket.status === "preparing" ? " · 10 minutes to prepare" : ""}</span>
       <details><summary>Ticket options</summary><button className="quiet-action" disabled={busy} onClick={() => void cancel()}>Cancel my ticket</button></details></div>}
     {photo.busy && <p role="status">Preparing preview…</p>}{(error || connectionError || photo.error) && <p role="alert" className="error-message">{error || connectionError || photo.error}</p>}

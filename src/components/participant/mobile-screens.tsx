@@ -6,9 +6,10 @@ import { cleanDrawingCanvas } from "@/lib/drawing-cleanup";
 import { usePhotoGestures } from "@/hooks/use-photo-gestures";
 import type { usePhotoPreview } from "@/hooks/use-photo-preview";
 import type { useMobileCamera } from "@/hooks/use-mobile-camera";
+import { DesignIcon } from "../design-brand";
 export function TemplateGuide() {
   return <svg className="photo-template" viewBox="0 0 600 900" aria-hidden="true">{Object.values(SEGMENTS).map((path, index) =>
-    <path key={index} d={path} fill="none" stroke="#ad3156" strokeWidth="2" strokeDasharray="9 7" />)}</svg>;
+    <path key={index} d={path} fill="none" stroke="#fa4278" strokeWidth="2" strokeDasharray="9 7" />)}</svg>;
 }
 export function MobileLanding({ connected, onContinue }: { connected: boolean; onContinue: () => void }) {
   return <section aria-labelledby="mobile-landing-title"><h2 id="mobile-landing-title">Your drawing, in motion</h2>
@@ -18,12 +19,13 @@ export function MobileLanding({ connected, onContinue }: { connected: boolean; o
   </section>;
 }
 export function MobileCapture({ camera, onCapture, onChoose, busy }: { camera: ReturnType<typeof useMobileCamera>; onCapture: () => void; onChoose: (file: File) => void; busy: boolean }) {
-  return <section aria-labelledby="mobile-camera-title"><h2 id="mobile-camera-title">Photograph your drawing</h2>
-    <p>Keep the whole page upright. Match the outline.</p>
-    <div className="phone-camera"><video ref={camera.video} autoPlay playsInline muted aria-label="Drawing camera preview" /><TemplateGuide /></div>
-    <div className="button-row">{camera.status === "live" ? <button onClick={onCapture} disabled={busy}>Take photo</button>
-      : <button onClick={() => void camera.start()} disabled={busy || camera.status === "requesting"}>{camera.status === "requesting" ? "Opening camera…" : "Open camera"}</button>}
-      {camera.status === "requesting" && <button onClick={camera.stop}>Cancel camera</button>}</div>
+  return <section className="mobile-capture" aria-labelledby="mobile-camera-title"><h2 className="visually-hidden" id="mobile-camera-title">Photograph your drawing</h2>
+    <p className="mobile-alignment-heading">Align your drawing to the outline below.</p>
+    <div className="phone-camera" data-live={camera.status === "live"}><video ref={camera.video} autoPlay playsInline muted aria-label="Drawing camera preview" />
+      {camera.status === "live" ? <TemplateGuide /> : <img className="capture-template" src="/design/body-template.webp" alt="Drawing sheet outline" />}</div>
+    <div className="mobile-primary-actions">{camera.status === "live" ? <button className="primary-action" onClick={onCapture} disabled={busy}><DesignIcon name="camera" />Take photo</button>
+      : <button className="primary-action" onClick={() => void camera.start()} disabled={busy || camera.status === "requesting"}><DesignIcon name="camera" />{camera.status === "requesting" ? "Opening camera…" : "Open camera"}</button>}
+      {camera.status === "requesting" && <button className="quiet-action" onClick={camera.stop}>Cancel camera</button>}</div>
     <label className="field-label">Or choose a photo<input data-testid="mobile-photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy}
       onChange={event => { const file = event.target.files?.[0]; if (file) onChoose(file); event.target.value = ""; }} /></label>
     {camera.error && <p role="alert" className="error-message">{camera.error}</p>}
@@ -42,8 +44,9 @@ export function MobilePreview({ photo, onRetake, onSend, sending, name, onName }
     });
     return () => cancelAnimationFrame(frame);
   }, [photo.image, photo.alignment, photo.cleanupStrength, photo.showOriginal]);
-  return <section aria-labelledby="mobile-preview-title"><h2 id="mobile-preview-title">Preview your drawing</h2>
-    <p id="photo-gesture-hint">Drag to move. Pinch to zoom. Match the outline.</p>
+  return <section className="mobile-preview-screen" aria-labelledby="mobile-preview-title"><h2 className="visually-hidden" id="mobile-preview-title">Preview your drawing</h2>
+    <p className="mobile-alignment-heading">Align your drawing to the outline below.</p>
+    <p className="gesture-tip" id="photo-gesture-hint">Drag to move. Pinch to zoom. Match the outline.</p>
     <div className={`phone-photo touch-align${gestures.active ? " is-aligning" : ""}`} ref={gestures.surface} {...gestures.handlers}
       tabIndex={sending ? -1 : 0} role="group" aria-label="Align your drawing" aria-disabled={sending} aria-describedby="photo-gesture-hint photo-keyboard-hint"
       data-testid="photo-alignment" data-scale={photo.alignment.scale} data-x={photo.alignment.x} data-y={photo.alignment.y} data-rotation={photo.alignment.rotation}>
@@ -70,7 +73,7 @@ export function MobilePreview({ photo, onRetake, onSend, sending, name, onName }
     {onName && <label className="field-label participant-name">Name we can call at the exhibit<input type="text" autoComplete="off" maxLength={40} value={name || ""} disabled={sending}
       onChange={event => onName(event.target.value)} /><span>First name or nickname — optional. Exhibit staff use it to call your ticket.</span></label>}
     {photo.showOriginal && <p role="status">Comparing the original. Select Cleaned to check the version that will be sent.</p>}
-    <div className="mobile-primary-actions"><button className="primary-action" onClick={onSend} disabled={sending}>{sending ? "Sending drawing…" : "Send to installation"}</button><button className="quiet-action" onClick={onRetake} disabled={sending}>Retake / choose again</button></div>
+    <div className="mobile-primary-actions"><button className="primary-action" onClick={onSend} disabled={sending}><DesignIcon name="camera" />{sending ? "Sending drawing…" : "Send to installation"}</button><button className="quiet-action" onClick={onRetake} disabled={sending}>Retake / choose again</button></div>
   </section>;
 }
 export function MobileSent({ received }: { received: boolean }) {

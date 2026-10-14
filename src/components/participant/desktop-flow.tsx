@@ -7,6 +7,7 @@ import { useVisiblePoll } from "@/hooks/use-visible-poll";
 import type { QueueAction, QueueState } from "@/lib/queue";
 import { QueueBar } from "./queue-bar";
 import { CompletionScreen } from "./completion-screen";
+import { BrandLogo } from "../design-brand";
 export function DesktopFlow() {
   const [queue, setQueue] = useState<QueueState | null>(null), [authorized, setAuthorized] = useState(false), [initialized, setInitialized] = useState(false);
   const [key, setKey] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState("");
@@ -67,11 +68,11 @@ export function DesktopFlow() {
     setResult(value); setFinishing(id); void action("complete", id);
   }, [action]);
   return <div className="participant-desktop" ref={root} data-testid="desktop-flow">
-    {!initialized ? <p role="status">Preparing installation…</p> : !authorized || !queue ? <main className="participant-entry"><h1>Open the exhibit queue</h1>
+    {!initialized ? <p role="status">Preparing installation…</p> : !authorized || !queue ? <main className="participant-entry"><BrandLogo /><h1>Open the exhibit queue</h1>
       <p>Unlock once to display the permanent QR and manage participants here.</p><form onSubmit={event => { event.preventDefault(); void unlock(); }}>
         <label className="field-label">Installation key<input type="password" autoComplete="off" value={key} onChange={event => setKey(event.target.value)} /></label>
-        <button disabled={busy}>{busy ? "Opening…" : "Open installation"}</button></form><p><Link href="/">Local upload / Manual demo</Link></p></main>
-      : <>{!queue.active && <QueueBar queue={queue} busy={busy} onAction={(what, id) => void action(what, id)} />}
+        <button className="primary-action" disabled={busy}>{busy ? "Opening…" : "Open installation"}</button></form><p><Link href="/">Local upload / Manual demo</Link></p></main>
+      : <>{!queue.active && !result && <QueueBar queue={queue} busy={busy} onAction={(what, id) => void action(what, id)} />}
         {!queue.active && !result && <div className="installation-waiting" role="status">{queue.called ? `${queue.called.name || "Participant"}, ticket ${queue.called.number}: please come to the screen.` : "Scan the permanent QR to upload. Staff will call your ticket when it’s your turn."}</div>}
         {result ? <><CompletionScreen result={result} busy={busy || !!finishing} onNext={() => { setResult(null); }} />
           {finishing && !busy && <button className="retry-completion" onClick={() => void action("complete", finishing)}>Retry finishing ticket</button>}</>

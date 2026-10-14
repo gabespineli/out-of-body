@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./figma.css";
 
 export const metadata: Metadata = {
-  title: "Out of Body — MVP",
-  description: "Drawing upload, webcam pose tracking and a gesture-driven color fade.",
+  title: "Out of Body",
+  description: "Put how your body feels into color, then follow gentle movement and watch your drawing change.",
   icons: { icon: "/favicon.svg" },
 };
 

@@ -1,5 +1,5 @@
 :root { color-scheme: light; }
-/* Structural queue layout; final Figma assets and typography remain a later pass. */
+/* Structural queue layout; the Figma visual theme is applied in figma.css. */
 .queue-bar { padding: 12px 16px; background: #faf8f3; border-bottom: 1px solid #ccc; }
 .queue-summary { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .queue-summary > div:first-child { display: flex; flex-direction: column; gap: 4px; }

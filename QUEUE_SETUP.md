@@ -108,4 +108,4 @@ npm.cmd run dev
 
 The environment helper preserves existing local keys and refuses to overwrite a cloud environment. For browser QA, temporarily set `$env:OOB_LOCAL_APP_PORT = '3202'` before `backend:env`, then restore port 3000 afterward. Automated backend tests refuse hosted projects, use synthetic artwork, and remove their test tickets/objects.
 
-High-fidelity Figma styling is deferred. The mid-fidelity flow separates queue management, camera positioning and active stretching. The active view shows two canvases and four quiet controls; the webcam runs without a visible preview. The original `/` uploader and movement engine remain available.
+The Figma design is implemented with local assets and fonts; its completion shader uses the approved still background. The flow separates queue management, camera positioning and active stretching. The active view shows two live canvases and four compact controls; the webcam runs without a visible preview. Queue controls return after Next participant. The original `/` uploader and movement engine remain available. This styling update requires no additional Supabase migration or Vercel environment variable.

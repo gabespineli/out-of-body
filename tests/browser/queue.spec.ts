@@ -97,9 +97,13 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
     }
     await expect(page.getByTestId("participant-completion")).toBeVisible();
     await expect(page.getByTestId("participant-completion")).toContainText("Stretching complete!");
-    await expect(page.getByTestId("queue-bar")).toBeVisible();
+    await expect(page.getByTestId("queue-bar")).toHaveCount(0);
+    await page.evaluate(async () => { await document.fonts.ready; });
+    await page.screenshot({ path: "test-results/design-completion.png", fullPage: true });
     await expect.poll(async () => (await db().storage.from("oob-temporary-artwork").download(row.object_path)).error !== null).toBe(true);
     expect((await db().from("oob_queue_tickets").select("participant_name,status").eq("id", ticket.id).single()).data).toEqual({ participant_name: "", status: "completed" });
+    await page.getByRole("button", { name: "Next participant", exact: true }).click();
+    await expect(page.getByTestId("queue-bar")).toBeVisible();
     await page.getByText("Permanent QR", { exact: true }).click(); expect(await page.getByTestId("session-qr").getAttribute("src")).toBe(qr);
   } finally { await mobile.close(); }
 });

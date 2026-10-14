@@ -16,6 +16,7 @@ import { VisualInstructor } from "./visual-instructor";
 import { PositioningGate } from "./positioning-gate";
 import { StretchStage } from "./stretch-stage";
 import { assessFraming, advanceFraming, createFramingState } from "@/lib/framing";
+import { BrandLogo } from "./design-brand";
 
 const EMPTY_PROGRESS = { hold: 0, fade: 0, complete: false, active: false };
 
@@ -238,7 +239,7 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
     <PositioningGate camera={camera} visible={phase === "positioning"} ready={frameStatus.ready} valid={frameStatus.valid} message={frameStatus.message} hasColor={journey.areas.length > 0}
       onStart={() => { if (!framing.current.ready) return; framing.current.recovery = false; setGuidedRunning(true); setPhase("stretching"); }}
       onBack={() => { camera.stop(); setPhase("setup"); }} />
-    <div hidden={phase !== "setup"} className="exhibit-setup"><header><h1>Out of Body</h1><p>Prepare your drawing, then find your position.</p></header>
+    <div hidden={phase !== "setup"} className="exhibit-setup"><header><h1><BrandLogo /></h1><p>Prepare your drawing, then find your position.</p></header>
       {!participantMode && <ArtworkPanel artwork={artwork} area={activeArea} />}
       <p role="status">{!artwork.art ? "Load a drawing to begin." : !journey.areas.length ? "No colored regions detected. Check the drawing alignment or add colored marks." : `${journey.areas.length} ${journey.areas.length === 1 ? "region" : "regions"} selected from your drawing.`}</p>
       <button className="primary-action" disabled={!artwork.art || !journey.areas.length} onClick={startGuided}>{journey.done ? "Replay sequence" : "Start guided session"}</button>

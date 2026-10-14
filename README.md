@@ -1,6 +1,6 @@
 # Out of Body
 
-The permanent-QR queue is now available on `/installation` and `/mobile`: optional participant names, automatic 20-slot intake, compact queue management before and between turns, and local drawing cleanup before upload. See [QUEUE_SETUP.md](QUEUE_SETUP.md) for the new Supabase migration, stable QR address, hosting configuration, operating limits, and verification boundaries. Final Figma styling is deferred.
+The permanent-QR queue is now available on `/installation` and `/mobile`: optional participant names, automatic 20-slot intake, compact queue management before and between turns, and local drawing cleanup before upload. See [QUEUE_SETUP.md](QUEUE_SETUP.md) for the Supabase migration, stable QR address, hosting configuration, operating limits, and verification boundaries. The Figma design is implemented with local logo/background/icon assets, supplied Hatch Sans and Urbanist fonts. The completion background uses the approved still export.
 
 An interactive art prototype. Upload a drawing on the supplied human silhouette, follow an independent animated stretching guide, and watch the actual drawing mirror your movements. Participation gradually fades the corresponding colored marks while preserving the outline.
 
@@ -8,7 +8,7 @@ Stretches are selected from eight colored regions: head/neck, torso/pelvis, each
 
 This is the separate GitHub/Vercel migration of the existing application. The original ChatGPT Sites checkout and deployment remain unchanged. See [MIGRATION.md](MIGRATION.md) for the original migration audit and [QA.md](QA.md) for verification evidence.
 
-The participant-journey implementation adds `/installation` for desktop QR pairing and `/mobile` for phone capture, preview and upload. It uses a new dedicated Supabase project for private temporary artwork and session capabilities. The original `/` experience remains available. See [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for Docker startup/cloud instructions and [PARTICIPANT_JOURNEY.md](PARTICIPANT_JOURNEY.md) for component boundaries and Figma structural references. Detailed styling is deferred.
+The participant-journey implementation adds `/installation` for the permanent QR and exhibit queue and `/mobile` for phone capture, preview and upload. It uses a dedicated Supabase project for private temporary artwork and session capabilities. The original `/` experience remains available. See [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for Docker startup/cloud instructions, [PARTICIPANT_JOURNEY.md](PARTICIPANT_JOURNEY.md) for component boundaries and Figma references, and [design asset provenance](public/design/README.md) for asset sources. This design update requires no new database migration or hosting setting.
 
 On the mobile photo preview, drag with one finger to position the drawing and pinch with two fingers to zoom around their midpoint. The silhouette guide stays fixed. Zoom buttons and Reset alignment are available beside the preview; Fine adjustment retains the sliders, including rotation. The prepared upload uses exactly the same alignment as the preview. Page scrolling and browser zoom remain available outside the photo surface.
 

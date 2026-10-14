@@ -1,12 +1,13 @@
 # Participant journey architecture
 
-Figma is a structural reference for this phase; final colors, typography, images, shader backgrounds and pixel alignment are deferred.
+The Figma frames now supply the implemented backgrounds, colors, typography, icons and screen proportions. Supplied Hatch Sans and self-hosted Urbanist fonts are local. The completion shader is the exact still export approved by the user. Source assets and their transformations are documented in `public/design/README.md`.
 
 | Figma node | Referenced flow | Implementation |
 |---|---|---|
-| `16:86` mobile landing | Upload action and About | `MobileLanding` |
+| `16:86` mobile landing | Upload action and About | `QueueMobileFlow` |
 | `16:121` upload page | Silhouette framing and upload action | `MobileCapture`, `TemplateGuide`, `MobilePreview` |
-| `16:144` ending page | Drawing uploaded; move to installation | `MobileSent` |
+| `16:144` ending page | Drawing uploaded, named queue ticket, home | `QueueMobileFlow` |
+| `16:164` About | Exhibit description and home action | `QueueMobileFlow` |
 | `6:40` installation | Independent instructor and participant drawing with progress | Existing `Installation` and `VisualInstructor` |
 | `16:87` end screen | Completion and next participant | `CompletionScreen` |
 
