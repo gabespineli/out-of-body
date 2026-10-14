@@ -14,7 +14,8 @@ export function QueueMobileFlow({ notice }: { notice: string }) {
   const locked = useRef(false), current = useRef(ticket); current.current = ticket;
   const accept = useCallback((value: QueueTicket) => {
     setTicket(value);
-    if (value.status !== "preparing" && value.status !== "uploading") { camera.stop(); photo.clear(); setStep("waiting"); }
+    if (value.status !== "preparing" && value.status !== "uploading") { camera.stop(); photo.clear();
+      if (!current.current || ["preparing", "uploading"].includes(current.current.status)) setStep("waiting"); }
     setError("");
   }, [camera.stop, photo.clear]);
   useVisiblePoll(async signal => {
@@ -52,16 +53,15 @@ export function QueueMobileFlow({ notice }: { notice: string }) {
     finally { locked.current = false; setBusy(false); }
   };
   const ended = ticket && terminalTicket(ticket.status);
-  return <main className="mobile-participant" data-testid="mobile-flow"><header><h1>Out of Body</h1><p>Your drawing, in motion</p></header>
+  return <main className="mobile-participant" data-testid="mobile-flow" data-step={step}><header><h1>Out of Body</h1></header>
     {notice && <p className="participant-note">{notice}</p>}
     {!initialized ? <p role="status">Checking the installation…</p> : step === "about" ? <section><h2>About Out of Body</h2>
       <p>Draw how your body feels, then bring that drawing to life through gentle movement. Follow the guide as the colored marks gradually fade.</p>
       <p>Take your time, stay comfortable, and skip any activity. The changing colors represent symbolic progress.</p><button onClick={() => setStep("landing")}>Back to home</button></section>
-      : step === "landing" ? <section><h2>Your drawing, in motion</h2><p>Prepare your drawing while another participant stretches.</p>
+      : step === "landing" ? <section><h2 className="visually-hidden">Your drawing, in motion</h2><p>Prepare your drawing while another participant stretches.</p>
         <p role="status">{!queue ? "Checking available slots…" : !queue.online ? "The installation is not accepting participants yet." : !queue.accepting ? "The queue is currently full. Please try again shortly." : `${queue.waiting} of ${queue.capacity} waiting slots reserved.`}</p>
-        <button onClick={() => void join()} disabled={busy || !queue?.accepting}>{busy ? "Reserving your slot…" : "Upload drawing"}</button>
-        <button onClick={() => setStep("about")}>About Out of Body</button>
-        {ticket?.status === "preparing" && <button disabled={busy} onClick={() => setStep("camera")}>Continue my drawing</button>}</section>
+        <div className="mobile-primary-actions"><button className="primary-action" onClick={() => ticket && !terminalTicket(ticket.status) ? setStep(ticket.status === "preparing" ? "camera" : "waiting") : void join()} disabled={busy || (!ticket || terminalTicket(ticket.status)) && !queue?.accepting}>{busy ? "Reserving your slot…" : ticket && !terminalTicket(ticket.status) ? ticket.status === "preparing" ? "Continue my drawing" : "View my ticket" : "Upload drawing"}</button>
+        <button className="quiet-action" onClick={() => setStep("about")}>About Out of Body</button></div></section>
       : ended ? <section><h2>{ticket.status === "completed" ? "Thank you for moving!" : ticket.status === "expired" ? "Your ticket expired" : "Ticket cancelled"}</h2>
         <p>{ticket.status === "completed" ? "Please take home a care card and remember to look after your body." : "Your temporary drawing is scheduled for deletion."}</p>
         <button onClick={() => { setTicket(null); setQueue(null); setStep("landing"); }}>Back to home</button></section>
@@ -70,9 +70,9 @@ export function QueueMobileFlow({ notice }: { notice: string }) {
       : ticket && <section className="mobile-ticket" data-testid="queue-ticket"><h2>{ticket.status === "called" ? "It’s your turn" : ticket.status === "active" ? "Your drawing is on screen" : "Drawing uploaded"}</h2>
         <p className="ticket-number">Ticket {ticket.number}</p>{ticket.name && <p>{ticket.name}</p>}
         <p role="status">{ticket.status === "called" ? "Please move to the stretching screen. Staff will start your session." : ticket.status === "active" ? "Follow the guide on the installation." : `${ticket.ahead} ${ticket.ahead === 1 ? "person" : "people"} ahead of you. Listen for your ticket or name.`}</p>
-        <p className="participant-note">Keep this page open to see when you are called. Tickets expire after 90 minutes of waiting.</p></section>}
+        <p className="participant-note">Keep this page open to see when you are called. Tickets expire after 90 minutes of waiting.</p><button className="quiet-action" onClick={() => setStep("landing")}>Back to home</button></section>}
     {ticket && !ended && <div className="ticket-footer"><span>Ticket {ticket.number}{ticket.status === "preparing" ? " · 10 minutes to prepare" : ""}</span>
-      <button disabled={busy} onClick={() => void cancel()}>Cancel my ticket</button></div>}
+      <details><summary>Ticket options</summary><button className="quiet-action" disabled={busy} onClick={() => void cancel()}>Cancel my ticket</button></details></div>}
     {photo.busy && <p role="status">Preparing preview…</p>}{(error || photo.error) && <p role="alert" className="error-message">{error || photo.error}</p>}
   </main>;
 }

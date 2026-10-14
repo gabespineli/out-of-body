@@ -38,6 +38,11 @@ async function action(request: APIRequestContext, action: string, id?: string) {
   const response = await request.post("/api/participant/queue/action", { data: { action, id } }); expect(response.status()).toBe(200);
 }
 test("permanent QR, private named upload, call/start, top queue, fullscreen, completion and deletion", async ({ page, browser }) => {
+  test.setTimeout(65000);
+  await page.addInitScript(() => {
+    const host = window as unknown as { installationTools: Record<string, { name: string; execute: (input: unknown) => object }> }; host.installationTools = {};
+    Object.defineProperty(document, "modelContext", { value: { registerTool: (tool: { name: string; execute: (input: unknown) => object }) => { host.installationTools[tool.name] = tool; } } });
+  });
   await open(page.request); await page.goto("/installation");
   await expect(page.getByTestId("queue-bar")).toBeVisible(); await page.getByText("Permanent QR", { exact: true }).click();
   const qr = await page.getByTestId("session-qr").getAttribute("src");
@@ -56,7 +61,7 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
     await phone.getByRole("button", { name: "Send to installation", exact: true }).click();
     await expect(phone.getByTestId("queue-ticket")).toContainText("Alex");
     await expect(page.getByTestId("queue-bar")).toContainText("Alex", { timeout: 10000 });
-    await expect(page.getByTestId("avatar")).toHaveAttribute("aria-label", /Blank silhouette/);
+    await expect(page.getByTestId("avatar")).toHaveCount(0);
     await page.getByRole("button", { name: "Call next", exact: true }).click();
     await expect(page.getByTestId("queue-bar")).toContainText("Calling: Alex");
     await page.getByRole("button", { name: "Start participant", exact: true }).click();
@@ -68,23 +73,30 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
     const nextPhone = await browser.newContext();
     try { await join(nextPhone); await upload(nextPhone, "Sam"); }
     finally { await nextPhone.close(); }
-    await expect(page.getByTestId("queue-bar")).toContainText("Sam", { timeout: 10000 });
+    await expect(page.getByTestId("queue-bar")).toHaveCount(0);
+    await expect.poll(async () => (await page.request.get("/api/participant/queue?view=operator").then(r => r.json())).tickets.some((ticket: { name: string }) => ticket.name === "Sam")).toBe(true);
+    await page.getByRole("button", { name: "Back to setup", exact: true }).click();
+    await page.getByText("Setup tools", { exact: true }).click();
+    await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
+    await page.getByRole("button", { name: "Start guided session", exact: true }).click();
     for (const width of [320, 768, 1024, 1440]) {
       await page.setViewportSize({ width, height: 1024 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      const queueBounds = await page.getByTestId("queue-bar").boundingBox(), stageBounds = await page.getByTestId("avatar").boundingBox();
-      expect(queueBounds!.y + queueBounds!.height).toBeLessThan(stageBounds!.y);
+      await expect(page.getByTestId("queue-bar")).toHaveCount(0);
     }
     await page.screenshot({ path: "test-results/queue-stretching.png", fullPage: true });
-    await page.getByRole("button", { name: "Open installation fullscreen", exact: true }).click();
-    await expect(page.getByTestId("queue-bar")).toBeVisible();
-    await page.getByRole("button", { name: "Exit fullscreen", exact: true }).click();
-    await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
-    await page.getByRole("button", { name: "Start guided session", exact: true }).click();
-    await page.getByRole("button", { name: "Skip activity", exact: true }).click();
-    await page.getByRole("button", { name: "Skip activity", exact: true }).click();
-    await page.getByRole("button", { name: "Skip activity", exact: true }).click();
+    await expect(page.getByTestId("avatar")).toHaveAttribute("data-area", "torso");
+    for (let i = 0; i < 20; i++) {
+      if (await page.getByTestId("participant-completion").isVisible()) break;
+      if (await page.getByTestId("avatar").getAttribute("data-torso-fade") === "1.00") break;
+      await page.evaluate(lean => {
+        const tools = (window as unknown as { installationTools: Record<string, { execute: (input: unknown) => object }> }).installationTools;
+        tools.configure_manual_pose.execute({ left: 0, right: 0, lean });
+      }, i % 2 ? .6 : -.6);
+      await page.waitForTimeout(450);
+    }
     await expect(page.getByTestId("participant-completion")).toBeVisible();
+    await expect(page.getByTestId("participant-completion")).toContainText("Stretching complete!");
     await expect(page.getByTestId("queue-bar")).toBeVisible();
     await expect.poll(async () => (await db().storage.from("oob-temporary-artwork").download(row.object_path)).error !== null).toBe(true);
     expect((await db().from("oob_queue_tickets").select("participant_name,status").eq("id", ticket.id).single()).data).toEqual({ participant_name: "", status: "completed" });
@@ -140,9 +152,15 @@ test("upload retries do not replace drawings, and a cancelled in-flight upload c
   await open(request); const phone = await browser.newContext();
   try {
     const ticket = await join(phone);
-    const responses = await Promise.all([upload(phone, "First"), phone.request.post("/api/participant/queue/upload", { headers: { "Content-Type": "image/png" }, data: drawing })]);
-    expect([200, 409]).toContain((responses[1] as { status(): number }).status());
+    const responses = await Promise.all(["First", "Concurrent"].map(name => phone.request.post("/api/participant/queue/upload", {
+      headers: { "Content-Type": "image/png", "X-Participant-Name": name }, data: drawing,
+    })));
+    const statuses = responses.map(response => response.status());
+    expect(statuses).toContain(200);
+    for (const status of statuses) expect([200, 409]).toContain(status);
     const row = (await db().from("oob_queue_tickets").select("object_path,participant_name").eq("id", ticket.id).single()).data!;
+    expect(["First", "Concurrent"]).toContain(row.participant_name);
+    expect((await db().storage.from("oob-temporary-artwork").list(`queue/${ticket.id}`)).data).toHaveLength(1);
     await upload(phone, "Replacement"); expect((await db().from("oob_queue_tickets").select("object_path,participant_name").eq("id", ticket.id).single()).data).toEqual(row);
     await phone.request.delete("/api/participant/queue/ticket");
     const published = await db().rpc("oob_queue_publish", { p_id: ticket.id, p_path: row.object_path, p_name: "Late", p_bytes: drawing.length }); expect(published.error).not.toBeNull();
@@ -193,11 +211,12 @@ test("phone cleanup comparison and off control submit exactly the displayed conf
   const shadowed = await sharp({ create: { width: 600, height: 900, channels: 3, background: { r: 195, g: 180, b: 160 } } }).png().toBuffer();
   await page.getByTestId("mobile-photo").setInputFiles({ name: "warm-paper.png", mimeType: "image/png", buffer: shadowed });
   const pixel = () => page.getByTestId("mobile-preview").evaluate(el => Array.from((el as HTMLCanvasElement).getContext("2d")!.getImageData(100, 100, 1, 1).data));
+  await page.getByText("Adjust photo", { exact: true }).click();
   await page.getByRole("slider", { name: "Cleanup amount", exact: true }).fill("1");
   await expect.poll(pixel).toEqual([250, 248, 243, 255]);
-  await page.getByRole("button", { name: "Original", exact: true }).click(); await expect.poll(pixel).toEqual([195, 180, 160, 255]);
-  await page.getByRole("button", { name: "Cleaned", exact: true }).click(); await expect.poll(pixel).toEqual([250, 248, 243, 255]);
-  await page.getByRole("button", { name: "Turn off cleanup", exact: true }).click(); await expect.poll(pixel).toEqual([195, 180, 160, 255]);
+  await page.getByLabel("Preview version").selectOption("original"); await expect.poll(pixel).toEqual([195, 180, 160, 255]);
+  await page.getByLabel("Preview version").selectOption("cleaned"); await expect.poll(pixel).toEqual([250, 248, 243, 255]);
+  await page.getByRole("slider", { name: "Cleanup amount", exact: true }).fill("0"); await expect.poll(pixel).toEqual([195, 180, 160, 255]);
   await page.getByRole("button", { name: "Send to installation", exact: true }).click(); await expect(page.getByTestId("queue-ticket")).toBeVisible();
   const row = (await db().from("oob_queue_tickets").select("object_path").eq("id", ticket.id).single()).data!;
   const uploaded = await db().storage.from("oob-temporary-artwork").download(row.object_path);

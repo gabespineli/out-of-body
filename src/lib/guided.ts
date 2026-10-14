@@ -1,134 +1,132 @@
-import { AREA_IDS, emptyFades, type AreaFades, type BodyArea } from "./body-areas";
-import { manualMotion, REST_LEGS, REST_HIPS, REST_HEAD, type Motion } from "./pose";
+import { AREA_IDS, areaSide, emptyFades, isLegArea, type AreaFades, type BodyArea } from "./body-areas";
+import { manualMotion, REST_LEGS, REST_HIPS, REST_HEAD, REST_FEET, type Motion } from "./pose";
 
 export const ACTIVITY_MS = 8000;
-export const PART_MS = ACTIVITY_MS / 2;
+export const PART_MS = ACTIVITY_MS / 3;
 export const NEXT_ACTIVITY_MS = 1400;
 const MOVEMENT_GRACE_MS = 800;
 const FEET_WAIT_MS = 2500;
-export type GuideStep = "tilt" | "reach" | "side-stretch" | "side-step" | "heel-raise";
-export const GUIDED_ACTIVITIES: { area: BodyArea; instruction: string }[] = [
-  { area: "neck-head", instruction: "Gently tilt your head side to side." },
-  { area: "arms-back", instruction: "Reach overhead, then gently stretch side to side." },
-  { area: "legs-feet", instruction: "Side steps, then heel raises holding a chair." },
-];
+export type GuideStep = "tilt" | "reach" | "elbow-bend" | "side-stretch" | "side-step" | "side-raise" | "heel-raise";
 export const STEP_INSTRUCTIONS: Record<GuideStep, string> = {
-  tilt: "Gently tilt your head side to side.",
-  reach: "Gently reach overhead, then lower. One arm is okay.",
-  "side-stretch": "Keep an arm up; gently lean side to side.",
-  "side-step": "Take small side steps, alternating left and right.",
+  tilt: "Gently tilt your head side to side.", reach: "Gently reach overhead, then lower.",
+  "elbow-bend": "Gently bend your elbow, then lower. Keep your upper arm still.",
+  "side-stretch": "With hands on your hips, gently lean left, then right.",
+  "side-step": "Take small steps out to the side, then return.",
+  "side-raise": "Hold a stable support if needed. Gently raise your leg sideways, then lower.",
   "heel-raise": "Hold a stable chair. Slowly raise and lower your heels.",
 };
 export type GuideState = {
-  index: number; earned: AreaFades; transition: number | null; done: boolean;
+  areas: BodyArea[]; index: number; earned: AreaFades; transition: number | null; done: boolean;
   lastTime: number | null; anchor: Record<string, number> | null; engagedUntil: number;
   seenSides: number; feetMissingMs: number; feetFallback: boolean; skipped: BodyArea[];
 };
-export const createGuide = (): GuideState => ({ index: 0, earned: emptyFades(), transition: null, done: false,
-  lastTime: null, anchor: null, engagedUntil: 0, seenSides: 0, feetMissingMs: 0, feetFallback: false, skipped: [] });
+export const createGuide = (areas: BodyArea[] = []): GuideState => ({
+  areas: AREA_IDS.filter(id => areas.includes(id)), index: 0, earned: emptyFades(), transition: null, done: false,
+  lastTime: null, anchor: null, engagedUntil: 0, seenSides: 0, feetMissingMs: 0, feetFallback: false, skipped: [],
+});
 const freshPart = { anchor: null, engagedUntil: 0, seenSides: 0, feetMissingMs: 0, feetFallback: false };
 export function guideStep(state: GuideState): GuideStep {
-  const area = GUIDED_ACTIVITIES[state.index].area;
-  if (area === "neck-head") return "tilt";
-  if (area === "arms-back") return state.earned[area] < PART_MS ? "reach" : "side-stretch";
-  return state.earned[area] < PART_MS || state.feetFallback ? "side-step" : "heel-raise";
+  const area = state.areas[state.index];
+  if (!area || area === "neck-head") return "tilt";
+  if (area === "torso") return "side-stretch";
+  if (area.endsWith("upper-arm")) return "reach";
+  if (area.endsWith("forearm")) return "elbow-bend";
+  if (state.earned[area] < PART_MS) return "side-step";
+  return state.earned[area] < PART_MS * 2 || state.feetFallback ? "side-raise" : "heel-raise";
+}
+export function guideInstruction(area: BodyArea, step: GuideStep, fallback = false) {
+  if (area === "neck-head" || area === "torso") return STEP_INSTRUCTIONS[step];
+  const side = areaSide(area);
+  if (step === "reach") return `Gently reach overhead with your ${side} arm, then lower.`;
+  if (step === "elbow-bend") return `Gently bend your ${side} elbow, then lower. Keep your upper arm still.`;
+  if (step === "side-step") return `Take small steps to your ${side}, then return.`;
+  if (step === "side-raise") return `${fallback ? "Foot unclear: continue " : "Hold a stable support if needed. Try "}gentle ${side} side leg raises, then lower.`;
+  return STEP_INSTRUCTIONS[step];
 }
 export function guideFades(state: GuideState): AreaFades {
   return Object.fromEntries(AREA_IDS.map(area => [area, Math.min(1, state.earned[area] / ACTIVITY_MS)])) as AreaFades;
 }
 export function guideSnapshot(state: GuideState) {
-  const fades = guideFades(state);
-  return { index: state.index, done: state.done, step: guideStep(state), feetFallback: state.feetFallback, skipped: state.skipped,
+  const fades = guideFades(state), area = state.areas[state.index] ?? "neck-head";
+  return { areas: state.areas, area, index: state.index, done: state.done, step: guideStep(state), feetFallback: state.feetFallback, skipped: state.skipped,
     transitioning: state.transition !== null, active: state.engagedUntil > (state.lastTime ?? Infinity),
-    progress: fades[GUIDED_ACTIVITIES[state.index].area], total: Object.values(fades).reduce((a, b) => a + b, 0) / 3, fades };
+    progress: state.areas.length ? fades[area] : 0,
+    total: state.areas.length ? state.areas.reduce((sum, id) => sum + fades[id], 0) / state.areas.length : 0, fades };
 }
-// A skip retains partial fades without awarding unperformed movement.
 export function skipGuide(state: GuideState): GuideState {
-  if (state.done || state.transition !== null) return state;
-  const skipped = [...state.skipped, GUIDED_ACTIVITIES[state.index].area];
-  return { ...state, ...freshPart, skipped, lastTime: null, transition: null,
-    index: Math.min(2, state.index + 1), done: state.index === 2 };
+  if (!state.areas.length || state.done || state.transition !== null) return state;
+  const final = state.index === state.areas.length - 1;
+  return { ...state, ...freshPart, skipped: [...state.skipped, state.areas[state.index]], lastTime: null, transition: null,
+    index: final ? state.index : state.index + 1, done: final };
 }
-function channels(m: Motion, step: GuideStep): Record<string, number> {
+function channels(m: Motion, step: GuideStep, area: BodyArea): Record<string, number> {
   if (!m.tracked) return {};
   if (step === "tilt") return m.headVisible ? { head: m.headTilt } : {};
-  if (step === "reach") return {
-    ...(m.leftVisible ? { leftArm: m.leftArm } : {}), ...(m.rightVisible ? { rightArm: m.rightArm } : {}),
-  };
   if (step === "side-stretch") return m.hipsVisible ? { back: m.lean - m.hipTilt } : {};
-  if (step === "side-step") return m.hipsVisible ? {
-    ...(m.leftLegVisible ? { leftLeg: m.leftLeg - m.hipTilt } : {}), ...(m.rightLegVisible ? { rightLeg: m.rightLeg - m.hipTilt } : {}),
-  } : {};
-  return {
-    ...(m.leftFootVisible ? { leftHeel: m.leftHeel, leftAnkle: m.leftAnkleHeight, leftToe: m.leftToeY } : {}),
-    ...(m.rightFootVisible ? { rightHeel: m.rightHeel, rightAnkle: m.rightAnkleHeight, rightToe: m.rightToeY } : {}),
-  };
+  const side = areaSide(area);
+  if (step === "reach") return m[`${side}Visible`] ? { arm: m[`${side}Arm`] } : {};
+  if (step === "elbow-bend") return m[`${side}Visible`] ? { elbow: m[`${side}Elbow`] } : {};
+  if (step === "side-step" || step === "side-raise") return m.hipsVisible && m[`${side}LegVisible`]
+    ? { leg: (m[`${side}Leg`] - m.hipTilt) * (side === "left" ? 1 : -1) } : {};
+  return m[`${side}FootVisible`] ? { heel: m[`${side}Heel`], ankle: m[`${side}AnkleHeight`], toe: m[`${side}ToeY`] } : {};
 }
-// Current unsmoothed participant measurements only; the instructor is never an input.
+// Only current, unsmoothed participant measurements earn progress.
 export function advanceGuide(state: GuideState, m: Motion, now: number, enabled = true, paused = false): GuideState {
   const gap = state.lastTime === null ? 0 : now - state.lastTime;
   const dt = gap > 0 && gap <= 250 ? gap : 0;
   const next = { ...state, lastTime: now };
   if (!enabled || paused || gap > 250 || gap < 0) return { ...next, anchor: null, engagedUntil: 0, feetMissingMs: 0 };
-  if (state.done) return next;
+  if (state.done || !state.areas.length) return next;
   if (state.transition !== null) {
     const transition = Math.max(0, state.transition - dt);
     if (transition > 0) return { ...next, transition };
-    return state.index === 2 ? { ...next, ...freshPart, done: true, transition: null }
+    return state.index === state.areas.length - 1 ? { ...next, ...freshPart, done: true, transition: null }
       : { ...next, ...freshPart, index: state.index + 1, transition: null };
   }
-  const area = GUIDED_ACTIVITIES[state.index].area, step = guideStep(state);
-  // Poor foot tracking explicitly switches both guide and detector to more side steps.
-  const feetMissingMs = step === "heel-raise" && m.tracked && m.hipsVisible
-    && (m.leftLegVisible || m.rightLegVisible) && !m.leftFootVisible && !m.rightFootVisible ? state.feetMissingMs + dt : 0;
+  const area = state.areas[state.index], step = guideStep(state), side = areaSide(area);
+  const feetMissingMs = step === "heel-raise" && m.tracked && m.hipsVisible && m[`${side}LegVisible`] && !m[`${side}FootVisible`]
+    ? state.feetMissingMs + dt : 0;
   if (feetMissingMs >= FEET_WAIT_MS) return { ...next, ...freshPart, feetFallback: true };
   next.feetMissingMs = feetMissingMs;
-  const current = channels(m, step);
+  const current = channels(m, step, area);
   const entries = Object.entries(current).filter(([, value]) => Number.isFinite(value));
   if (!entries.length) return { ...next, anchor: null, engagedUntil: 0 };
-  const reaching = m.leftVisible && m.leftReaching || m.rightVisible && m.rightReaching;
-  if ((step === "reach" || step === "side-stretch") && !reaching) return { ...next, anchor: current, engagedUntil: 0 };
+  if (step === "reach" && !m[`${side}Reaching`]) return { ...next, anchor: current, engagedUntil: 0 };
   if (!state.anchor) return { ...next, anchor: current, engagedUntil: 0 };
   const anchor = state.anchor;
-  const changed = (key: string, threshold: number) => Number.isFinite(current[key]) && Number.isFinite(anchor[key])
-    && Math.abs(current[key] - anchor[key]) >= threshold;
+  const changed = (key: string, threshold: number) => Number.isFinite(current[key]) && Number.isFinite(anchor[key]) && Math.abs(current[key] - anchor[key]) >= threshold;
   let moved = false, seenSides = state.seenSides;
   if (step === "tilt") moved = changed("head", .09);
-  if (step === "reach") moved = m.leftReaching && changed("leftArm", .14) || m.rightReaching && changed("rightArm", .14);
-  if (step === "side-stretch") moved = changed("back", .07);
-  if (step === "side-step") {
-    const left = changed("leftLeg", .09) && Math.max(current.leftLeg, anchor.leftLeg) >= .08;
-    const right = changed("rightLeg", .09) && Math.min(current.rightLeg, anchor.rightLeg) <= -.08;
-    moved = left || right;
-    if (left) seenSides |= 1;
-    if (right) seenSides |= 2;
+  if (step === "reach") moved = changed("arm", .14);
+  if (step === "elbow-bend") moved = changed("elbow", .14);
+  if (step === "side-stretch") {
+    moved = changed("back", .07);
+    if (moved && current.back <= -.07) seenSides |= 1;
+    if (moved && current.back >= .07) seenSides |= 2;
   }
-  if (step === "heel-raise") moved = ["left", "right"].some(side =>
-    changed(side + "Heel", .055) && changed(side + "Ankle", .03)
-    && (current[side + "Heel"] - anchor[side + "Heel"]) * (current[side + "Ankle"] - anchor[side + "Ankle"]) > 0
-    && Math.abs(current[side + "Toe"] - anchor[side + "Toe"]) <= .015);
-  if (step === "heel-raise" && !moved && ["left", "right"].some(side =>
-    Number.isFinite(current[side + "Toe"]) && Number.isFinite(anchor[side + "Toe"])
-    && Math.abs(current[side + "Toe"] - anchor[side + "Toe"]) > .015))
-    return { ...next, anchor: current, engagedUntil: 0 }; // Reposition without earning progress.
+  if (step === "side-step" || step === "side-raise") moved = changed("leg", .09) && Math.max(current.leg, anchor.leg) >= (step === "side-raise" ? .28 : .08);
+  if (step === "heel-raise") {
+    moved = changed("heel", .055) && changed("ankle", .03) && (current.heel - anchor.heel) * (current.ankle - anchor.ankle) > 0 && Math.abs(current.toe - anchor.toe) <= .015;
+    if (!moved && Math.abs(current.toe - anchor.toe) > .015) return { ...next, anchor: current, engagedUntil: 0 };
+  }
   const engagedUntil = moved ? now + MOVEMENT_GRACE_MS : state.engagedUntil;
-  const partEnd = (step === "reach" || step === "side-step" && state.earned[area] < PART_MS) ? PART_MS : ACTIVITY_MS;
-  const limit = step === "side-step" && seenSides !== 3 ? partEnd - 100 : partEnd;
+  const partEnd = step === "side-step" ? PART_MS : step === "side-raise" && !state.feetFallback ? PART_MS * 2 : ACTIVITY_MS;
+  const limit = step === "side-stretch" && seenSides !== 3 ? partEnd - 100 : partEnd;
   const earned = Math.min(limit, state.earned[area] + (now < engagedUntil ? dt : 0));
-  const updated = { ...next, seenSides, anchor: moved ? current : { ...anchor, ...Object.fromEntries(entries.filter(([key]) => !(key in anchor))) },
-    engagedUntil, earned: { ...state.earned, [area]: earned }, transition: earned >= ACTIVITY_MS ? NEXT_ACTIVITY_MS : null };
+  const updated = { ...next, seenSides, anchor: moved ? current : anchor, engagedUntil,
+    earned: { ...state.earned, [area]: earned }, transition: earned >= ACTIVITY_MS ? NEXT_ACTIVITY_MS : null };
   return guideStep(updated) !== step ? { ...updated, ...freshPart } : updated;
 }
-// Authored loops. Matching their timing is unnecessary.
+// Authored loops explain the action; their timing never drives detection.
 export function instructorMotion(area: BodyArea, seconds: number, step?: GuideStep): Motion {
-  const phase = seconds * Math.PI * 2 / 6;
-  if (area === "neck-head") return manualMotion(0, 0, 0, REST_LEGS, REST_HIPS, { headTilt: Math.sin(phase) * .5 });
-  if (area === "arms-back") {
-    const part = step ?? (seconds % 12 < 6 ? "reach" : "side-stretch");
-    if (part === "reach") { const reach = (1 - Math.cos(phase)) / 2 * .85; return manualMotion(reach, 0, reach); }
-    return manualMotion(.85, Math.sin(phase) * .35, .85);
-  }
-  if (step === "heel-raise") return manualMotion(.2, 0, .2, REST_LEGS, REST_HIPS, REST_HEAD, { heelRaise: (1 - Math.cos(phase)) / 2 });
-  const swing = Math.sin(phase);
-  return manualMotion(0, 0, 0, { ...REST_LEGS, leftLeg: Math.max(0, swing) * .3, rightLeg: Math.min(0, swing) * .3 });
+  const phase = seconds * Math.PI * 2 / 6, swing = Math.sin(phase), lift = (1 - Math.cos(phase)) / 2;
+  if (area === "neck-head") return manualMotion(0, 0, 0, REST_LEGS, REST_HIPS, { headTilt: swing * .5 });
+  if (area === "torso") return { ...manualMotion(0, swing * .5), leftArm: .3, rightArm: -.3, leftElbow: -1.35, rightElbow: 1.35 };
+  const side = areaSide(area);
+  if (area.endsWith("upper-arm")) return manualMotion(side === "left" ? lift * .85 : 0, 0, side === "right" ? lift * .85 : 0);
+  if (area.endsWith("forearm")) return manualMotion(0, 0, 0, REST_LEGS, REST_HIPS, REST_HEAD, REST_FEET,
+    { leftElbow: side === "left" ? lift * .85 : 0, rightElbow: side === "right" ? lift * .85 : 0 });
+  if (isLegArea(area) && step === "heel-raise") return manualMotion(.2, 0, .2, REST_LEGS, REST_HIPS, REST_HEAD, { heelRaise: lift });
+  const extent = step === "side-step" ? .3 : .65;
+  return manualMotion(0, 0, 0, { ...REST_LEGS, leftLeg: side === "left" ? lift * extent : 0, rightLeg: side === "right" ? -lift * extent : 0 });
 }

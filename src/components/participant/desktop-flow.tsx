@@ -62,12 +62,12 @@ export function DesktopFlow() {
       <p>Unlock once to display the permanent QR and manage participants here.</p><form onSubmit={event => { event.preventDefault(); void unlock(); }}>
         <label className="field-label">Installation key<input type="password" autoComplete="off" value={key} onChange={event => setKey(event.target.value)} /></label>
         <button disabled={busy}>{busy ? "Opening…" : "Open installation"}</button></form><p><Link href="/">Local upload / Manual demo</Link></p></main>
-      : <><QueueBar queue={queue} busy={busy} onAction={(what, id) => void action(what, id)} />
+      : <>{!queue.active && <QueueBar queue={queue} busy={busy} onAction={(what, id) => void action(what, id)} />}
         {!queue.active && !result && <div className="installation-waiting" role="status">{queue.called ? `${queue.called.name || "Participant"}, ticket ${queue.called.number}: please come to the screen.` : "Scan the permanent QR to upload. Staff will call your ticket when it’s your turn."}</div>}
         {result ? <><CompletionScreen result={result} busy={busy || !!finishing} onNext={() => { setResult(null); }} />
           {finishing && !busy && <button className="retry-completion" onClick={() => void action("complete", finishing)}>Retry finishing ticket</button>}</>
-          : <Installation key={queue.active?.id || "waiting"} initialArtwork={file || undefined} participantMode fullscreenRoot={root}
-            onComplete={complete} onParticipantReset={() => { if (queue.active) void action("end", queue.active.id); }} />}</>}
+          : queue.active ? file ? <Installation key={queue.active.id} initialArtwork={file} participantMode participantName={queue.active.name || `Ticket ${queue.active.number}`} fullscreenRoot={root}
+            onComplete={complete} onParticipantReset={() => { if (queue.active) void action("end", queue.active.id); }} /> : <p role="status" className="installation-waiting">Preparing your drawing…</p> : null}</>}
     {error && <p role="alert" className="error-message participant-error">{error}</p>}
   </div>;
 }

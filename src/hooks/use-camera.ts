@@ -1,10 +1,10 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PoseLandmarker } from "@mediapipe/tasks-vision";
-import { motionFromLandmarks, REST, type Motion } from "@/lib/pose";
+import { motionFromLandmarks, REST, type Motion, type Landmark } from "@/lib/pose";
 
 export type CameraStatus = "idle" | "permission" | "loading" | "live" | "error";
-export type MotionSource = { motion: Motion; time: number };
+export type MotionSource = { motion: Motion; time: number; landmarks?: Landmark[] };
 
 export function cameraError(error: unknown): string {
   const name = error instanceof Error ? error.name : "";
@@ -94,7 +94,7 @@ export function useCamera(source: React.RefObject<MotionSource>) {
             const points = result.landmarks[0] ?? [], aspect = video.videoWidth / video.videoHeight;
             const previous = now - source.current.time < 300 ? source.current.motion : REST;
             const motion = motionFromLandmarks(points, aspect, previous);
-            source.current = { motion, time: performance.now() };
+            source.current = { motion, time: performance.now(), landmarks: points };
             count++;
             if (now - lastUi > 200) { setTracking(motion.tracked); lastUi = now; }
             if (now - fpsTime >= 1000) { setFps(Math.round(count * 1000 / (now - fpsTime))); count = 0; fpsTime = now; }

@@ -1,6 +1,6 @@
 # Permanent QR and participant queue
 
-This release adds one installation queue to the existing `/installation` and `/mobile` routes. Management is a compact strip above the stretching screen; there is no management page.
+This release adds one installation queue to the existing `/installation` and `/mobile` routes. Management is a compact strip on the same installation page before and between turns. It is hidden during an active participant’s positioning and stretching; there is no separate management page.
 
 ## Hosted Supabase configuration
 
@@ -60,7 +60,7 @@ Open `/installation`, enter the operator key, and leave the page visible. Operat
 - **Skip activity** still skips only an exercise, preserving only earned fade.
 - Completion leaves the top queue visible. Next participant returns to waiting; staff call/start the next ticket.
 
-Queue management is visible on the same display, including fullscreen. Names may be seen on the exhibit screen; the phone field explains that staff use the name to call the ticket. First name/nickname is optional, limited to 40 characters, stripped of invisible controls, and erased as soon as a ticket ends/expires. No names are included in public queue-count responses or another phone's response.
+Queue management is visible on the same display before and after each turn. Waiting names and queue actions are hidden while a participant aligns and stretches. Names may be seen on the exhibit screen; the phone field explains that staff use the name to call the ticket. First name/nickname is optional, limited to 40 characters, stripped of invisible controls, and erased as soon as a ticket ends/expires. No names are included in public queue-count responses or another phone's response.
 
 ## Initial limits
 
@@ -108,4 +108,4 @@ npm.cmd run dev
 
 The environment helper preserves existing local keys and refuses to overwrite a cloud environment. For browser QA, temporarily set `$env:OOB_LOCAL_APP_PORT = '3202'` before `backend:env`, then restore port 3000 afterward. Automated backend tests refuse hosted projects, use synthetic artwork, and remove their test tickets/objects.
 
-High-fidelity Figma styling is deferred. The functional layout puts the compact queue first, the two canvases beneath it, and camera/session setup controls below the stage. The original `/` uploader and movement engine remain available.
+High-fidelity Figma styling is deferred. The mid-fidelity flow separates queue management, camera positioning and active stretching. The active view shows two canvases and four quiet controls; the webcam runs without a visible preview. The original `/` uploader and movement engine remain available.

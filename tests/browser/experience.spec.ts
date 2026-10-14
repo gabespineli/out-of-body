@@ -7,13 +7,13 @@ import { readFile } from "node:fs/promises";
 let drawing: Buffer;
 const atRotated = (x: number, y: number, pivotX: number, pivotY: number, angle: number) => ({ x: Math.round(pivotX + (x - pivotX) * Math.cos(angle) - (y - pivotY) * Math.sin(angle)), y: Math.round(pivotY + (x - pivotX) * Math.sin(angle) + (y - pivotY) * Math.cos(angle)) });
 test.beforeAll(async () => {
-  const svg = silhouetteSvg(false).replace("</svg>", '<rect x="219" y="248" width="40" height="55" fill="#db715d"/><rect x="256" y="324" width="87" height="130" fill="#279aa3"/><rect x="280" y="110" width="40" height="30" fill="#e5b543"/><rect x="292" y="427" width="16" height="16" fill="#222222"/><rect x="240" y="590" width="30" height="130" fill="#7399b4"/><rect x="334" y="690" width="24" height="70" fill="#a198bd"/><rect x="284" y="498" width="32" height="22" fill="#d35fa4"/><rect x="296" y="518" width="8" height="8" fill="#58b36e"/></svg>');
+  const svg = silhouetteSvg(false).replace("</svg>", '<rect x="185" y="248" width="40" height="55" fill="#db715d"/><rect x="256" y="324" width="87" height="130" fill="#279aa3"/><rect x="280" y="110" width="40" height="30" fill="#e5b543"/><rect x="292" y="427" width="16" height="16" fill="#222222"/><rect x="240" y="590" width="30" height="130" fill="#7399b4"/><rect x="334" y="690" width="24" height="70" fill="#a198bd"/><rect x="284" y="498" width="32" height="22" fill="#d35fa4"/><rect x="296" y="518" width="8" height="8" fill="#58b36e"/></svg>');
   drawing = await sharp(Buffer.from(svg)).png().toBuffer();
 });
 
 async function practice(page: Page) {
   const details = page.locator("details.secondary-controls");
-  if (!(await details.evaluate(el => (el as HTMLDetailsElement).open))) await details.locator("summary").click();
+  if (!(await details.evaluate(el => (el as HTMLDetailsElement).open))) await details.locator(":scope > summary").click();
   await page.getByRole("button", { name: "Individual stretches", exact: true }).click();
 }
 async function upload(page: Page) {
@@ -32,7 +32,7 @@ test("actual uploaded colors reach the rig; a held gesture fades only selected c
   const errors: string[] = []; page.on("pageerror", e => errors.push(e.message));
   await page.goto("/"); await practice(page); await upload(page);
   await expect.poll(() => pixel(page, '[data-testid="avatar"]', 300, 385)).toEqual([39, 154, 163, 255]);
-  const before = await pixel(page, '[data-testid="avatar"]', 235, 270);
+  const before = await pixel(page, '[data-testid="avatar"]', 205, 270);
   expect(before.slice(0, 3)).toEqual([219, 113, 93]);
   await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
   await page.screenshot({ path: "test-results/upload-rest.png", fullPage: true });
@@ -43,22 +43,22 @@ test("actual uploaded colors reach the rig; a held gesture fades only selected c
   await expect(page.getByText("Completed — selected color faded")).toBeVisible({ timeout: 6000 });
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-fade", "1.00", { timeout: 4000 });
   await page.getByRole("button", { name: "Return to rest", exact: true }).click();
-  await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 235, 270))[1]).toBeGreaterThan(235);
-  expect((await pixel(page, '[data-testid="avatar"]', 300, 385))[0]).toBeGreaterThan(235);
+  await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 205, 270))[1]).toBeGreaterThan(235);
+  expect(await pixel(page, '[data-testid="avatar"]', 300, 385)).toEqual([39, 154, 163, 255]);
   expect(await pixel(page, '[data-testid="avatar"]', 300, 120)).toEqual([229, 181, 67, 255]);
   expect(await pixel(page, '[data-testid="avatar"]', 254, 610)).toEqual([115, 153, 180, 255]);
   await page.screenshot({ path: "test-results/softened-region.png", fullPage: true });
   await page.getByRole("button", { name: "Reset experience", exact: true }).click();
-  await expect.poll(() => pixel(page, '[data-testid="avatar"]', 235, 270)).toEqual(before);
+  await expect.poll(() => pixel(page, '[data-testid="avatar"]', 205, 270)).toEqual(before);
   expect(errors).toEqual([]);
 });
 
-test("one raised arm or a side lean cannot earn progress; interruption restarts the three-second hold", async ({ page }) => {
+test("the opposite arm or a side lean cannot earn progress; interruption restarts the three-second hold", async ({ page }) => {
   await page.goto("/"); await practice(page); await upload(page);
-  await expect(page.getByTestId("stretch-instruction")).toContainText("Raise both hands above your shoulders.");
+  await expect(page.getByTestId("stretch-instruction")).toContainText("raise your left hand above your shoulder.");
   await expect(page.getByRole("combobox", { name: "Gesture to hold" })).toHaveCount(0);
   await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
-  await page.getByRole("slider", { name: "Manual left arm height", exact: true }).fill("1");
+  await page.getByRole("slider", { name: "Manual right arm height", exact: true }).fill("1");
   await page.waitForTimeout(700);
   await expect(page.getByTestId("stretch-feedback")).toHaveAttribute("data-stretch-state", "not-detected");
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-hold", "0.00");
@@ -68,10 +68,10 @@ test("one raised arm or a side lean cannot earn progress; interruption restarts 
   await page.getByRole("button", { name: "Raise arms", exact: true }).click();
   await expect(page.getByTestId("stretch-feedback")).toHaveAttribute("data-stretch-state", "holding");
   await expect.poll(async () => +(await page.getByTestId("avatar").getAttribute("data-hold"))!).toBeGreaterThan(.2);
-  await page.getByRole("slider", { name: "Manual right arm height", exact: true }).fill("0");
+  await page.getByRole("slider", { name: "Manual left arm height", exact: true }).fill("0");
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-hold", "0.00");
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-fade", "0.00");
-  await page.getByRole("slider", { name: "Manual right arm height", exact: true }).fill("1");
+  await page.getByRole("slider", { name: "Manual left arm height", exact: true }).fill("1");
   await page.waitForTimeout(1200);
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-fade", "0.00");
   await expect(page.getByText("Completed — selected color faded")).toBeVisible({ timeout: 6000 });
@@ -118,7 +118,7 @@ test("invalid uploads, area selection, no color, alignment and reset work", asyn
   await expect(page.getByRole("slider", { name: "Photo zoom", exact: true })).toHaveValue("1");
   await page.getByRole("button", { name: "Start fresh", exact: true }).click();
   await expect(page.getByTestId("art-source")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Guided sequence", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("guided-shell")).toHaveAttribute("data-phase", "setup");
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-fade", "0.00");
   const template = await page.request.get("/drawing-sheet.svg");
   expect(template.ok()).toBeTruthy(); expect(await template.text()).toContain('viewBox="0 0 600 900"');
@@ -180,7 +180,7 @@ test("a real MediaPipe lean does not count as the arms-raised stretch", async ()
     await expect(page.getByTestId("avatar")).toHaveAttribute("data-fade", "0.00");
     await expect(page.getByTestId("stretch-status")).toContainText("Not detected");
     await page.getByRole("button", { name: "Stop camera", exact: true }).click();
-    await expect.poll(() => pixel(page, '[data-testid="avatar"]', 235, 270)).toEqual([219, 113, 93, 255]);
+    await expect.poll(() => pixel(page, '[data-testid="avatar"]', 205, 270)).toEqual([219, 113, 93, 255]);
   } finally { await context.close(); await browser.close(); }
 });
 
@@ -200,7 +200,7 @@ test("model-load failure stops the camera and keeps manual demo working", async 
   } finally { await context.close(); await browser.close(); }
 });
 
-test("the three-second stretch transitions through animated fade and changes only colored pixels in arms and torso", async ({ page }) => {
+test("the three-second stretch transitions through animated fade and changes only colored pixels in the selected upper arm", async ({ page }) => {
   await page.goto("/"); await practice(page); await upload(page);
   await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
   await expect(page.getByTestId("stretch-status")).toContainText("Not detected");
@@ -213,8 +213,9 @@ test("the three-second stretch transitions through animated fade and changes onl
   await page.getByRole("button", { name: "Pause", exact: true }).click();
   const partial = +(await page.getByTestId("avatar").getAttribute("data-fade"))!;
   expect(partial).toBeGreaterThan(0); expect(partial).toBeLessThan(1);
-  const midColor = await pixel(page, '[data-testid="avatar"]', 300, 385);
-  expect(midColor[0]).toBeGreaterThan(39); expect(midColor[0]).toBeLessThan(245);
+  const angle = 2.55; const point = atRotated(205, 270, 216, 238, angle);
+  const midColor = await pixel(page, '[data-testid="avatar"]', point.x, point.y);
+  expect(midColor[0]).toBeGreaterThan(219); expect(midColor[0]).toBeLessThan(250);
   await page.getByRole("button", { name: "Resume", exact: true }).click();
   await expect(page.getByTestId("stretch-status")).toHaveText("Completed — selected color faded", { timeout: 4000 });
   await page.getByRole("button", { name: "Return to rest", exact: true }).click();
@@ -225,7 +226,7 @@ test("the three-second stretch transitions through animated fade and changes onl
     canvas.beforeRestore = canvas.getContext("2d")!.getImageData(0, 0, 840, 900).data;
   });
   await page.getByRole("button", { name: "Reset experience", exact: true }).click();
-  await expect.poll(() => pixel(page, '[data-testid="avatar"]', 235, 270)).toEqual([219, 113, 93, 255]);
+  await expect.poll(() => pixel(page, '[data-testid="avatar"]', 205, 270)).toEqual([219, 113, 93, 255]);
   const difference = await page.getByTestId("avatar").evaluate(el => {
     const canvas = el as HTMLCanvasElement & { beforeRestore: Uint8ClampedArray };
     const current = canvas.getContext("2d")!.getImageData(0, 0, 840, 900).data, previous = canvas.beforeRestore;
@@ -233,61 +234,38 @@ test("the three-second stretch transitions through animated fade and changes onl
     for (let i = 0; i < current.length; i += 4) {
       if ([0, 1, 2, 3].some(c => current[i + c] !== previous[i + c])) {
         const point = i / 4, x = point % 840 - 120, y = Math.floor(point / 840);
-        const coloredArm = x >= 218 && x <= 260 && y >= 247 && y <= 304;
+        const coloredArm = x >= 184 && x <= 226 && y >= 247 && y <= 304;
         const coloredTorso = x >= 255 && x <= 344 && y >= 323 && y <= 455;
-        if (coloredArm || coloredTorso) inside++; else outside++;
+        if (coloredArm) inside++; else outside++;
       }
     }
     return { inside, outside };
   });
-  expect(difference.inside).toBeGreaterThan(10000); expect(difference.outside).toBe(0);
+  expect(difference.inside).toBeGreaterThan(500); expect(difference.outside).toBe(0);
 });
 
-test("all three areas complete independently and keep their earned fades when switching", async ({ page }) => {
+test("eight practice regions preserve independent fades when switching", async ({ page }) => {
   await page.goto("/"); await practice(page); await upload(page);
   await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
   await page.getByRole("slider", { name: "Hold duration", exact: true }).fill("2");
   await page.getByRole("slider", { name: "Fade duration", exact: true }).fill("0.2");
   const select = page.getByRole("combobox", { name: "Body area", exact: true });
-  await expect(select.locator("option")).toHaveCount(3);
-  for (const [area, action, expected] of [
-    ["neck-head", "Tilt head left", ["1.00", "0.00", "0.00"]],
-    ["arms-back", "Raise arms", ["1.00", "1.00", "0.00"]],
-    ["legs-feet", "Lift right leg", ["1.00", "1.00", "1.00"]],
-  ] as const) {
-    await select.selectOption(area);
-    await expect(page.getByTestId("stretch-status")).toContainText("Not detected");
-    await page.getByRole("button", { name: action, exact: true }).click();
+  await expect(select.locator("option")).toHaveCount(8);
+  for (const [area, action] of [["neck-head", "Tilt head left"], ["left-upper-arm", "Raise arms"], ["right-leg", "Lift right leg"]]) {
+    await select.selectOption(area); await page.getByRole("button", { name: action, exact: true }).click();
     await expect(page.getByText("Completed — selected color faded")).toBeVisible({ timeout: 4000 });
-    for (const [i, attribute] of ["data-head-fade", "data-arms-fade", "data-legs-fade"].entries())
-      await expect(page.getByTestId("avatar")).toHaveAttribute(attribute, expected[i]);
-    await page.getByRole("button", { name: "Return to rest", exact: true }).click();
-    await page.waitForTimeout(1100);
-    expect(await pixel(page, '[data-testid="avatar"]', 300, 435)).toEqual([34, 34, 34, 255]);
-    expect(await pixel(page, '[data-testid="avatar"]', 300, 509)).toEqual([211, 95, 164, 255]);
-    if (area === "neck-head") {
-      expect((await pixel(page, '[data-testid="avatar"]', 300, 120))[2]).toBeGreaterThan(230);
-      expect(await pixel(page, '[data-testid="avatar"]', 300, 385)).toEqual([39, 154, 163, 255]);
-      expect(await pixel(page, '[data-testid="avatar"]', 254, 610)).toEqual([115, 153, 180, 255]);
-    }
-    if (area === "arms-back") {
-      expect((await pixel(page, '[data-testid="avatar"]', 300, 385))[0]).toBeGreaterThan(235);
-      expect(await pixel(page, '[data-testid="avatar"]', 254, 610)).toEqual([115, 153, 180, 255]);
-    }
+    await expect(page.getByTestId("avatar")).toHaveAttribute("data-" + area + "-fade", "1.00");
+    await page.getByRole("button", { name: "Return to rest", exact: true }).click(); await page.waitForTimeout(1000);
   }
-  await expect(page.getByTestId("area-progress")).toHaveText("Neck / head: completed · Arms / back: completed · Legs / feet: completed");
-  expect((await pixel(page, '[data-testid="avatar"]', 254, 610))[0]).toBeGreaterThan(235);
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-neck-head-fade", "1.00");
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-left-upper-arm-fade", "1.00");
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-left-leg-fade", "0.00");
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-torso-fade", "0.00");
+  expect(await pixel(page, '[data-testid="avatar"]', 300, 385)).toEqual([39, 154, 163, 255]);
   expect((await pixel(page, '[data-testid="avatar"]', 346, 720))[0]).toBeGreaterThan(235);
-  await page.screenshot({ path: "test-results/areas-three-completed.png", fullPage: true });
-  await select.selectOption("neck-head");
-  await expect(page.getByTestId("stretch-status")).toContainText("Completed");
+  expect(await pixel(page, '[data-testid="avatar"]', 254, 610)).toEqual([115, 153, 180, 255]);
   await page.getByRole("button", { name: "Reset experience", exact: true }).click();
-  await expect.poll(() => pixel(page, '[data-testid="avatar"]', 300, 120)).toEqual([229, 181, 67, 255]);
-  for (const attribute of ["data-head-fade", "data-arms-fade", "data-legs-fade"])
-    await expect(page.getByTestId("avatar")).toHaveAttribute(attribute, "0.00");
-  await page.getByRole("button", { name: "Start fresh", exact: true }).click();
-  await practice(page);
-  await expect(page.getByRole("slider", { name: "Hold duration", exact: true })).toHaveValue("3");
+  for (const area of ["neck-head", "left-upper-arm", "right-leg"]) await expect(page.getByTestId("avatar")).toHaveAttribute("data-" + area + "-fade", "0.00");
 });
 
 test("pause freezes the displayed pose and fade; resuming restarts an unfinished hold", async ({ page }) => {
@@ -326,18 +304,18 @@ test("PNG saves independent area fades at the requested amount", async ({ page }
   await page.getByRole("button", { name: "Raise arms", exact: true }).click();
   await expect(page.getByText("Completed — selected color faded")).toBeVisible({ timeout: 4000 });
   await page.getByRole("button", { name: "Return to rest", exact: true }).click();
-  await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 235, 270))[1]).toBeGreaterThan(175);
-  const single = await pixel(page, '[data-testid="avatar"]', 235, 270);
+  await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 205, 270))[1]).toBeGreaterThan(175);
+  const single = await pixel(page, '[data-testid="avatar"]', 205, 270);
   expect(single[1]).toBeLessThan(190);
   await page.getByRole("combobox", { name: "Body area", exact: true }).selectOption("neck-head");
   await page.getByRole("button", { name: "Tilt head right", exact: true }).click();
   await expect(page.getByText("Completed — selected color faded")).toBeVisible({ timeout: 4000 });
   await page.getByRole("button", { name: "Return to rest", exact: true }).click();
-  await expect.poll(() => pixel(page, '[data-testid="avatar"]', 235, 270)).toEqual(single);
+  await expect.poll(() => pixel(page, '[data-testid="avatar"]', 205, 270)).toEqual(single);
   await page.waitForTimeout(1000);
   const torso = await pixel(page, '[data-testid="avatar"]', 300, 385);
   const head = await pixel(page, '[data-testid="avatar"]', 300, 120);
-  expect(torso[0]).toBeGreaterThan(140); expect(torso[0]).toBeLessThan(150);
+  expect(torso).toEqual([39, 154, 163, 255]);
   expect(head[2]).toBeGreaterThan(150); expect(head[2]).toBeLessThan(160);
   await page.getByRole("button", { name: "Pause", exact: true }).click();
   const downloadEvent = page.waitForEvent("download");
@@ -350,7 +328,7 @@ test("PNG saves independent area fades at the requested amount", async ({ page }
   expect(metadata.width).toBe(840); expect(metadata.height).toBe(900);
   const { data, info } = await sharp(bytes).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const savedPixel = (x: number, y: number) => Array.from(data.subarray((y * info.width + x + 120) * 4, (y * info.width + x + 120) * 4 + 4));
-  expect(savedPixel(235, 270)).toEqual(single);
+  expect(savedPixel(205, 270)).toEqual(single);
   expect(savedPixel(300, 385)).toEqual(torso);
   expect(savedPixel(300, 120)).toEqual(head);
   expect(savedPixel(254, 610)).toEqual([115, 153, 180, 255]);
@@ -430,7 +408,7 @@ test("neck and foot marks fade in their assigned area while torso and pelvis kee
   await page.getByRole("button", { name: "Return to rest", exact: true }).click();
   await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 300, 198))[2]).toBeGreaterThan(230);
   expect(await pixel(page, '[data-testid="avatar"]', 240, 795)).toEqual([115, 153, 180, 255]);
-  await select.selectOption("legs-feet");
+  await select.selectOption("left-leg");
   await page.getByRole("button", { name: "Lift left leg", exact: true }).click();
   await expect(page.getByTestId("stretch-status")).toContainText("Completed", { timeout: 4000 });
   await page.getByRole("button", { name: "Return to rest", exact: true }).click();
@@ -541,7 +519,7 @@ test("switching areas resets a partial hold and head rotation moves the actual u
   await page.getByRole("button", { name: "Tilt head right", exact: true }).click();
   const tilted = atRotated(300, 120, 300, 208, .4);
   await expect.poll(() => pixel(page, '[data-testid="avatar"]', tilted.x, tilted.y)).toEqual([229, 181, 67, 255]);
-  await select.selectOption("arms-back");
+  await select.selectOption("left-upper-arm");
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-hold", "0.00");
   await page.getByRole("button", { name: "Raise arms", exact: true }).click();
   await page.waitForTimeout(1000);
@@ -557,17 +535,17 @@ test("real MediaPipe leg extension earns only the legs and feet fade", async () 
   const page = await context.newPage();
   try {
     await page.goto("http://127.0.0.1:3202"); await upload(page);
-    await page.getByRole("combobox", { name: "Body area", exact: true }).selectOption("legs-feet");
+    await page.getByRole("combobox", { name: "Body area", exact: true }).selectOption("left-leg");
     await page.getByRole("button", { name: "Enable camera", exact: true }).click();
     await expect(page.getByText("Body found", { exact: true })).toBeVisible({ timeout: 30000 });
     await expect(page.getByTestId("stretch-status")).toContainText("Completed", { timeout: 12000 });
-    await expect(page.getByTestId("avatar")).toHaveAttribute("data-legs-fade", "1.00");
-    await expect(page.getByTestId("avatar")).toHaveAttribute("data-arms-fade", "0.00");
-    await expect(page.getByTestId("avatar")).toHaveAttribute("data-head-fade", "0.00");
+    await expect(page.getByTestId("avatar")).toHaveAttribute("data-left-leg-fade", "1.00");
+    await expect(page.getByTestId("avatar")).toHaveAttribute("data-left-upper-arm-fade", "0.00");
+    await expect(page.getByTestId("avatar")).toHaveAttribute("data-neck-head-fade", "0.00");
     await page.screenshot({ path: "test-results/camera-legs-completed.png", fullPage: true });
     await page.getByRole("button", { name: "Stop camera", exact: true }).click();
     await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 254, 610))[0]).toBeGreaterThan(235);
-    await expect.poll(async () => (await pixel(page, '[data-testid="avatar"]', 346, 720))[0]).toBeGreaterThan(235);
+    await expect.poll(() => pixel(page, '[data-testid="avatar"]', 346, 720)).toEqual([161, 152, 189, 255]);
     await expect.poll(() => pixel(page, '[data-testid="avatar"]', 300, 385)).toEqual([39, 154, 163, 255]);
     await expect.poll(() => pixel(page, '[data-testid="avatar"]', 300, 120)).toEqual([229, 181, 67, 255]);
     await expect.poll(() => pixel(page, '[data-testid="avatar"]', 300, 509)).toEqual([211, 95, 164, 255]);

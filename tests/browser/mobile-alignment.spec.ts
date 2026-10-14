@@ -13,9 +13,10 @@ async function prepare(page: Page) {
   // UI-only fixture: no Supabase instance or participant credentials are used.
   await page.route("**/api/participant/queue", route => route.fulfill({ json: { waiting: 0, capacity: 20, accepting: true, online: true } }));
   await page.route("**/api/participant/queue/ticket", route => route.fulfill({ json: waiting })); await page.goto("/mobile");
-  await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
+  await page.getByRole("button", { name: /Upload drawing|Continue my drawing/ }).click();
   await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: drawing });
   await expect(page.getByTestId("photo-alignment")).toBeVisible();
+  await page.getByText("Adjust photo", { exact: true }).click();
   await expect.poll(() => pixel(page, 300, 385)).toEqual([39, 154, 163, 255]);
 }
 async function pixel(page: Page, x: number, y: number) {
@@ -148,9 +149,10 @@ test("WebKit uses the same alignment controls and native pointer drag", async ()
   try {
     await page.route("**/api/participant/queue", route => route.fulfill({ json: { waiting: 0, capacity: 20, accepting: true, online: true } }));
     await page.route("**/api/participant/queue/ticket", route => route.fulfill({ json: waiting })); await page.goto("http://127.0.0.1:3202/mobile");
-    await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
+    await page.getByRole("button", { name: /Upload drawing|Continue my drawing/ }).click();
     await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: drawing });
     await expect(page.getByTestId("photo-alignment")).toBeVisible();
+    await page.getByText("Adjust photo", { exact: true }).click();
     const bounds = (await page.getByTestId("photo-alignment").boundingBox())!;
     await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2); await page.mouse.down();
     await page.mouse.move(bounds.x + bounds.width / 2 + 18, bounds.y + bounds.height / 2 + 12, { steps: 4 }); await page.mouse.up();

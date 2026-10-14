@@ -1,8 +1,10 @@
 # Out of Body
 
-The permanent-QR queue is now available on `/installation` and `/mobile`: optional participant names, automatic 20-slot intake, compact queue management above the stretching screen, and local drawing cleanup before upload. See [QUEUE_SETUP.md](QUEUE_SETUP.md) for the new Supabase migration, stable QR address, hosting configuration, operating limits, and verification boundaries. Final Figma styling is deferred.
+The permanent-QR queue is now available on `/installation` and `/mobile`: optional participant names, automatic 20-slot intake, compact queue management before and between turns, and local drawing cleanup before upload. See [QUEUE_SETUP.md](QUEUE_SETUP.md) for the new Supabase migration, stable QR address, hosting configuration, operating limits, and verification boundaries. Final Figma styling is deferred.
 
 An interactive art prototype. Upload a drawing on the supplied human silhouette, follow an independent animated stretching guide, and watch the actual drawing mirror your movements. Participation gradually fades the corresponding colored marks while preserving the outline.
+
+Stretches are selected from eight colored regions: head/neck, torso/pelvis, each upper arm, each forearm/hand, and each leg/foot. Uncolored regions are omitted. Upper-arm marks select a reach; forearm marks select an independent elbow bend; torso marks select hands-on-hips side stretches. Each colored leg selects side steps, side raises and supported heel raises, with a same-leg side-raise fallback when foot tracking is unclear. A sideways arc on the instructor explains neck tilt, not a full neck circle. Blank drawings need an alignment/color check before a guided session can start. These are symbolic activity mappings, not a medical interpretation of the marks.
 
 This is the separate GitHub/Vercel migration of the existing application. The original ChatGPT Sites checkout and deployment remain unchanged. See [MIGRATION.md](MIGRATION.md) for the original migration audit and [QA.md](QA.md) for verification evidence.
 
@@ -114,27 +116,18 @@ The page is a Next.js App Router shell around browser-side React/Canvas logic. T
 
 1. Get the drawing sheet, draw colored marks inside the silhouette, and photograph the entire page upright, straight-on and evenly lit.
 2. Upload a JPEG, PNG or WebP. **Align photo** adjusts scale, position and rotation. **Try an example** supplies a visibly labeled sample.
-3. Enable the camera, or select **Manual demo**. Press **Start guided session** and follow the instructor beside **Your drawing**.
-4. Move gently within a comfortable range. **Skip activity** advances without awarding its unearned fade. **Pause/Resume** freezes progress. **Reset experience** restores colors/progress while retaining the drawing and camera connection.
-5. **More controls** retains individual stretch practice, **Save PNG** and **Start fresh**. Start fresh removes the drawing and releases the camera. Fullscreen retains the guide, drawing and activity controls.
+3. Press **Start guided session**. The positioning screen shows a mirrored camera preview and boundary. Enable the camera, fit the body parts needed by the selected stretches inside the boundary, and hold steady for two seconds. **Start stretching** then opens the exhibit view.
+4. During the turn, only the guide, drawing/name, current instruction, progress and **Skip Stretch / Pause / Restart / Skip Turn** are shown. The camera remains active in the background; its preview and the queue stay outside this view.
+5. Unreliable tracking freezes drawing, guide and progress immediately. Sustained loss opens a repositioning prompt. Two seconds of steady tracking enable **Continue**, which must be clicked explicitly. **Check position** reopens the preview without losing earned progress. Restart clears progress with the same drawing and returns camera sessions to the positioning gate; Skip Turn releases the camera and ends the current participant's turn.
+6. **Setup tools** retains explicit Manual demo, individual stretch practice, fullscreen and export for staff/local development. Manual simulation does not certify camera framing. Mobile alignment is primarily drag/pinch; zoom, rotation and cleanup comparison remain behind **Adjust photo**.
 
-The guide and drawing remain independent: the guide animates its authored demonstration; the drawing follows participant landmarks or explicit manual inputs. An idle guide does not earn participant progress.
-
-| Guided activity | Demonstration and matching forgiving detection | Fade mapping |
-|---|---|---|
-| Neck / head | Gentle side-to-side neck tilts relative to the shoulders. | Head segment, including neck. |
-| Arms / back | Overhead reaching, then a gentle side stretch with at least one arm raised. | Torso and both arms. |
-| Legs / feet | Alternating small side steps, then supported heel raises when foot points are usable. | Both thighs and shins, including feet. |
-
-Each activity accumulates eight seconds of meaningful movement and transitions automatically after a brief completion pause. Rest retains earned progress; idle poses, tracking loss, paused/hidden tabs and long frame gaps earn none. During legs/feet, unusable foot points with tracked legs trigger an explicit **more side steps** fallback after 2.5 seconds; the guide and detector change together. Chair support is instructed and illustrated, not recognized.
-
-Manual demo uses the existing sliders and progress system. Manual heel input simulates detection measurements; it does not add a separate foot rig. Individual stretch practice retains the separate continuous-hold rules, timing and fade-amount controls.
+The independent guide never earns participant credit. Only colored regions enter the sequence: head tilts; left/right upper-arm reaches; left/right elbow bends; hands-on-hips torso side stretches; and each colored leg's side steps, side raises and supported heel raises. Each region earns eight seconds of movement. Unusable heel tracking falls back to side raises on the selected leg. Chair support is demonstrated, not detected.
 
 ## Drawing and movement constraints
 
 - The template is a **600 × 900**, front-facing neutral silhouette. Uploaded pixels are clipped into predefined head/neck, torso, arm, pelvis, thigh and shin/foot segments with fixed joint pivots. This is not arbitrary automatic rigging.
 - The pelvis rotates around its fixed center; it does not translate. Feet remain attached to the shins. Exact full-body mirroring, separate ankle rotation and 3D motion are outside the MVP.
-- Region-specific masks fade saturated colored pixels toward paper color. Black/gray outline strokes, other regions and the pelvis remain unchanged. Back uses the front-facing torso as its artistic proxy.
+- Region-specific masks fade saturated colored pixels toward paper color. Black/gray outline strokes, unselected regions remain unchanged. Pelvis marks belong to the torso region. Back uses the front-facing torso as its artistic proxy.
 - Alignment does not correct perspective, remove shadows or recognize discomfort. Pale colors may be excluded; colored lighting can be included. Retake skewed/poorly lit photographs.
 - Uploads support JPEG/PNG/WebP up to 20 MB, with minimum 100-pixel dimensions and a 50-megapixel ceiling.
 - Direct uploads and webcam frames stay in browser memory. In the QR journey, only a prepared opaque 600 × 900 PNG is sent to private temporary storage; camera video and the original photo are never uploaded. The desktop retrieves it through its own authorized route. Completion/reset deletes the temporary object; expired objects are cleaned automatically when the configured scheduler/app are reachable. **Save PNG** explicitly downloads an opaque 840 × 900 result.
@@ -142,7 +135,7 @@ Manual demo uses the existing sliders and progress system. Manual heel input sim
 
 ## Camera recovery and external requirements
 
-Use Chrome or Edge on localhost or HTTPS, with a physical webcam and permission to use it. The camera preview keeps its full 4:3 frame and displays tracking feedback below it.
+Use Chrome or Edge on localhost or HTTPS, with a physical webcam and permission to use it. The positioning preview preserves the camera’s actual aspect ratio. The preview is hidden while the same live stream tracks the active stretch. Framing checks visibility/confidence, required joints and an inset image boundary; it does not inspect obstacles or certify physical safety.
 
 | State | Recovery |
 |---|---|

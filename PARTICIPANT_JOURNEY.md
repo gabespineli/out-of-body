@@ -22,7 +22,7 @@ The camera and preview are separate functional steps around the Figma upload str
 - `src/server/`: authorization, session state/storage, bounded PNG validation.
 - `src/app/api/participant/`: small route handlers; no participant secrets or storage keys in browser code.
 - `supabase/`: private session/bucket schema, isolated local configuration and scheduled cleanup.
-- Existing pose detector, guide progression, fixed rig, color masks, renderer, webcam hook and artwork hook remain unchanged.
+- Stretch selection and fades use eight drawing regions. The fixed rig and drawing sheet remain compatible; region masks separate torso/pelvis, left/right upper arms, forearms and legs. The sequence contains only regions with at least 40 qualifying colored pixels. Camera/manual measurements, instructor loops and individual stretches use the same region mapping.
 
 The existing `Installation` accepts an optional prepared File and lifecycle callbacks. Without those props, `/` keeps its original behavior. The new `/installation` wrapper supplies remote artwork and reacts to receipt/completion/reset. Visual updates can replace screen markup/CSS without changing capability authorization, storage or movement logic.
 
@@ -30,7 +30,7 @@ Mobile preview and PNG preparation share `drawAlignedPhoto`, with the existing c
 
 ## Session lifecycle
 
-The permanent entry now runs `/mobile` → private preparation ticket → cleaned/aligned upload → ready queue → operator Call next → Start participant → existing avatar/guide → completion/deletion. Queue controls are embedded at the top of `/installation`, including fullscreen; no separate management screen is created. `queue-store.ts` and service-role-only SQL functions serialize admission/activation and preserve private per-phone credentials. Old printed pairing links enter this same queue, while legacy APIs remain available for already-open sessions. See `QUEUE_SETUP.md` for deadlines, budgets, and deployment steps. The lifecycle below documents the legacy API.
+The permanent entry now runs `/mobile` → private preparation ticket → cleaned/aligned upload → ready queue → operator Call next → Start participant → existing avatar/guide → completion/deletion. Queue controls stay on `/installation` before and between turns. Starting a participant opens the positioning gate, then a clean guide/drawing view; the queue is hidden throughout the active turn. No separate management screen is created. `queue-store.ts` and service-role-only SQL functions serialize admission/activation and preserve private per-phone credentials. Old printed pairing links enter this same queue, while legacy APIs remain available for already-open sessions. See `QUEUE_SETUP.md` for deadlines, budgets, and deployment steps. The lifecycle below documents the legacy API.
 
 Desktop operator → new QR → one phone claims it → phone previews PNG → upload reservation → private stored PNG → desktop polls/retrieves → existing avatar → guide/fades → completion → deletion → next QR.
 

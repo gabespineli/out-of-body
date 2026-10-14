@@ -50,6 +50,7 @@ export function MobilePreview({ photo, onRetake, onSend, sending, name, onName }
       <canvas ref={preview} width="600" height="900" data-testid="mobile-preview" aria-label="Prepared drawing preview" /><TemplateGuide />
     </div>
     <span className="visually-hidden" id="photo-keyboard-hint">Arrow keys move the photo. Plus and minus zoom. Fine adjustment includes rotation.</span>
+    <details className="photo-adjustments"><summary>Adjust photo</summary>
     <div className="button-row photo-quick-controls" aria-label="Photo alignment controls">
       <button type="button" aria-label="Zoom out" disabled={sending || photo.alignment.scale <= .5} onClick={() => gestures.zoom(1 / 1.2)}>−</button>
       <output aria-label="Photo zoom" aria-live="off">{Math.round(photo.alignment.scale * 100)}%</output>
@@ -61,17 +62,15 @@ export function MobilePreview({ photo, onRetake, onSend, sending, name, onName }
     ] as const).map(([key, label, min, max, step]) => <label key={key} className="slider-label">{label}<input type="range" aria-label={`Mobile photo ${label.toLowerCase()}`}
       value={photo.alignment[key]} min={min} max={max} step={step} disabled={sending} onChange={event => photo.setAlignment({ ...photo.alignment, [key]: +event.target.value })} /></label>)}</details>
     <fieldset className="drawing-cleanup"><legend>Drawing cleanup</legend>
-      <div className="segmented"><button type="button" disabled={sending} aria-pressed={photo.showOriginal} onClick={() => photo.setShowOriginal(true)}>Original</button>
-        <button type="button" disabled={sending} aria-pressed={!photo.showOriginal} onClick={() => photo.setShowOriginal(false)}>Cleaned</button></div>
+      <label className="field-label">Compare preview<select aria-label="Preview version" disabled={sending} value={photo.showOriginal ? "original" : "cleaned"} onChange={event => photo.setShowOriginal(event.target.value === "original")}><option value="cleaned">Cleaned</option><option value="original">Original</option></select></label>
       <label className="slider-label">Cleanup amount<input type="range" aria-label="Cleanup amount" min="0" max="1" step=".05" disabled={sending} value={photo.cleanupStrength}
         onChange={event => { photo.setCleanupStrength(+event.target.value); photo.setShowOriginal(false); }} /></label>
-      <button type="button" disabled={sending} onClick={() => { photo.setCleanupStrength(0); photo.setShowOriginal(false); }}>Turn off cleanup</button>
       <p className="participant-note">Check faint marks and shadows. Only the cleaned version is sent; set the amount to zero to send the original alignment.</p>
-    </fieldset>
+    </fieldset></details>
     {onName && <label className="field-label participant-name">Name we can call at the exhibit<input type="text" autoComplete="off" maxLength={40} value={name || ""} disabled={sending}
       onChange={event => onName(event.target.value)} /><span>First name or nickname — optional. Exhibit staff use it to call your ticket.</span></label>}
     {photo.showOriginal && <p role="status">Comparing the original. Select Cleaned to check the version that will be sent.</p>}
-    <div className="button-row"><button onClick={onSend} disabled={sending}>{sending ? "Sending drawing…" : "Send to installation"}</button><button onClick={onRetake} disabled={sending}>Retake / choose again</button></div>
+    <div className="mobile-primary-actions"><button className="primary-action" onClick={onSend} disabled={sending}>{sending ? "Sending drawing…" : "Send to installation"}</button><button className="quiet-action" onClick={onRetake} disabled={sending}>Retake / choose again</button></div>
   </section>;
 }
 export function MobileSent({ received }: { received: boolean }) {

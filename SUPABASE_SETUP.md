@@ -85,7 +85,7 @@ The local `backend:env` script configures the same scheduler automatically, targ
 1. Open `/installation`, enter the installation key and create a QR.
 2. Scan it on the phone. Use the landing action, open the camera or choose a photo, adjust the preview, and send.
 3. Confirm the actual drawing appears automatically on the desktop and the phone reports receipt.
-4. Enable the desktop webcam or select Manual demo. Start the guide and complete all three activities.
+4. Enable the desktop webcam or select Manual demo. Start the guide and complete the activities selected by the drawing's colored regions. A drawing with no detected color needs an alignment/color check before starting.
 5. Confirm the completion screen, region-specific fading and PNG download.
 6. Select Next participant. Confirm a different QR appears, the old phone cannot upload, and no previous drawing is shown.
 7. In Studio, verify the previous storage object was deleted. Check the scheduled cleanup for abandoned sessions.

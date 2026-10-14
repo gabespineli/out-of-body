@@ -1,4 +1,4 @@
-import type { BodyArea } from "./body-areas";
+import { areaSide, isLegArea, type BodyArea } from "./body-areas";
 export type Gesture = "raise" | "left-arm" | "right-arm" | "lean" | "lean-left" | "lean-right" | "left-leg" | "right-leg";
 export const GESTURES: { value: Gesture; label: string; prompt: string }[] = [
   { value: "raise", label: "Raised arms", prompt: "Raise both arms" },
@@ -33,6 +33,8 @@ export const REST_HIPS: ManualHips = { hipTilt: 0 };
 export type ManualHead = { headTilt: number };
 export const REST_HEAD: ManualHead = { headTilt: 0 };
 export type ManualFeet = { heelRaise: number };
+export type ManualElbows = { leftElbow: number; rightElbow: number };
+export const REST_ELBOWS: ManualElbows = { leftElbow: 0, rightElbow: 0 };
 export const REST_FEET: ManualFeet = { heelRaise: 0 };
 export const HOLD_MS = 3000;
 export const FADE_MS = 1600;
@@ -67,8 +69,11 @@ export function motionFromLandmarks(points: Landmark[], aspect = 4 / 3, previous
     const span = Math.abs(points[23].x - points[24].x) * aspect;
     if (span >= .04) hipTilt = clamp(Math.atan2(points[24].y - points[23].y, span), -.35, .35);
   }
-  const leftVisible = [13, 15].every(i => visible(points[i]));
-  const rightVisible = [14, 16].every(i => visible(points[i]));
+  const armVisible = (s: number, e: number, w: number) => [s, e, w].every(i => visible(points[i]))
+    && Math.hypot((points[s].x - points[e].x) * aspect, points[s].y - points[e].y) >= .04
+    && Math.hypot((points[e].x - points[w].x) * aspect, points[e].y - points[w].y) >= .04;
+  const leftVisible = armVisible(11, 13, 15);
+  const rightVisible = armVisible(12, 14, 16);
   // Enter with hands clearly above the shoulders; tolerate small jitter while held.
   // Low confidence still releases immediately, and lowered hands cannot keep a hold.
   const raisedArm = (s: number, e: number, w: number, wasRaised: boolean) =>
@@ -118,10 +123,10 @@ export function motionFromLandmarks(points: Landmark[], aspect = 4 / 3, previous
     leftLegLifted: leftLeg.visible && leftLeg.upper - hipTilt >= (previous.leftLegLifted ? .22 : .28), rightLegLifted: rightLeg.visible && rightLeg.upper - hipTilt <= -(previous.rightLegLifted ? .22 : .28) };
 }
 
-export function manualMotion(left: number, lean: number, right = left, legs: ManualLegs = REST_LEGS, hips: ManualHips = REST_HIPS, head: ManualHead = REST_HEAD, feet: ManualFeet = REST_FEET): Motion {
+export function manualMotion(left: number, lean: number, right = left, legs: ManualLegs = REST_LEGS, hips: ManualHips = REST_HIPS, head: ManualHead = REST_HEAD, feet: ManualFeet = REST_FEET, elbows: ManualElbows = REST_ELBOWS): Motion {
   const tilt = lean * .4;
   const hipTilt = hips.hipTilt * .35;
-  return { leftArm: left * 2.55, rightArm: right * -2.55, leftElbow: left * -.18, rightElbow: right * .18, lean: tilt + hipTilt, tracked: true, raised: left >= .72 && right >= .72, leaning: Math.abs(tilt + hipTilt) >= .20, leftRaised: left >= .72, rightRaised: right >= .72, leftVisible: true, rightVisible: true, hipsVisible: true,
+  return { leftArm: left * 2.55, rightArm: right * -2.55, leftElbow: -elbows.leftElbow * 1.5, rightElbow: elbows.rightElbow * 1.5, lean: tilt + hipTilt, tracked: true, raised: left >= .72 && right >= .72, leaning: Math.abs(tilt + hipTilt) >= .20, leftRaised: left >= .72, rightRaised: right >= .72, leftVisible: true, rightVisible: true, hipsVisible: true,
     hipTilt, headTilt: head.headTilt * .4, headVisible: true, headTilted: Math.abs(head.headTilt * .4) >= .20,
     leftReaching: left >= .5, rightReaching: right >= .5, leftFootVisible: true, rightFootVisible: true,
     leftHeel: feet.heelRaise * .25, rightHeel: feet.heelRaise * .25,
@@ -148,8 +153,11 @@ export function matchesGesture(motion: Motion, gesture: Gesture): boolean {
 export function matchesBodyStretch(motion: Motion, area: BodyArea): boolean {
   if (!motion.tracked) return false;
   if (area === "neck-head") return motion.headVisible && motion.headTilted;
-  if (area === "arms-back") return motion.leftVisible && motion.rightVisible && motion.raised;
-  return motion.leftLegVisible && motion.leftLegLifted || motion.rightLegVisible && motion.rightLegLifted;
+  if (area === "torso") return motion.hipsVisible && Math.abs(motion.lean - motion.hipTilt) >= .20;
+  const side = areaSide(area);
+  if (isLegArea(area)) return motion.hipsVisible && motion[`${side}LegVisible`] && motion[`${side}LegLifted`];
+  if (area.endsWith("forearm")) return motion[`${side}Visible`] && Math.abs(motion[`${side}Elbow`]) >= .35;
+  return motion[`${side}Visible`] && motion[`${side}Raised`];
 }
 
 export function smoothMotion(current: Motion, target: Motion, dt: number): Motion {
