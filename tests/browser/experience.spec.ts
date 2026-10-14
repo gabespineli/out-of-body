@@ -30,7 +30,7 @@ async function pixel(page: Page, selector: string, x: number, y: number) {
 
 test("actual uploaded colors reach the rig; a held gesture fades only selected color", async ({ page }) => {
   const errors: string[] = []; page.on("pageerror", e => errors.push(e.message));
-  await page.goto("/"); await practice(page); await upload(page);
+  await page.goto("/test"); await practice(page); await upload(page);
   await expect.poll(() => pixel(page, '[data-testid="avatar"]', 300, 385)).toEqual([39, 154, 163, 255]);
   const before = await pixel(page, '[data-testid="avatar"]', 205, 270);
   expect(before.slice(0, 3)).toEqual([219, 113, 93]);
@@ -54,7 +54,7 @@ test("actual uploaded colors reach the rig; a held gesture fades only selected c
 });
 
 test("the opposite arm or a side lean cannot earn progress; interruption restarts the three-second hold", async ({ page }) => {
-  await page.goto("/"); await practice(page); await upload(page);
+  await page.goto("/test"); await practice(page); await upload(page);
   await expect(page.getByTestId("stretch-instruction")).toContainText("raise your left hand above your shoulder.");
   await expect(page.getByRole("combobox", { name: "Gesture to hold" })).toHaveCount(0);
   await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
@@ -79,7 +79,7 @@ test("the opposite arm or a side lean cannot earn progress; interruption restart
 
 test("permission denied is explained and manual fallback remains usable", async ({ page }) => {
   await page.addInitScript(() => { navigator.mediaDevices.getUserMedia = async () => { throw new DOMException("Denied by fixture", "NotAllowedError"); }; });
-  await page.goto("/"); await practice(page); await upload(page);
+  await page.goto("/test"); await practice(page); await upload(page);
   await page.getByRole("button", { name: "Enable camera", exact: true }).click();
   await expect(page.locator("p[role=alert]")).toContainText("Camera permission was denied");
   await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
@@ -89,7 +89,7 @@ test("permission denied is explained and manual fallback remains usable", async 
 
 test("no webcam and a busy camera have distinct recovery states", async ({ page }) => {
   await page.addInitScript(() => { navigator.mediaDevices.getUserMedia = async () => { throw new DOMException("No fixture camera", "NotFoundError"); }; });
-  await page.goto("/"); await practice(page); await page.getByRole("button", { name: "Enable camera", exact: true }).click();
+  await page.goto("/test"); await practice(page); await page.getByRole("button", { name: "Enable camera", exact: true }).click();
   await expect(page.locator("p[role=alert]")).toContainText("No webcam was found");
   await page.evaluate(() => { navigator.mediaDevices.getUserMedia = async () => { throw new DOMException("Busy fixture", "NotReadableError"); }; });
   await page.getByRole("button", { name: "Try camera again", exact: true }).click();
@@ -97,7 +97,7 @@ test("no webcam and a busy camera have distinct recovery states", async ({ page 
 });
 
 test("invalid uploads, area selection, no color, alignment and reset work", async ({ page }) => {
-  await page.goto("/"); await practice(page);
+  await page.goto("/test"); await practice(page);
   await page.getByTestId("art-upload").setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("invalid") });
   await expect(page.locator("p[role=alert]")).toContainText("Choose a JPG, PNG or WebP");
   await page.getByTestId("art-upload").setInputFiles({ name: "broken.png", mimeType: "image/png", buffer: Buffer.from("invalid") });
@@ -126,7 +126,7 @@ test("invalid uploads, area selection, no color, alignment and reset work", asyn
 
 test("layout fits 320, 768, 1024 and 1440 widths and supports keyboard controls", async ({ page }) => {
   for (const width of [320, 768, 1024, 1440]) {
-    await page.setViewportSize({ width, height: 1000 }); await page.goto("/"); await practice(page);
+    await page.setViewportSize({ width, height: 1000 }); await page.goto("/test"); await practice(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
     await page.getByRole("button", { name: "Try an example", exact: true }).click();
     await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
@@ -146,7 +146,7 @@ test("real MediaPipe moves arms and legs while an unraised pose cannot complete 
   const context = await browser.newContext({ permissions: ["camera"], viewport: { width: 1440, height: 1100 } });
   const page = await context.newPage();
   try {
-    await page.goto("http://127.0.0.1:3202"); await upload(page);
+    await page.goto("http://127.0.0.1:3202/test"); await upload(page);
     await page.getByRole("button", { name: "Enable camera", exact: true }).click();
     await expect(page.getByRole("button", { name: "Stop camera", exact: true })).toBeVisible({ timeout: 30000 });
     await expect(page.getByText("Body found", { exact: true })).toBeVisible({ timeout: 10000 });
@@ -172,7 +172,7 @@ test("a real MediaPipe lean does not count as the arms-raised stretch", async ()
   const context = await browser.newContext({ permissions: ["camera"], viewport: { width: 1440, height: 1100 } });
   const page = await context.newPage();
   try {
-    await page.goto("http://127.0.0.1:3202"); await upload(page);
+    await page.goto("http://127.0.0.1:3202/test"); await upload(page);
     await page.getByRole("button", { name: "Enable camera", exact: true }).click();
     await expect(page.getByText("Body found", { exact: true })).toBeVisible({ timeout: 30000 });
     await page.waitForTimeout(3200);
@@ -190,7 +190,7 @@ test("model-load failure stops the camera and keeps manual demo working", async 
   const page = await context.newPage();
   try {
     await page.route("**/vision/pose_landmarker_lite.task", route => route.fulfill({ status: 404, body: "Missing fixture model" }));
-    await page.goto("http://127.0.0.1:3202"); await upload(page);
+    await page.goto("http://127.0.0.1:3202/test"); await upload(page);
     await page.getByRole("button", { name: "Enable camera", exact: true }).click();
     await expect(page.locator("p[role=alert]")).toContainText("pose model could not load", { timeout: 30000 });
     expect(await page.locator("video").evaluate(v => (v as HTMLVideoElement).srcObject)).toBeNull();
@@ -201,7 +201,7 @@ test("model-load failure stops the camera and keeps manual demo working", async 
 });
 
 test("the three-second stretch transitions through animated fade and changes only colored pixels in the selected upper arm", async ({ page }) => {
-  await page.goto("/"); await practice(page); await upload(page);
+  await page.goto("/test"); await practice(page); await upload(page);
   await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
   await expect(page.getByTestId("stretch-status")).toContainText("Not detected");
   await expect(page.getByTestId("stretch-instruction")).toContainText("3 seconds");
@@ -245,7 +245,7 @@ test("the three-second stretch transitions through animated fade and changes onl
 });
 
 test("eight practice regions preserve independent fades when switching", async ({ page }) => {
-  await page.goto("/"); await practice(page); await upload(page);
+  await page.goto("/test"); await practice(page); await upload(page);
   await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
   await page.getByRole("slider", { name: "Hold duration", exact: true }).fill("2");
   await page.getByRole("slider", { name: "Fade duration", exact: true }).fill("0.2");
@@ -269,7 +269,7 @@ test("eight practice regions preserve independent fades when switching", async (
 });
 
 test("pause freezes the displayed pose and fade; resuming restarts an unfinished hold", async ({ page }) => {
-  await page.goto("/"); await practice(page); await upload(page);
+  await page.goto("/test"); await practice(page); await upload(page);
   await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
   await page.getByRole("slider", { name: "Hold duration", exact: true }).fill("2");
   await page.getByRole("slider", { name: "Fade duration", exact: true }).fill("2");
@@ -296,7 +296,7 @@ test("pause freezes the displayed pose and fade; resuming restarts an unfinished
 });
 
 test("PNG saves independent area fades at the requested amount", async ({ page }, testInfo) => {
-  await page.goto("/"); await practice(page); await upload(page);
+  await page.goto("/test"); await practice(page); await upload(page);
   await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
   await page.getByRole("slider", { name: "Hold duration", exact: true }).fill("2");
   await page.getByRole("slider", { name: "Fade duration", exact: true }).fill("0.2");
@@ -346,7 +346,7 @@ test("canceling a pending camera request releases a stream that arrives later", 
       };
     });
   });
-  await page.goto("/"); await practice(page); await upload(page);
+  await page.goto("/test"); await practice(page); await upload(page);
   await page.getByRole("button", { name: "Enable camera", exact: true }).click();
   await page.getByRole("button", { name: "Cancel camera", exact: true }).click();
   await page.evaluate(() => (window as unknown as { resolveCamera: () => void }).resolveCamera());
@@ -358,7 +358,7 @@ test("canceling a pending camera request releases a stream that arrives later", 
 });
 
 test("uploaded leg marks follow independent hip and knee controls", async ({ page }) => {
-  await page.goto("/"); await practice(page); await upload(page);
+  await page.goto("/test"); await practice(page); await upload(page);
   await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
   await expect.poll(() => pixel(page, '[data-testid="avatar"]', 254, 610)).toEqual([115, 153, 180, 255]);
   expect(await pixel(page, '[data-testid="avatar"]', 254, 710)).toEqual([115, 153, 180, 255]);
@@ -380,7 +380,7 @@ test("uploaded leg marks follow independent hip and knee controls", async ({ pag
 });
 
 test("manual leg motion cannot trigger the arms and back stretch", async ({ page }) => {
-  await page.goto("/"); await practice(page); await upload(page);
+  await page.goto("/test"); await practice(page); await upload(page);
   await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
   for (const side of ["left", "right"]) {
     await page.getByRole("button", { name: `Lift ${side} leg`, exact: true }).click();
@@ -393,7 +393,7 @@ test("manual leg motion cannot trigger the arms and back stretch", async ({ page
 test("neck and foot marks fade in their assigned area while torso and pelvis keep their colors", async ({ page }) => {
   const svg = silhouetteSvg(false).replace("</svg>", '<rect x="290" y="193" width="20" height="12" fill="#e5b543"/><rect x="228" y="790" width="24" height="10" fill="#7399b4"/><rect x="280" y="350" width="40" height="40" fill="#279aa3"/><rect x="284" y="498" width="32" height="22" fill="#d35fa4"/></svg>');
   const texture = await sharp(Buffer.from(svg)).png().toBuffer();
-  await page.goto("/"); await practice(page);
+  await page.goto("/test"); await practice(page);
   await page.getByTestId("art-upload").setInputFiles({ name: "neck-and-feet.png", mimeType: "image/png", buffer: texture });
   await expect(page.getByTestId("art-source")).toBeVisible();
   await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
@@ -422,7 +422,7 @@ test("neck and foot marks fade in their assigned area while torso and pelvis kee
 });
 
 test("the uploaded pelvis rotates around its fixed center, carries the body, pauses and resets", async ({ page }, testInfo) => {
-  await page.goto("/"); await practice(page); await upload(page);
+  await page.goto("/test"); await practice(page); await upload(page);
   await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
   await expect.poll(() => pixel(page, '[data-testid="avatar"]', 300, 522)).toEqual([88, 179, 110, 255]);
   const marker = atRotated(286, 501, 300, 522, .35);
@@ -482,7 +482,7 @@ test("real MediaPipe rotates the textured pelvis while camera position changes l
     return { hip: marker(211, 95, 164), pivot: marker(88, 179, 110) };
   });
   try {
-    await page.goto("http://127.0.0.1:3202"); await upload(page);
+    await page.goto("http://127.0.0.1:3202/test"); await upload(page);
     await page.getByRole("button", { name: "Enable camera", exact: true }).click();
     await expect(page.getByText("Body found", { exact: true })).toBeVisible({ timeout: 30000 });
     const angles: number[] = [];
@@ -506,7 +506,7 @@ test("real MediaPipe rotates the textured pelvis while camera position changes l
 
 
 test("switching areas resets a partial hold and head rotation moves the actual uploaded texture", async ({ page }) => {
-  await page.goto("/"); await practice(page); await upload(page);
+  await page.goto("/test"); await practice(page); await upload(page);
   await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
   await page.getByRole("button", { name: "Raise arms", exact: true }).click();
   await expect.poll(async () => +(await page.getByTestId("avatar").getAttribute("data-hold"))!).toBeGreaterThan(.2);
@@ -534,7 +534,7 @@ test("real MediaPipe leg extension earns only the legs and feet fade", async () 
   const context = await browser.newContext({ permissions: ["camera"], viewport: { width: 1440, height: 1100 } });
   const page = await context.newPage();
   try {
-    await page.goto("http://127.0.0.1:3202"); await upload(page);
+    await page.goto("http://127.0.0.1:3202/test"); await upload(page);
     await page.getByRole("combobox", { name: "Body area", exact: true }).selectOption("left-leg");
     await page.getByRole("button", { name: "Enable camera", exact: true }).click();
     await expect(page.getByText("Body found", { exact: true })).toBeVisible({ timeout: 30000 });

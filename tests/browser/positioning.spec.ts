@@ -3,7 +3,7 @@ import sharp from "sharp";
 import { silhouetteSvg } from "../../src/lib/rig";
 import { trackedCamera, standingPoints, setPoints } from "./fixtures/tracked-camera";
 async function setup(page: Page, legs = false, fullscreen = false) {
-  await trackedCamera(page); await page.goto("/");
+  await trackedCamera(page); await page.goto("/test");
   const svg = silhouetteSvg(false).replace("</svg>", '<rect x="280" y="110" width="40" height="30" fill="#e5b543"/>' + (legs ? '<rect x="240" y="590" width="30" height="30" fill="#7399b4"/>' : '') + '</svg>');
   await page.getByTestId("art-upload").setInputFiles({ name: "position.png", mimeType: "image/png", buffer: await sharp(Buffer.from(svg)).png().toBuffer() });
   if (fullscreen) { await page.getByText("Setup tools", { exact: true }).click(); await page.getByRole("button", { name: "Fullscreen", exact: true }).click(); }

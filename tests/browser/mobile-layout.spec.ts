@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import sharp from "sharp";
 import { silhouetteSvg } from "../../src/lib/rig";
 test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-test("mobile has two landing actions, tucked-away adjustment tools and a home/ticket round trip without another reservation", async ({ page }) => {
+test("mobile has a minimal preview and a home/ticket round trip without another reservation", async ({ page }) => {
   let joins=0, status: "preparing" | "ready" | null=null;
   const ticket=()=>({ id:"2b2c4167-d1ea-4f9f-a720-698e90ca1d53",number:7,name:"Alex",ahead:1,status:status ?? "preparing",createdAt:"2026-10-14T00:00:00Z",expiresAt:"2099-01-01T00:00:00Z" });
   await page.route("**/api/participant/queue",route=>route.fulfill({json:{waiting:1,capacity:20,accepting:true,online:true}}));
@@ -16,10 +16,11 @@ test("mobile has two landing actions, tucked-away adjustment tools and a home/ti
   await expect(page.getByRole("button",{name:"Send to installation",exact:true})).toBeVisible();
   await expect(page.getByRole("button",{name:"Zoom in",exact:true})).toHaveCount(0);
   await expect(page.getByLabel("Preview version")).not.toBeVisible();
-  await expect(page.getByRole("button",{name:"Cancel my ticket",exact:true})).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"Cancel my ticket",exact:true})).toBeVisible();
+  await expect(page.getByLabel("Name",{exact:true})).toBeVisible();
+  await expect(page.getByText("Adjust photo",{exact:true})).toHaveCount(0);
+  await expect(page.getByText("Ticket options",{exact:true})).toHaveCount(0);
   await page.screenshot({path:"test-results/mobile-mid-preview.png",fullPage:true});
-  await page.getByText("Adjust photo",{exact:true}).click(); await expect(page.getByRole("button",{name:"Zoom in",exact:true})).toBeVisible();
-  await page.getByText("Adjust photo",{exact:true}).click();
   await page.getByRole("button",{name:"Send to installation",exact:true}).click(); await expect(page.getByTestId("queue-ticket")).toBeVisible();
   await page.getByRole("button",{name:"Back to home",exact:true}).click();
   await expect(page.getByRole("button",{name:"View my ticket",exact:true})).toBeVisible();

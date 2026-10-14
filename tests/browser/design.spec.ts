@@ -34,7 +34,7 @@ test("Figma phone entry, About, capture and named ticket use local artwork and f
   await page.screenshot({path:'test-results/design-mobile-capture.png',fullPage:true});
   const drawing=await sharp(Buffer.from(silhouetteSvg(true))).png().toBuffer();
   await page.getByTestId('mobile-photo').setInputFiles({name:'drawing.png',mimeType:'image/png',buffer:drawing});
-  await page.getByLabel('Name we can call at the exhibit').fill('Alex'); await fonts(page);
+  await page.getByLabel('Name').fill('Alex'); await fonts(page);
   await phoneWidths(page);
   await page.screenshot({path:'test-results/design-mobile-preview.png',fullPage:true});
   await page.getByRole('button',{name:'Send to installation',exact:true}).click(); await expect(page.getByTestId('queue-ticket')).toBeVisible(); await fonts(page);
@@ -43,7 +43,7 @@ test("Figma phone entry, About, capture and named ticket use local artwork and f
 });
 
 test("Figma desktop proportions retain the live instructor, drawing and four compact controls", async ({ page }) => {
-  await page.setViewportSize({width:1440,height:1024}); await page.goto('/');
+  await page.setViewportSize({width:1440,height:1024}); await page.goto('/test');
   const svg=silhouetteSvg(false).replace('</svg>','<rect x="280" y="110" width="40" height="30" fill="#e5b543"/></svg>');
   await page.getByTestId('art-upload').setInputFiles({name:'neck.png',mimeType:'image/png',buffer:await sharp(Buffer.from(svg)).png().toBuffer()});
   await page.getByText('Setup tools',{exact:true}).click(); await page.getByRole('combobox',{name:'Motion source',exact:true}).selectOption('manual');

@@ -39,6 +39,39 @@ async function prepare(page: Page) {
   await expect(page.getByTestId("mobile-preview")).toBeVisible();
 }
 
+test("cancellation confirmation preserves the preview on Keep or Escape and cancels only after confirmation", async ({ page }) => {
+  const state = await phone(page); await prepare(page);
+  await page.getByLabel("Name", { exact: true }).fill("Alex");
+  const preview = await page.getByTestId("mobile-preview").evaluate(el => (el as HTMLCanvasElement).toDataURL());
+  const cancelButton = page.getByRole("button", { name: "Cancel my ticket", exact: true });
+  await cancelButton.click();
+  await expect(page.getByRole("dialog", { name: "Cancel your ticket?" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Keep my ticket", exact: true })).toBeFocused();
+  expect(state.cancels).toBe(0);
+  await page.screenshot({ path: "test-results/mobile-cancel-confirmation.png", fullPage: true });
+  await page.getByRole("button", { name: "Keep my ticket", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0); await expect(cancelButton).toBeFocused();
+  expect(await page.getByTestId("mobile-preview").evaluate(el => (el as HTMLCanvasElement).toDataURL())).toBe(preview);
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Alex");
+  await cancelButton.click(); await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0); expect(state.cancels).toBe(0);
+  await cancelButton.click(); await page.getByRole("button", { name: "Yes, cancel ticket", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Upload drawing", exact: true })).toBeEnabled();
+  expect(state.cancels).toBe(1);
+});
+
+test("ticket expiry closes an open cancellation prompt without cancelling a replacement ticket", async ({ page }) => {
+  await page.clock.install(); const state = await phone(page); await prepare(page);
+  await page.getByRole("button", { name: "Cancel my ticket", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  state.status = "expired"; await page.clock.runFor(15001);
+  await expect(page.getByRole("dialog")).toHaveCount(0); expect(state.cancels).toBe(0);
+  await page.getByRole("button", { name: "Back to home", exact: true }).click();
+  await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
+  await expect(page.getByTestId("mobile-photo")).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0); expect(state.cancels).toBe(0);
+});
+
 test("phone reconnect removes its old connection warning and re-enables intake", async ({ page }) => {
   await page.clock.install(); const state = await phone(page); state.offline = true;
   await page.goto("/mobile"); await expect(page.locator("p[role=alert]")).toContainText("Connection interrupted");
@@ -50,7 +83,7 @@ test("phone reconnect removes its old connection warning and re-enables intake",
 
 test("a failed upload keeps its preview and actionable error through status polling, then retries", async ({ page }) => {
   await page.clock.install(); const state = await phone(page); await prepare(page);
-  await page.getByLabel("Name we can call at the exhibit").fill("Retry Alex");
+  await page.getByLabel("Name").fill("Retry Alex");
   state.uploadError = "Drawing storage unavailable. Please retry.";
   await page.getByRole("button", { name: "Send to installation", exact: true }).click();
   await expect(page.locator("p[role=alert]")).toContainText(state.uploadError);
@@ -59,7 +92,7 @@ test("a failed upload keeps its preview and actionable error through status poll
   await page.screenshot({ path: "test-results/usability-upload-retry.png", fullPage: true });
   await expect(page.locator("p[role=alert]")).toContainText(state.uploadError);
   expect(await page.getByTestId("mobile-preview").evaluate(el => (el as HTMLCanvasElement).toDataURL())).toBe(pixels);
-  await expect(page.getByLabel("Name we can call at the exhibit")).toHaveValue("Retry Alex");
+  await expect(page.getByLabel("Name")).toHaveValue("Retry Alex");
   state.uploadError = ""; await page.getByRole("button", { name: "Send to installation", exact: true }).click();
   await expect(page.getByTestId("queue-ticket")).toBeVisible(); await expect(page.locator("p[role=alert]")).toHaveCount(0);
   expect(state.sends).toBe(2); expect(state.joins).toBe(1);
@@ -67,12 +100,14 @@ test("a failed upload keeps its preview and actionable error through status poll
 
 test("a failed cancellation keeps the ticket and warning until a successful retry", async ({ page }) => {
   await page.clock.install(); const state = await phone(page, "ready"); await page.goto("/mobile");
-  await page.getByText("Ticket options", { exact: true }).click(); state.cancelError = "Cancellation unavailable. Please retry.";
+  state.cancelError = "Cancellation unavailable. Please retry.";
   await page.getByRole("button", { name: "Cancel my ticket", exact: true }).click();
+  await page.getByRole("button", { name: "Yes, cancel ticket", exact: true }).click();
   await expect(page.locator("p[role=alert]")).toContainText(state.cancelError);
   await page.clock.runFor(15001); await expect(page.locator("p[role=alert]")).toContainText(state.cancelError);
   await expect(page.getByTestId("queue-ticket")).toContainText("Ticket 7");
   state.cancelError = ""; await page.getByRole("button", { name: "Cancel my ticket", exact: true }).click();
+  await page.getByRole("button", { name: "Yes, cancel ticket", exact: true }).click();
   await expect(page.getByRole("button", { name: "Upload drawing", exact: true })).toBeEnabled();
   await expect(page.locator("p[role=alert]")).toHaveCount(0); expect(state.cancels).toBe(2);
 });

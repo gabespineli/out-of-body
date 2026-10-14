@@ -7,15 +7,18 @@ import { usePhotoPreview } from "@/hooks/use-photo-preview";
 import { useVisiblePoll } from "@/hooks/use-visible-poll";
 import { MobileCapture, MobilePreview } from "./mobile-screens";
 import { BrandLogo, DesignIcon } from "../design-brand";
+import { TicketCancelDialog } from "./ticket-cancel-dialog";
 export function QueueMobileFlow({ notice }: { notice: string }) {
   const camera = useMobileCamera(), photo = usePhotoPreview();
   const [ticket, setTicket] = useState<QueueTicket | null>(null), [queue, setQueue] = useState<QueuePublic | null>(null);
   const [step, setStep] = useState<"landing" | "camera" | "preview" | "waiting" | "about">("landing");
   const [name, setName] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState(""), [initialized, setInitialized] = useState(false);
   const [connectionError, setConnectionError] = useState("");
+  const [cancelRequest, setCancelRequest] = useState<string | null>(null);
   const locked = useRef(false), current = useRef(ticket), generation = useRef(0);
   const accept = useCallback((value: QueueTicket) => {
     const previous = current.current;
+    if (terminalTicket(value.status) || previous?.id !== value.id) setCancelRequest(null);
     current.current = value;
     setTicket(value);
     if (value.status !== "preparing" && value.status !== "uploading") { camera.stop(); photo.clear();
@@ -91,7 +94,9 @@ export function QueueMobileFlow({ notice }: { notice: string }) {
         <p role="status">{ticket.status === "called" ? "Please move to the stretching screen. Staff will start your session." : ticket.status === "active" ? "Follow the guide on the installation." : `${ticket.ahead} ${ticket.ahead === 1 ? "person" : "people"} ahead of you. Listen for your ticket or name.`}</p>
         <p className="participant-note">Keep this page open to see when you are called. Tickets expire after 90 minutes of waiting.</p><button className="primary-action home-action" onClick={() => setStep("landing")}><DesignIcon name="home" />Back to home</button></section>}
     {ticket && !ended && <div className="ticket-footer"><span>Ticket {ticket.number}{ticket.status === "preparing" ? " · 10 minutes to prepare" : ""}</span>
-      <details><summary>Ticket options</summary><button className="quiet-action" disabled={busy} onClick={() => void cancel()}>Cancel my ticket</button></details></div>}
+      <button className="secondary-action ticket-cancel-action" disabled={busy} onClick={() => setCancelRequest(ticket.id)}>Cancel my ticket</button></div>}
+    <TicketCancelDialog open={!!cancelRequest && ticket?.id === cancelRequest && !ended && !busy} onClose={() => setCancelRequest(null)}
+      onConfirm={() => { const id = cancelRequest; setCancelRequest(null); if (current.current?.id === id && !terminalTicket(current.current.status)) void cancel(); }} />
     {photo.busy && <p role="status">Preparing preview…</p>}{(error || connectionError || photo.error) && <p role="alert" className="error-message">{error || connectionError || photo.error}</p>}
   </main>;
 }

@@ -43,20 +43,19 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
     const host = window as unknown as { installationTools: Record<string, { name: string; execute: (input: unknown) => object }> }; host.installationTools = {};
     Object.defineProperty(document, "modelContext", { value: { registerTool: (tool: { name: string; execute: (input: unknown) => object }) => { host.installationTools[tool.name] = tool; } } });
   });
-  await open(page.request); await page.goto("/installation");
-  await expect(page.getByTestId("queue-bar")).toBeVisible(); await page.getByText("Permanent QR", { exact: true }).click();
+  await open(page.request); await page.goto("/");
+  await expect(page.getByTestId("installation-welcome")).toBeVisible();
   const qr = await page.getByTestId("session-qr").getAttribute("src");
   const pixels = await sharp(Buffer.from(qr!.split(",")[1], "base64")).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const decoded = jsQR(new Uint8ClampedArray(pixels.data), pixels.info.width, pixels.info.height);
   expect(decoded?.data).toBe("http://127.0.0.1:3202/mobile");
-  await page.getByText("Permanent QR", { exact: true }).click();
   const mobile = await browser.newContext({ viewport: { width: 390, height: 844 } }), phone = await mobile.newPage();
   try {
     await phone.goto(decoded!.data); await phone.getByRole("button", { name: "Upload drawing", exact: true }).click();
     await expect(phone.getByTestId("mobile-photo")).toBeVisible();
     const ticket = await phone.request.get("/api/participant/queue/ticket").then(r => r.json()); created.add(ticket.id);
     await phone.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: drawing });
-    await phone.getByLabel("Name we can call at the exhibit").fill("Alex");
+    await phone.getByLabel("Name").fill("Alex");
     const preview = await phone.getByTestId("mobile-preview").evaluate(el => (el as HTMLCanvasElement).toDataURL());
     await phone.getByRole("button", { name: "Send to installation", exact: true }).click();
     await expect(phone.getByTestId("queue-ticket")).toContainText("Alex");
@@ -104,7 +103,7 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
     expect((await db().from("oob_queue_tickets").select("participant_name,status").eq("id", ticket.id).single()).data).toEqual({ participant_name: "", status: "completed" });
     await page.getByRole("button", { name: "Next participant", exact: true }).click();
     await expect(page.getByTestId("queue-bar")).toBeVisible();
-    await page.getByText("Permanent QR", { exact: true }).click(); expect(await page.getByTestId("session-qr").getAttribute("src")).toBe(qr);
+    expect(await page.getByTestId("session-qr").getAttribute("src")).toBe(qr);
   } finally { await mobile.close(); }
 });
 test("concurrent admission stops at 20, existing tickets finish, and cancellation/expiry reopen slots", async ({ request, browser }) => {
@@ -133,13 +132,13 @@ test("a phone can cancel its uploaded ticket and immediately reserve and upload 
     const ticket = await page.request.get("/api/participant/queue/ticket").then(response => response.json());
     created.add(ticket.id); tickets.push(ticket.id);
     await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: drawing });
-    await page.getByLabel("Name we can call at the exhibit").fill(name);
+    await page.getByLabel("Name").fill(name);
     await page.getByRole("button", { name: "Send to installation", exact: true }).click();
     await expect(page.getByTestId("queue-ticket")).toContainText(name);
     const row = (await db().from("oob_queue_tickets").select("object_path,status").eq("id", ticket.id).single()).data!;
     expect(row.status).toBe("ready");
-    await page.getByText("Ticket options", { exact: true }).click();
     await page.getByRole("button", { name: "Cancel my ticket", exact: true }).click();
+    await page.getByRole("button", { name: "Yes, cancel ticket", exact: true }).click();
     await expect(page.getByRole("button", { name: "Upload drawing", exact: true })).toBeEnabled();
     expect((await db().from("oob_queue_tickets").select("status,participant_name").eq("id", ticket.id).single()).data)
       .toEqual({ status: "cancelled", participant_name: "" });
@@ -231,7 +230,7 @@ test("a lost reservation response restores the same ticket using the private bro
     expect((await phone.request.get("/api/participant/queue/ticket").then(r => r.json())).id).toBe(first.id);
   } finally { await phone.close(); }
 });
-test("phone cleanup comparison and off control submit exactly the displayed configured result", async ({ page, request }) => {
+test("automatic phone cleanup submits exactly the displayed cleaned result without adjustment controls", async ({ page, request }) => {
   await open(request); await page.setViewportSize({ width: 390, height: 844 }); await page.goto("/mobile");
   await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
   await expect(page.getByTestId("mobile-photo")).toBeVisible();
@@ -239,15 +238,12 @@ test("phone cleanup comparison and off control submit exactly the displayed conf
   const shadowed = await sharp({ create: { width: 600, height: 900, channels: 3, background: { r: 195, g: 180, b: 160 } } }).png().toBuffer();
   await page.getByTestId("mobile-photo").setInputFiles({ name: "warm-paper.png", mimeType: "image/png", buffer: shadowed });
   const pixel = () => page.getByTestId("mobile-preview").evaluate(el => Array.from((el as HTMLCanvasElement).getContext("2d")!.getImageData(100, 100, 1, 1).data));
-  await page.getByText("Adjust photo", { exact: true }).click();
-  await page.getByRole("slider", { name: "Cleanup amount", exact: true }).fill("1");
-  await expect.poll(pixel).toEqual([250, 248, 243, 255]);
-  await page.getByLabel("Preview version").selectOption("original"); await expect.poll(pixel).toEqual([195, 180, 160, 255]);
-  await page.getByLabel("Preview version").selectOption("cleaned"); await expect.poll(pixel).toEqual([250, 248, 243, 255]);
-  await page.getByRole("slider", { name: "Cleanup amount", exact: true }).fill("0"); await expect.poll(pixel).toEqual([195, 180, 160, 255]);
+  await expect(page.getByText("Adjust photo", { exact: true })).toHaveCount(0);
+  await expect.poll(pixel).not.toEqual([195, 180, 160, 255]);
+  const displayed = await pixel();
   await page.getByRole("button", { name: "Send to installation", exact: true }).click(); await expect(page.getByTestId("queue-ticket")).toBeVisible();
   const row = (await db().from("oob_queue_tickets").select("object_path").eq("id", ticket.id).single()).data!;
   const uploaded = await db().storage.from("oob-temporary-artwork").download(row.object_path);
   const raw = await sharp(Buffer.from(await uploaded.data!.arrayBuffer())).ensureAlpha().raw().toBuffer();
-  expect(Array.from(raw.subarray((100 * 600 + 100) * 4, (100 * 600 + 100) * 4 + 4))).toEqual([195, 180, 160, 255]);
+  expect(Array.from(raw.subarray((100 * 600 + 100) * 4, (100 * 600 + 100) * 4 + 4))).toEqual(displayed);
 });

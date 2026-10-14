@@ -1,6 +1,8 @@
 # Out of Body
 
-The permanent-QR queue is now available on `/installation` and `/mobile`: optional participant names, automatic 20-slot intake, compact queue management before and between turns, and local drawing cleanup before upload. See [QUEUE_SETUP.md](QUEUE_SETUP.md) for the Supabase migration, stable QR address, hosting configuration, operating limits, and verification boundaries. The Figma design is implemented with local logo/background/icon assets, supplied Hatch Sans and Urbanist fonts. The completion background uses the approved still export.
+Routes: `/` is the exhibit installation, `/test` is the local-upload/manual-demo page, and `/mobile` is the participant phone flow. The previous `/installation` address redirects to `/`.
+
+The permanent-QR queue is now available on `/` and `/mobile`: optional participant names, automatic 20-slot intake, compact queue management before and between turns, and local drawing cleanup before upload. See [QUEUE_SETUP.md](QUEUE_SETUP.md) for the Supabase migration, stable QR address, hosting configuration, operating limits, and verification boundaries. The Figma design is implemented with local logo/background/icon assets, supplied Hatch Sans and Urbanist fonts. The completion background uses the approved still export.
 
 An interactive art prototype. Upload a drawing on the supplied human silhouette, follow an independent animated stretching guide, and watch the actual drawing mirror your movements. Participation gradually fades the corresponding colored marks while preserving the outline.
 
@@ -8,9 +10,9 @@ Stretches are selected from eight colored regions: head/neck, torso/pelvis, each
 
 This is the separate GitHub/Vercel migration of the existing application. The original ChatGPT Sites checkout and deployment remain unchanged. See [MIGRATION.md](MIGRATION.md) for the original migration audit and [QA.md](QA.md) for verification evidence.
 
-The participant-journey implementation adds `/installation` for the permanent QR and exhibit queue and `/mobile` for phone capture, preview and upload. It uses a dedicated Supabase project for private temporary artwork and session capabilities. The original `/` experience remains available. See [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for Docker startup/cloud instructions, [PARTICIPANT_JOURNEY.md](PARTICIPANT_JOURNEY.md) for component boundaries and Figma references, and [design asset provenance](public/design/README.md) for asset sources. This design update requires no new database migration or hosting setting.
+The participant-journey implementation adds `/` for the permanent QR and exhibit queue and `/mobile` for phone capture, preview and upload. It uses a dedicated Supabase project for private temporary artwork and session capabilities. The original local-upload/manual-demo experience is available at `/test`. See [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for Docker startup/cloud instructions, [PARTICIPANT_JOURNEY.md](PARTICIPANT_JOURNEY.md) for component boundaries and Figma references, and [design asset provenance](public/design/README.md) for asset sources. This design update requires no new database migration or hosting setting.
 
-On the mobile photo preview, drag with one finger to position the drawing and pinch with two fingers to zoom around their midpoint. The silhouette guide stays fixed. Zoom buttons and Reset alignment are available beside the preview; Fine adjustment retains the sliders, including rotation. The prepared upload uses exactly the same alignment as the preview. Page scrolling and browser zoom remain available outside the photo surface.
+On the mobile photo preview, drag with one finger to position the drawing and pinch with two fingers to zoom around their midpoint. The silhouette guide stays fixed. Keyboard users can move with arrow keys and zoom with plus/minus. The preview has no adjustment section; paper cleanup runs automatically, and the prepared upload matches the displayed alignment and cleanup. Retake / choose again returns to capture. Cancel my ticket is directly visible and asks for confirmation before releasing the ticket. Page scrolling and browser zoom remain available outside the photo surface.
 
 ## Local development
 
@@ -44,7 +46,7 @@ npm run backend:env
 npm run dev
 ```
 
-Open `http://localhost:3000/installation`. Local Supabase Studio is `http://localhost:55323`. These ports and containers are separate from other projects. The environment helper also configures automatic cleanup. Use the generated `OOB_INSTALLATION_KEY` from your ignored `.env.local` once on the desktop pairing screen.
+Open `http://localhost:3000/`. Local Supabase Studio is `http://localhost:55323`. These ports and containers are separate from other projects. The environment helper also configures automatic cleanup. Use the generated `OOB_INSTALLATION_KEY` from your ignored `.env.local` once on the desktop pairing screen.
 
 ## GitHub and Vercel
 
@@ -119,7 +121,7 @@ The page is a Next.js App Router shell around browser-side React/Canvas logic. T
 3. Press **Start guided session**. The positioning screen shows a mirrored camera preview and boundary. Enable the camera, fit the body parts needed by the selected stretches inside the boundary, and hold steady for two seconds. **Start stretching** then opens the exhibit view.
 4. During the turn, only the guide, drawing/name, current instruction, progress and **Skip Stretch / Pause / Restart / Skip Turn** are shown. The camera remains active in the background; its preview and the queue stay outside this view.
 5. Unreliable tracking freezes drawing, guide and progress immediately. Sustained loss opens a repositioning prompt. Two seconds of steady tracking enable **Continue**, which must be clicked explicitly. **Check position** reopens the preview without losing earned progress. Restart clears progress with the same drawing and returns camera sessions to the positioning gate; Skip Turn releases the camera and ends the current participant's turn.
-6. **Setup tools** retains explicit Manual demo, individual stretch practice, fullscreen and export for staff/local development. Manual simulation does not certify camera framing. Mobile alignment is primarily drag/pinch; zoom, rotation and cleanup comparison remain behind **Adjust photo**.
+6. **Setup tools** retains explicit Manual demo, individual stretch practice, fullscreen and export for staff/local development. Manual simulation does not certify camera framing. Mobile alignment uses drag/pinch or arrow keys and plus/minus, with automatic cleanup and a simplified Name/send/retake flow.
 
 The independent guide never earns participant credit. Only colored regions enter the sequence: head tilts; left/right upper-arm reaches; left/right elbow bends; hands-on-hips torso side stretches; and each colored leg's side steps, side raises and supported heel raises. Each region earns eight seconds of movement. Unusable heel tracking falls back to side raises on the selected leg. Chair support is demonstrated, not detected.
 

@@ -1,6 +1,6 @@
 # Permanent QR and participant queue
 
-This release adds one installation queue to the existing `/installation` and `/mobile` routes. Management is a compact strip on the same installation page before and between turns. It is hidden during an active participant’s positioning and stretching; there is no separate management page.
+This release adds one installation queue to the existing `/` and `/mobile` routes. Management is a compact strip on the same installation page before and between turns. It is hidden during an active participant’s positioning and stretching; there is no separate management page.
 
 ## Hosted Supabase configuration
 
@@ -49,18 +49,17 @@ Vercel Hobby eligibility is limited to personal, non-commercial use. Check event
 
 ## Operating the installation
 
-Open `/installation`, enter the operator key, and leave the page visible. Operator authorization lasts up to eight hours; the queue accepts new participants only while the installation has refreshed its presence within two minutes. Restarting/opening the installation restores intake without changing the printed QR.
+Open `/`, enter the operator key, and leave the page visible. Operator authorization lasts up to eight hours; the queue accepts new participants only while the installation has refreshed its presence within two minutes. Restarting/opening the installation restores intake without changing the printed QR.
 
-- The top strip shows current/called participant, ticket numbers, optional names, and reserved capacity.
-- **Permanent QR** opens the QR/link and a PNG download for printing.
+- With no tickets, the installation shows a centered permanent QR and upload instructions on the full exhibit background. Mobile-upload and print-download links are directly below it.
+- When tickets arrive, the compact top strip shows current/called participant, ticket numbers, optional names, and reserved capacity. The QR remains visible below the strip until a session starts.
 - **Call next** chooses the oldest successfully uploaded drawing. A preparation in progress does not block ready tickets.
 - **Start participant** explicitly activates the called ticket; upload alone never replaces the active drawing.
-- **Call later** moves a ready/called ticket behind other ready tickets without extending expiry.
 - **Remove** cancels a waiting ticket; **End current session** ends the active ticket. Participants can cancel their own ticket from their phone.
 - **Skip activity** still skips only an exercise, preserving only earned fade.
-- Completion leaves the top queue visible. Next participant returns to waiting; staff call/start the next ticket.
+- Completion hides the queue. Next participant returns to the QR waiting view and any waiting-ticket controls; staff call/start the next ticket.
 
-Queue management is visible on the same display before and after each turn. Waiting names and queue actions are hidden while a participant aligns and stretches. Names may be seen on the exhibit screen; the phone field explains that staff use the name to call the ticket. First name/nickname is optional, limited to 40 characters, stripped of invisible controls, and erased as soon as a ticket ends/expires. No names are included in public queue-count responses or another phone's response.
+Queue management is visible on the same display before and after each turn. Waiting names and queue actions are hidden while a participant aligns and stretches. The phone's Name field remains optional, limited to 40 characters, stripped of invisible controls, and erased as soon as a ticket ends/expires. Staff can call the displayed name; no names are included in public queue-count responses or another phone's response. Cancel my ticket is directly visible and opens a confirmation dialog; Keep my ticket and Escape preserve the ticket and preview.
 
 ## Initial limits
 
@@ -82,7 +81,7 @@ The server automatically pauses admission at 20 reserved waiting slots and reope
 
 Polling suspends when a page is hidden and backs off on network/service errors. The desktop retrieves only the active drawing, once per active ticket during a normal mount. Reloads/retries can retrieve it again; these are counted conservatively before the storage download.
 
-`Usage` shows calendar-month upload count, image-download count, and attempted image bytes. A warning appears at 3 GB. This is an application estimate, **not an account quota enforcement or billing meter**: it excludes API responses, legacy-session downloads, assets, other projects, and provider accounting differences. The warning does not stop existing participants. Monitor Supabase egress and Vercel invocations/CPU/memory/transfer, particularly for repeated events.
+The exhibit has no Usage dropdown. Server-side calendar-month upload/download accounting and the 3 GB warning remain available; the warning is an application estimate, **not an account quota enforcement or billing meter**. It excludes API responses, legacy-session downloads, assets, other projects, and provider accounting differences, and does not stop existing participants. Monitor Supabase egress and Vercel invocations/CPU/memory/transfer in their provider dashboards, particularly for repeated events.
 
 Completed/cancelled artwork deletion is attempted immediately. Scheduled cleanup retries failed deletion, removes expired objects before deleting metadata, and retains a two-minute grace period for a late in-flight upload. Expiration revokes access immediately; physical file deletion depends on the scheduler reaching the app.
 
@@ -90,9 +89,9 @@ Completed/cancelled artwork deletion is attempted immediately. Scheduled cleanup
 
 After alignment, the phone estimates neutral paper illumination on a small grid, smooths the estimate, and corrects local brightness/channel balance toward the warm-white fade background. Very dark marks stay exact; already well-lit colorful pixels avoid needless recoloring. It preserves a raster drawing rather than inventing/vectorizing marks.
 
-Original/Cleaned comparison, a cleanup amount slider, and Turn off cleanup are in the preview. Original is a comparison view; the configured cleaned result is what is submitted. Set cleanup to zero to submit the original aligned pixels. Preview and export use the same processing. Originals remain local to the phone.
+The mobile preview applies the existing cleanup automatically, without an Adjust photo section or comparison/amount controls. Preview and export use the same processing. Drag/pinch aligns the drawing; Retake / choose again returns to capture. Originals remain local to the phone.
 
-This cannot reliably recover glare, deep shadows, or erased/faint details. Participants should inspect the preview and retake or turn off cleanup when appropriate. Check physical phones and actual exhibition lighting before use.
+This cannot reliably recover glare, deep shadows, or erased/faint details. Participants should inspect the preview and retake when appropriate. Check physical phones and actual exhibition lighting before use.
 
 ## Local verification
 
@@ -108,4 +107,4 @@ npm.cmd run dev
 
 The environment helper preserves existing local keys and refuses to overwrite a cloud environment. For browser QA, temporarily set `$env:OOB_LOCAL_APP_PORT = '3202'` before `backend:env`, then restore port 3000 afterward. Automated backend tests refuse hosted projects, use synthetic artwork, and remove their test tickets/objects.
 
-The Figma design is implemented with local assets and fonts; its completion shader uses the approved still background. The flow separates queue management, camera positioning and active stretching. The active view shows two live canvases and four compact controls; the webcam runs without a visible preview. Queue controls return after Next participant. The original `/` uploader and movement engine remain available. This styling update requires no additional Supabase migration or Vercel environment variable.
+The Figma design is implemented with local assets and fonts; its completion shader uses the approved still background. The flow separates queue management, camera positioning and active stretching. The active view shows two live canvases and four compact controls; the webcam runs without a visible preview. Queue controls return after Next participant. The original uploader and movement engine remain available at `/test`. This styling update requires no additional Supabase migration or Vercel environment variable.

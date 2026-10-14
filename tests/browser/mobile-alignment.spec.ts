@@ -16,7 +16,6 @@ async function prepare(page: Page) {
   await page.getByRole("button", { name: /Upload drawing|Continue my drawing/ }).click();
   await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: drawing });
   await expect(page.getByTestId("photo-alignment")).toBeVisible();
-  await page.getByText("Adjust photo", { exact: true }).click();
   await expect.poll(() => pixel(page, 300, 385)).toEqual([39, 154, 163, 255]);
 }
 async function pixel(page: Page, x: number, y: number) {
@@ -84,26 +83,20 @@ test("lifting one finger continues as a drag; cancellation and resize clear acti
   await touch(page, cdp, "touchMove", [{ id: 1, x: 350, y: 350 }]);
   expect(await alignment(page)).toEqual(resized); await touch(page, cdp, "touchEnd", []);
 });
-test("zoom/reset/keyboard and rotation sliders remain usable across narrow and wide screens", async ({ page }) => {
+test("keyboard alignment and zoom limits remain usable without adjustment controls across screen widths", async ({ page }) => {
   await prepare(page); const frame = page.getByTestId("photo-alignment");
   await frame.focus(); await page.keyboard.press("ArrowRight"); await page.keyboard.press("ArrowDown"); await page.keyboard.press("+");
   expect(await alignment(page)).toEqual({ scale: 1.2, x: 12, y: 12, rotation: 0 });
-  await page.getByRole("button", { name: "Reset alignment", exact: true }).click();
-  expect(await alignment(page)).toEqual({ scale: 1, x: 0, y: 0, rotation: 0 });
-  await page.getByText("Fine adjustment", { exact: true }).click();
-  await page.getByRole("slider", { name: "Mobile photo rotation" }).fill("12");
-  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
-  expect((await alignment(page)).rotation).toBe(12);
-  for (let i = 0; i < 8; i++) { const button = page.getByRole("button", { name: "Zoom in", exact: true }); if (await button.isEnabled()) await button.click(); }
-  expect((await alignment(page)).scale).toBe(3); await expect(page.getByRole("button", { name: "Zoom in", exact: true })).toBeDisabled();
-  for (let i = 0; i < 12; i++) { const button = page.getByRole("button", { name: "Zoom out", exact: true }); if (await button.isEnabled()) await button.click(); }
+  for (let i = 0; i < 8; i++) await frame.press("+");
+  expect((await alignment(page)).scale).toBe(3);
+  for (let i = 0; i < 12; i++) await frame.press("-");
   expect((await alignment(page)).scale).toBe(.5);
   for (const width of [320, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await expect(page.getByRole("button", { name: "Send to installation", exact: true })).toBeVisible();
   }
-  await page.getByRole("button", { name: "Reset alignment", exact: true }).click();
+  await expect(page.getByText("Adjust photo", { exact: true })).toHaveCount(0);
   expect((await alignment(page)).rotation).toBe(0);
 });
 test("the uploaded PNG matches the adjusted preview and is used by the existing avatar", async ({ page }) => {
@@ -119,7 +112,7 @@ test("the uploaded PNG matches the adjusted preview and is used by the existing 
   await page.getByRole("button", { name: "Send to installation", exact: true }).click();
   await expect(page.getByTestId("photo-alignment")).toHaveAttribute("aria-disabled", "true");
   const locked = await alignment(page); await drag(page, cdp); expect(await alignment(page)).toEqual(locked);
-  await expect(page.getByRole("button", { name: "Reset alignment", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Retake / choose again", exact: true })).toBeDisabled();
   await expect.poll(() => uploaded !== null).toBe(true);
   const hash = async (bytes: Buffer) => createHash("sha256").update(await sharp(bytes).ensureAlpha().raw().toBuffer()).digest("hex");
   expect(await hash(uploaded!)).toBe(await hash(Buffer.from(preview.split(",")[1], "base64")));
@@ -127,7 +120,7 @@ test("the uploaded PNG matches the adjusted preview and is used by the existing 
   release(); await expect(page.getByRole("heading", { name: "Drawing uploaded" })).toBeVisible();
   const avatar = await page.context().newPage();
   try {
-    await avatar.goto("http://127.0.0.1:3202/");
+    await avatar.goto("http://127.0.0.1:3202/test");
     await avatar.getByTestId("art-upload").setInputFiles({ name: "aligned-drawing.png", mimeType: "image/png", buffer: uploaded! });
     await expect.poll(() => avatar.getByTestId("avatar").evaluate(el => Array.from((el as HTMLCanvasElement).getContext("2d")!.getImageData(450, 405, 1, 1).data))).toEqual([39, 154, 163, 255]);
   } finally { await avatar.close(); }
@@ -137,8 +130,11 @@ test("photo gestures do not scroll the page, but swiping outside the preview sti
   const cdp = await page.context().newCDPSession(page);
   const scroll = await page.evaluate(() => scrollY); await drag(page, cdp, { x: 280, y: 500 }, { x: 280, y: 300 });
   expect(await page.evaluate(() => scrollY)).toBe(scroll);
-  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ id: 1, x: 317, y: 450 }] });
-  for (const y of [425, 400, 350, 300, 250]) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ id: 1, x: 317, y }] });
+  const hint = (await page.locator(".gesture-tip").boundingBox())!;
+  const outside = { x: hint.x + hint.width / 2, y: hint.y + hint.height / 2 };
+  expect(await page.evaluate(point => !!document.elementFromPoint(point.x, point.y)?.closest(".touch-align"), outside)).toBe(false);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ id: 1, ...outside }] });
+  for (const distance of [10, 25, 45, 75]) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ id: 1, x: outside.x, y: outside.y - distance }] });
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(scroll + 20);
 });
@@ -152,13 +148,15 @@ test("WebKit uses the same alignment controls and native pointer drag", async ()
     await page.getByRole("button", { name: /Upload drawing|Continue my drawing/ }).click();
     await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: drawing });
     await expect(page.getByTestId("photo-alignment")).toBeVisible();
-    await page.getByText("Adjust photo", { exact: true }).click();
     const bounds = (await page.getByTestId("photo-alignment").boundingBox())!;
     await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2); await page.mouse.down();
     await page.mouse.move(bounds.x + bounds.width / 2 + 18, bounds.y + bounds.height / 2 + 12, { steps: 4 }); await page.mouse.up();
     expect((await alignment(page)).x).toBeGreaterThan(20); expect((await alignment(page)).y).toBeGreaterThan(10);
-    await page.getByRole("button", { name: "Zoom in", exact: true }).click(); expect((await alignment(page)).scale).toBe(1.2);
-    await page.getByRole("button", { name: "Reset alignment", exact: true }).click();
-    expect(await alignment(page)).toEqual({ scale: 1, x: 0, y: 0, rotation: 0 });
+    await page.getByTestId("photo-alignment").press("+"); expect((await alignment(page)).scale).toBe(1.2);
+    await page.getByTestId("photo-alignment").press("-"); expect((await alignment(page)).scale).toBeCloseTo(1, 5);
+    await page.getByRole("button", { name: "Cancel my ticket", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Cancel your ticket?" })).toBeVisible();
+    await page.getByRole("button", { name: "Keep my ticket", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
   } finally { await context.close(); await browser.close(); }
 });

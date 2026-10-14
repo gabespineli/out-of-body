@@ -65,8 +65,8 @@ test("the same phone can upload, cancel and upload a different drawing without w
     await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: image });
     await page.getByRole("button", { name: "Send to installation", exact: true }).click();
     await expect(page.getByTestId("queue-ticket")).toContainText(`Ticket ${joins}`);
-    await page.getByText("Ticket options", { exact: true }).click();
     await page.getByRole("button", { name: "Cancel my ticket", exact: true }).click();
+    await page.getByRole("button", { name: "Yes, cancel ticket", exact: true }).click();
     await expect(page.getByRole("button", { name: "Upload drawing", exact: true })).toBeEnabled();
     await expect(page.getByRole("heading", { name: "Ticket cancelled" })).toHaveCount(0);
   }
@@ -107,8 +107,8 @@ test("a delayed cancelled-ticket poll cannot overwrite the new reservation", asy
   await page.evaluate(() => { (window as unknown as { ticketPollTest: PollTest }).ticketPollTest.hold = true; });
   await page.clock.runFor(15001);
   await expect.poll(() => page.evaluate(() => (window as unknown as { ticketPollTest: PollTest }).ticketPollTest.pending)).toBe(true);
-  await page.getByText("Ticket options", { exact: true }).click();
   await page.getByRole("button", { name: "Cancel my ticket", exact: true }).click();
+  await page.getByRole("button", { name: "Yes, cancel ticket", exact: true }).click();
   await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
   await expect(page.getByTestId("mobile-photo")).toBeVisible();
   await page.evaluate(() => { (window as unknown as { ticketPollTest: PollTest }).ticketPollTest.release!(); });

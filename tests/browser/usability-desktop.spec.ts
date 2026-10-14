@@ -32,7 +32,7 @@ async function exhibit(page: Page, active = false) {
 
 test("desktop reconnect clears only the old connection warning", async ({ page }) => {
   await page.clock.install(); const { state } = await exhibit(page);
-  await page.goto("/installation"); await expect(page.getByTestId("queue-bar")).toBeVisible();
+  await page.goto("/"); await expect(page.getByTestId("queue-bar")).toBeVisible();
   state.offline = true; await page.clock.runFor(5001); await expect(page.locator("p[role=alert]")).toContainText("Queue connection interrupted");
   state.offline = false; await page.clock.runFor(10001);
   await page.screenshot({ path: "test-results/usability-desktop-reconnect.png", fullPage: true });
@@ -41,7 +41,7 @@ test("desktop reconnect clears only the old connection warning", async ({ page }
 
 test("a failed Call next keeps its warning through polling and succeeds on retry", async ({ page }) => {
   await page.clock.install(); const { state } = await exhibit(page); state.actionError = "Could not call the participant. Retry.";
-  await page.goto("/installation"); await page.getByRole("button", { name: "Call next", exact: true }).click();
+  await page.goto("/"); await page.getByRole("button", { name: "Call next", exact: true }).click();
   await expect(page.locator("p[role=alert]")).toContainText(state.actionError);
   await page.clock.runFor(5001); await expect(page.locator("p[role=alert]")).toContainText(state.actionError);
   state.actionError = ""; await page.getByRole("button", { name: "Call next", exact: true }).click();
@@ -51,7 +51,7 @@ test("a failed Call next keeps its warning through polling and succeeds on retry
 
 test("a temporary artwork failure retries into positioning and clears its own warning", async ({ page }) => {
   await page.clock.install(); const { state } = await exhibit(page, true); state.artworkUnavailable = true;
-  await page.goto("/installation"); await expect(page.locator("p[role=alert]")).toContainText("Could not retrieve the active drawing");
+  await page.goto("/"); await expect(page.locator("p[role=alert]")).toContainText("Could not retrieve the active drawing");
   state.artworkUnavailable = false; await page.clock.runFor(15001);
   await expect(page.getByRole("heading", { name: "Get into position", exact: true })).toBeVisible();
   await expect(page.locator("p[role=alert]")).toHaveCount(0);
@@ -71,7 +71,7 @@ test("a delayed queue poll cannot undo calling the next participant", async ({ p
     };
   });
   await page.clock.install(); const { state } = await exhibit(page);
-  await page.goto("/installation"); await expect(page.getByTestId("queue-bar")).toBeVisible();
+  await page.goto("/"); await expect(page.getByTestId("queue-bar")).toBeVisible();
   await page.evaluate(() => { (window as unknown as { exhibitPollTest: PollTest }).exhibitPollTest.hold = true; });
   await page.clock.runFor(5001);
   await expect.poll(() => page.evaluate(() => (window as unknown as { exhibitPollTest: PollTest }).exhibitPollTest.pending)).toBe(true);
@@ -86,7 +86,7 @@ test("a delayed queue poll cannot undo calling the next participant", async ({ p
 
 test("completion with a lost response recovers after the queue confirms the ticket has ended", async ({ page }) => {
   await page.clock.install(); const { state } = await exhibit(page, true); state.lostCompletion = true;
-  await page.goto("/installation");
+  await page.goto("/");
   await expect(page.getByRole("heading", { name: "Get into position", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Back to setup", exact: true }).click();
   await page.getByText("Setup tools", { exact: true }).click();
@@ -98,6 +98,6 @@ test("completion with a lost response recovers after the queue confirms the tick
   await page.screenshot({ path: "test-results/usability-completion-recovery.png", fullPage: true });
   await expect(page.getByRole("button", { name: "Next participant", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "Next participant", exact: true }).click();
-  await expect(page.getByTestId("queue-bar")).toBeVisible(); await expect(page.getByTestId("participant-completion")).toHaveCount(0);
+  await expect(page.getByTestId("installation-welcome")).toBeVisible(); await expect(page.getByTestId("participant-completion")).toHaveCount(0);
   expect(state.completions).toBe(1);
 });

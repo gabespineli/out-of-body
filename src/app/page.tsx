@@ -1,2 +1,2 @@
-import { Installation } from "@/components/installation";
-export default function Home() { return <Installation />; }
+import { DesktopFlow } from "@/components/participant/desktop-flow";
+export default function Home() { return <DesktopFlow />; }

@@ -14,6 +14,8 @@ a { color: var(--pink-text); }
 .design-icon { display: block; flex: 0 0 auto; object-fit: contain; }
 .primary-action { display: inline-flex; align-items: center; justify-content: center; gap: 9px; border: 0; border-radius: 12px; background: var(--blue-button); color: var(--pink); min-height: 52px; padding: 11px 22px; font-weight: 700; font-size: 20px; line-height: 1.25; box-shadow: 0 3px 4px #0004; text-decoration: none; }
 .quiet-action { color: var(--pink-text); min-height: 44px; border: 0; background: transparent; text-decoration: none; }
+.secondary-action { min-height: 48px; padding: 10px 16px; border: 1px solid #ec39ad66; border-radius: 12px; background: var(--cream-button); color: var(--pink-text); font-size: 17px; font-weight: 600; box-shadow: 0 2px 4px #7c0f5526; }
+.secondary-action:disabled { opacity: .55; }
 .primary-action:hover:not(:disabled), .exhibit-button:hover:not(:disabled), .about-action:hover:not(:disabled) { filter: brightness(1.035); }
 .primary-action:active:not(:disabled), .exhibit-button:active:not(:disabled), .about-action:active:not(:disabled) { translate: 0 1px; }
 .primary-action:disabled, .quiet-action:disabled { opacity: .55; }
@@ -82,6 +84,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .queue-capacity, .queue-tickets small { color: #9b2373; }
 .installation-waiting { color: var(--pink-text); background: #faf7e8d9; font-size: 18px; padding: 18px 24px; }
 .participant-desktop:fullscreen { background-color: #fdfbf1; }
+.participant-desktop { min-height: 100svh; display: flex; flex-direction: column; }
+.installation-welcome { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; gap: 18px; }
+.installation-welcome .brand-logo { width: 107px; height: 107px; }
+.installation-welcome h1 { margin: 0; font-family: var(--heading-font); font-size: clamp(28px,3.2vw,44px); font-weight: 700; }
+.welcome-instruction { margin: 0; max-width: 570px; font-size: 20px; line-height: 1.4; }
+.installation-qr { padding: 20px; background: white; border-radius: 16px; box-shadow: 0 4px 16px #7c0f5533; }
+.installation-qr img { display: block; width: min(260px,calc(100vw - 96px)); height: auto; aspect-ratio: 1; }
+.welcome-links { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px 24px; font-size: 14px; }
+.welcome-links a { min-height: 44px; display: flex; align-items: center; }
+.welcome-capacity { margin: 0; font-size: 14px; }
+.participant-desktop > .queue-bar { margin: 20px 24px 0; padding: 18px 22px; border-radius: 12px; }
+.queue-summary .button-row { gap: 10px; }
 .participant-completion { max-width: none; width: 100%; min-height: 100svh; position: relative; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 0; text-align: center; color: var(--pink); background: url('/design/completion-background.webp') center/cover; }
 .participant-completion .completion-logo { width: 153px; height: 153px; margin-top: 18px; }
 .completion-copy { margin-top: max(90px,calc(38.672svh - 171px)); width: min(100% - 40px,1100px); }
@@ -139,9 +153,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .mobile-ticket .participant-note { font-size: 13px; margin-top: 18px; }
 .home-action { width: 204px; min-height: 44px; padding: 8px 12px; font-size: 20px; text-transform: uppercase; white-space: nowrap; }
 .mobile-ticket .home-action, .mobile-ended .home-action { position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%); }
-.ticket-footer { border-top: 1px solid #ec39ad44; font-size: 12px; color: var(--pink-text); margin-top: 20px; padding-top: 12px; }
+.ticket-footer { border-top: 1px solid #ec39ad44; font-size: 12px; color: var(--pink-text); margin-top: 20px; padding-top: 12px; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ticket-footer .ticket-cancel-action { min-height: 44px; font-size: 13px; padding: 8px 10px; }
+.ticket-cancel-dialog { width: min(380px,calc(100vw - 40px)); max-height: calc(100svh - 40px); padding: 28px; border: 0; border-radius: 16px; background: #faf7e8; color: var(--pink-text); box-shadow: 0 10px 40px #7c0f5540; margin: auto; }
+.ticket-cancel-dialog::backdrop { background: #4b204566; }
+.ticket-cancel-dialog h2 { margin: 0 0 14px; font-family: var(--heading-font); font-size: 28px; }
+.ticket-cancel-dialog p { font-size: 17px; line-height: 1.4; }
+.ticket-cancel-dialog .mobile-primary-actions { width: 100%; margin-bottom: 0; }
+.ticket-cancel-dialog .primary-action { font-size: 17px; text-transform: none; }
 .mobile-participant[data-step='waiting'] .ticket-footer { position: absolute; bottom: 20px; left: 24px; right: 24px; }
-.mobile-participant[data-step='waiting'] .ticket-footer:has(details[open]) { position: relative; bottom: auto; left: auto; right: auto; }
 .mobile-participant .error-message { margin-top: 14px; }
 @media (min-width: 1800px) { .stretch-exhibit { max-width: 1680px; margin: auto; } }
 @media (max-width: 1100px) {

@@ -1,3 +1,27 @@
+## Exhibit root and test route — 14 October 2026
+
+The exhibit installation now opens at `/`. The former root local-upload/manual-demo page is available at `/test`; its link from the installation unlock screen was updated. `/installation` redirects to `/` for existing bookmarks. The `/mobile` route and permanent printed QR address are unchanged.
+
+Production build and whitespace checks passed. All **11 affected browser scenarios passed**, covering the three-route navigation/redirect, root unlock and waiting queue, call/recovery/completion, original drawing upload and movement on `/test`, desktop design geometry and the actual local Supabase-backed phone-to-installation flow. Browser fixtures and current setup documentation now use the new routes. No new database migration or environment setting is required; changes remain local and undeployed.
+
+## Minimal phone preview and confirmed cancellation — 14 October 2026
+
+Removed the Adjust photo section, including its zoom/reset, sliders and cleanup comparison controls, at the user's request. Drag/pinch and keyboard alignment remain available; existing cleanup runs automatically and the uploaded PNG matches the displayed preview. The field label is now Name without helper copy. Retake / choose again is a shaped cream button. Cancel my ticket is directly visible and opens a matching native modal dialog instead of Ticket options.
+
+- Production build, TypeScript and whitespace checks passed. **39 distinct affected browser scenarios passed across the initial run and focused reruns**, including Chromium touch and desktop WebKit, preview/upload pixel matching, repeated cancellation/rejoining, retry/recovery, ticket expiry, queue capacity/private storage and the local installation completion flow.
+- The initial 39-scenario run passed 38 and exposed an obsolete scrolling-test coordinate that now lay inside the full-width photo. The test now starts on the actual instruction text outside the gesture surface and passed its focused rerun. The final four checks passed together after the final build.
+- Keep my ticket and Escape preserved the photo/name and returned focus to the visible cancel control; neither sent a cancellation request. Confirming sent one cancellation request. Expiry closed an open prompt without cancelling a subsequent ticket. WebKit also opened and dismissed the native dialog successfully.
+- Screenshot evidence is saved outside the repository under `mobile-simple-preview/`. No schema, environment-variable, commit or deployment change was made. Existing local preparation data was preserved; test-owned artwork cleanup completed.
+
+## Installation welcome and simplified queue — 14 October 2026
+
+The unlocked installation now fills the viewport with the existing exhibit gradient/texture. Previously, its background ended at the height of the top controls. An empty queue presents the permanent QR and upload instructions as one centered welcome view; waiting tickets reveal a cohesive compact management strip. Removed the QR dropdown, Usage dropdown and Call later buttons. Call next selects a ready ticket, and Start participant explicitly begins that person's session. The favicon now uses the user's transparent `pink_logo.png`, fitted to a square 64 × 64 canvas, with a refreshed icon URL.
+
+- Production build, TypeScript and whitespace checks passed.
+- All **eight affected browser scenarios passed**: actual unlock UI, empty/queued/called layouts, responsive widths, queue reconnection, action retry, delayed polling, artwork recovery, lost completion recovery and the local Supabase-backed permanent-QR upload/call/start/completion/deletion flow.
+- The empty welcome view was checked at 1363 × 783; no horizontal overflow occurred at 320/768/1363 widths. Local QR decoding still verified the permanent mobile address. Screenshots are saved outside the repository under `installation-waiting/`.
+- No schema or environment-variable change was required. Server-side intake limits and usage accounting remain in place. Changes are local; this pass did not deploy to Vercel.
+
 ## Full Figma design implementation — 14 October 2026
 
 Implemented stretching frame `6:40`, mobile landing/capture/ticket/About frames `16:86`, `16:121`, `16:144`, `16:164`, and completion frame `16:87`. Screens use local Figma logo/icon/background exports, the user's supplied Hatch Sans files and self-hosted Urbanist. The completion shader is the exact paint-only still export approved by the user. Temporary export frames were removed from Figma; original design nodes were preserved. Asset provenance is recorded in `public/design/README.md`.

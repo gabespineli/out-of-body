@@ -32,7 +32,7 @@ async function upload(page: Page, areas: BodyArea[], extra = "") {
   if (!(await page.locator("details.setup-tools").evaluate(el => (el as HTMLDetailsElement).open))) await page.locator("details.setup-tools > summary").click();
 }
 async function prepare(page: Page, areas: BodyArea[]) {
-  await page.goto("/"); await upload(page, areas);
+  await page.goto("/test"); await upload(page, areas);
   await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
   await page.getByRole("button", { name: "Start guided session", exact: true }).click();
 }
@@ -53,13 +53,13 @@ async function finish(page: Page, area: BodyArea) {
   await expect(page.getByTestId("avatar")).toHaveAttribute(`data-${area}-fade`, "1.00");
 }
 for (const id of AREA_IDS) test(`only ${id} marks select that region`, async ({ page }) => {
-  await page.goto("/"); await upload(page, [id]);
+  await page.goto("/test"); await upload(page, [id]);
   const steps = page.getByRole("list", { name: "Stretching sequence" }).locator("li");
   await expect(steps).toHaveCount(1); await expect(steps).toContainText(areaConfig(id).label);
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-area", id);
 });
 test("marks across the elbow boundary select both arm regions; neutral and outside marks select none", async ({ page }) => {
-  await page.goto("/"); await upload(page, [], '<rect x="166" y="342" width="26" height="33" fill="#279aa3"/>');
+  await page.goto("/test"); await upload(page, [], '<rect x="166" y="342" width="26" height="33" fill="#279aa3"/>');
   await expect(page.getByRole("list", { name: "Stretching sequence" }).locator("li")).toHaveCount(2);
   await expect(page.getByRole("list", { name: "Stretching sequence" })).toContainText("Left upper arm");
   await expect(page.getByRole("list", { name: "Stretching sequence" })).toContainText("Left forearm");
@@ -127,7 +127,7 @@ test("selected torso and leg activities finish and saved output preserves other 
 });
 test("blank drawings cannot start; camera denial retains manual fallback for colored drawings", async ({ page }) => {
   await page.addInitScript(() => { navigator.mediaDevices.getUserMedia = async () => { throw new DOMException("Denied test camera", "NotAllowedError"); }; });
-  await page.goto("/"); await upload(page, []);
+  await page.goto("/test"); await upload(page, []);
   await expect(page.getByRole("button", { name: "Start guided session", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "Enable camera", exact: true }).click(); await expect(page.locator("p[role=alert]")).toContainText("Camera permission was denied");
   await upload(page, ["left-forearm"]);
@@ -162,7 +162,7 @@ test("individual forearm stretches and WebMCP use independent elbows and eight r
     host.installationTools = {};
     Object.defineProperty(document, "modelContext", { value: { registerTool: (tool: { name: string; execute: (input: unknown) => object; inputSchema: object }) => { host.installationTools[tool.name] = tool; } } });
   });
-  await page.goto("/"); await upload(page, ["left-upper-arm", "left-forearm", "right-forearm"]);
+  await page.goto("/test"); await upload(page, ["left-upper-arm", "left-forearm", "right-forearm"]);
   const invoke = (name: string, input: object) => page.evaluate(({ name, input }) => {
     const host = window as unknown as { installationTools: Record<string, { execute: (input: unknown) => object }> };
     return host.installationTools[name].execute(input);
@@ -211,7 +211,7 @@ test("real MediaPipe static replay cannot earn participant progress from the ani
   const browser = await chromium.launch({ args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--use-file-for-fake-video-capture=${path.resolve(fixture!)}`] });
   const context = await browser.newContext({ permissions: ["camera"] });
   try {
-    const page = await context.newPage(); await page.goto("http://127.0.0.1:3202/"); await upload(page, ["neck-head"]);
+    const page = await context.newPage(); await page.goto("http://127.0.0.1:3202/test"); await upload(page, ["neck-head"]);
     await page.getByRole("button", { name: "Enable camera", exact: true }).click(); await expect(page.getByText("Body found", { exact: true })).toBeVisible({ timeout: 30000 });
     await page.getByRole("button", { name: "Start guided session", exact: true }).click(); await page.waitForTimeout(4500);
     await expect(page.getByTestId("avatar")).toHaveAttribute("data-guided-progress", "0.000");
