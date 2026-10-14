@@ -65,3 +65,16 @@ test("manual Pause remains paused after tracking recovery, and Skip Turn release
   await expect(page.getByTestId("guided-shell")).toHaveAttribute("data-phase","setup");
   expect(await page.getByLabel("Positioning camera preview").evaluate(el => (el as HTMLVideoElement).srcObject)).toBeNull();
 });
+
+test("tracking recovery keeps keyboard focus inside the prompt and returns it to Pause", async ({ page }) => {
+  await start(page); await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await setPoints(page, []); await expect(page.getByTestId("tracking-prompt")).toBeVisible();
+  await expect(page.getByTestId("tracking-prompt")).toBeFocused();
+  await page.keyboard.press("Tab"); await expect(page.getByRole("button", { name: "Check position", exact: true })).toBeFocused();
+  await page.keyboard.press("Shift+Tab"); await expect(page.getByRole("button", { name: "Check position", exact: true })).toBeFocused();
+  await setPoints(page, standingPoints()); await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeEnabled({ timeout: 4000 });
+  await page.keyboard.press("Tab"); await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeFocused();
+  await page.keyboard.press("Shift+Tab"); await expect(page.getByRole("button", { name: "Check position", exact: true })).toBeFocused();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Resume", exact: true })).toBeFocused();
+});

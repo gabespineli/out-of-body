@@ -10,25 +10,28 @@ import { CompletionScreen } from "./completion-screen";
 export function DesktopFlow() {
   const [queue, setQueue] = useState<QueueState | null>(null), [authorized, setAuthorized] = useState(false), [initialized, setInitialized] = useState(false);
   const [key, setKey] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const [connectionError, setConnectionError] = useState(""), [artworkError, setArtworkError] = useState("");
   const [file, setFile] = useState<File | null>(null), [result, setResult] = useState<InstallationResult | null>(null), [finishing, setFinishing] = useState<string | null>(null);
-  const root = useRef<HTMLDivElement>(null), loaded = useRef<string | null>(null), lock = useRef(false), generation = useRef(0);
+  const root = useRef<HTMLDivElement>(null), loaded = useRef<string | null>(null), lock = useRef(false), generation = useRef(0), queueGeneration = useRef(0);
   const refresh = useCallback(async (signal?: AbortSignal) => {
+    const version = queueGeneration.current;
+    const relevant = () => !signal?.aborted && version === queueGeneration.current && (!signal || !lock.current);
     try { const value = await participantApi<QueueState>("queue?view=operator", { signal });
-      if (!signal?.aborted) { setQueue(value); setAuthorized(true); setInitialized(true); } return value;
+      if (relevant()) { setQueue(value); setAuthorized(true); setInitialized(true); setConnectionError(""); } return value;
     } catch (cause) {
-      if (!signal?.aborted) { setInitialized(true); if (cause instanceof ParticipantApiError && cause.status === 401) { setAuthorized(false); setQueue(null); }
-        else setError(cause instanceof Error ? cause.message : "Could not refresh the queue."); } throw cause;
+      if (relevant()) { setInitialized(true); if (cause instanceof ParticipantApiError && cause.status === 401) { setAuthorized(false); setQueue(null); setConnectionError(""); }
+        else setConnectionError(cause instanceof Error ? cause.message : "Could not refresh the queue."); throw cause; }
     }
   }, []);
-  useVisiblePoll(async signal => { await refresh(signal); }, 5000, authorized || !initialized);
+  useVisiblePoll(async signal => { if (!lock.current) await refresh(signal); }, 5000, authorized || !initialized);
   const unlock = async () => {
-    if (lock.current) return; lock.current = true; setBusy(true); setError(""); const supplied = key; setKey("");
-    try { setQueue(await participantApi<QueueState>("queue", { method: "POST", headers: { Authorization: `Bearer ${supplied}` } })); setAuthorized(true); }
+    if (lock.current) return; lock.current = true; queueGeneration.current++; setBusy(true); setError(""); const supplied = key; setKey("");
+    try { setQueue(await participantApi<QueueState>("queue", { method: "POST", headers: { Authorization: `Bearer ${supplied}` } })); setAuthorized(true); setConnectionError(""); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Could not unlock the installation."); }
     finally { lock.current = false; setBusy(false); setInitialized(true); }
   };
   const action = useCallback(async (what: QueueAction, id?: string) => {
-    if (lock.current) return; lock.current = true; setBusy(true); setError("");
+    if (lock.current) return; lock.current = true; queueGeneration.current++; setBusy(true); setError("");
     try {
       const value = await participantApi<{ cleanupPending: boolean }>("queue/action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: what, id }) });
       await refresh();
@@ -39,8 +42,14 @@ export function DesktopFlow() {
     finally { lock.current = false; setBusy(false); }
   }, [refresh]);
   useEffect(() => {
+    // A fresh queue snapshot can confirm completion even when its POST response was lost.
+    if (finishing && !busy && queue && !queue.tickets.some(ticket => ticket.id === finishing)) {
+      setFinishing(null); setError("");
+    }
+  }, [finishing, busy, queue]);
+  useEffect(() => {
     const id = queue?.active?.id;
-    if (!id) { generation.current++; loaded.current = null; setFile(null); return; }
+    if (!id) { generation.current++; loaded.current = null; setFile(null); setArtworkError(""); return; }
     if (loaded.current === id) return;
     const turn = ++generation.current, controller = new AbortController(); let timer: ReturnType<typeof setTimeout>;
     const retrieve = async () => {
@@ -48,10 +57,10 @@ export function DesktopFlow() {
         const response = await fetch(`/api/participant/queue/artwork?id=${id}`, { cache: "no-store", signal: controller.signal });
         if (!response.ok) throw new Error("Could not retrieve the active drawing. Retrying…");
         const blob = await response.blob();
-        if (!controller.signal.aborted && turn === generation.current) { loaded.current = id; setFile(new File([blob], "participant-drawing.png", { type: "image/png" })); setError(""); }
-      } catch (cause) { if (!controller.signal.aborted) { setError(cause instanceof Error ? cause.message : "Could not retrieve artwork."); timer = setTimeout(retrieve, 15000); } }
+        if (!controller.signal.aborted && turn === generation.current) { loaded.current = id; setFile(new File([blob], "participant-drawing.png", { type: "image/png" })); setArtworkError(""); }
+      } catch (cause) { if (!controller.signal.aborted) { setArtworkError(cause instanceof Error ? cause.message : "Could not retrieve artwork."); timer = setTimeout(retrieve, 15000); } }
     };
-    setFile(null); void retrieve(); return () => { controller.abort(); clearTimeout(timer); };
+    setFile(null); setArtworkError(""); void retrieve(); return () => { controller.abort(); clearTimeout(timer); };
   }, [queue?.active?.id]);
   const complete = useCallback((value: InstallationResult) => {
     const id = loaded.current; if (!id) return;
@@ -68,6 +77,6 @@ export function DesktopFlow() {
           {finishing && !busy && <button className="retry-completion" onClick={() => void action("complete", finishing)}>Retry finishing ticket</button>}</>
           : queue.active ? file ? <Installation key={queue.active.id} initialArtwork={file} participantMode participantName={queue.active.name || `Ticket ${queue.active.number}`} fullscreenRoot={root}
             onComplete={complete} onParticipantReset={() => { if (queue.active) void action("end", queue.active.id); }} /> : <p role="status" className="installation-waiting">Preparing your drawing…</p> : null}</>}
-    {error && <p role="alert" className="error-message participant-error">{error}</p>}
+    {(error || connectionError || artworkError) && <p role="alert" className="error-message participant-error">{error || connectionError || artworkError}</p>}
   </div>;
 }

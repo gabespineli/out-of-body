@@ -1,3 +1,24 @@
+## Broader usability and recovery checks — 14 October 2026
+
+Added 17 browser scenarios covering phone/exhibit recovery, existing tickets in a full queue, About/home navigation, lost responses, delayed desktop polling, failed operator actions, artwork retrieval retries and keyboard focus during camera recovery. Before the fixes, six checks reproduced four additional problems: stale desktop polling reversed Call next; a lost completion response left Next participant disabled; connection warnings survived reconnection on phone and desktop; and routine ticket polling erased unresolved upload/cancellation warnings.
+
+Desktop queue mutations now invalidate older polls. Connection, action and artwork errors are kept separate, so unrelated successful requests do not hide failures. Phone polling keeps unresolved action warnings and removes recovered connection warnings. A fresh queue snapshot can unblock completion after an ended ticket disappears from the queue, without submitting another completion request. The singular skipped-activity wording was corrected.
+
+- The complete 93-scenario browser run passed **88** and skipped **5** optional MediaPipe replay cases because their external Y4M inputs were not configured. Both Chromium and the existing WebKit phone checks passed.
+- All **62** unit checks, TypeScript, the production build and the whitespace check passed.
+- The local Supabase integration checks passed for capacity, FIFO, retries, cancelled late uploads, ticket restoration, completion, private storage and actual scheduled deletion. Test-owned rows and drawings were cleaned up by the existing fixtures.
+- Current screenshot evidence and a seven-step review are saved outside the repository in the task visualization folder under `usability/USABILITY_REVIEW.md`. In-app browser observations used a separate temporary tab; the user's original desktop tab was preserved.
+- No schema, environment variable, hosted mutation, commit, deployment or high-fidelity design change was made. Physical phone/camera/exhibit checks remain outstanding; targeted keyboard checks do not establish full accessibility compliance.
+
+## Mobile ticket cancellation and restart — 14 October 2026
+
+Fixed a home-screen loop where dismissing an ended ticket cleared client state and immediately restored the same cancelled, expired or completed ticket from its browser credential. Home now retains the ended ticket locally until a new reservation replaces it. Reservation, upload and cancellation actions invalidate older polling responses, including late cancelled-ticket responses and authentication errors. Cancellation refreshes available slots, and an existing ready ticket restored from another tab opens its ticket view.
+
+- Reproduced all three ended-ticket home loops against the previous production build before applying the fix.
+- Eight affected browser scenarios passed using a phone viewport: all three ended statuses, existing-ticket restoration, two successive uploads/cancellations, delayed polling, the existing home/ticket round trip, and actual Supabase-backed cancellation/rejoining.
+- The local-backend scenario verified different ticket IDs, ready status after upload, cancelled status and erased names after cancellation, and deletion of each stored drawing. Test-owned records were cleaned up afterward.
+- TypeScript, all 62 unit checks and the production build passed. No schema, environment-variable, hosted deployment or physical-device change was made.
+
 # Verification record
 
 ## Positioning gate and quiet mid-fidelity exhibit layout — 14 October 2026

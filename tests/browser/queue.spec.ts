@@ -119,6 +119,30 @@ test("concurrent admission stops at 20, existing tickets finish, and cancellatio
     expect((await request.get("/api/participant/queue").then(r => r.json())).waiting).toBe(18);
   } finally { await Promise.all(contexts.map(c => c.close())); }
 });
+
+test("a phone can cancel its uploaded ticket and immediately reserve and upload again", async ({ page, request }) => {
+  await open(request); await page.setViewportSize({ width: 390, height: 844 }); await page.goto("/mobile");
+  const tickets: string[] = [];
+  for (const name of ["First drawing", "Second drawing"]) {
+    await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
+    await expect(page.getByTestId("mobile-photo")).toBeVisible();
+    const ticket = await page.request.get("/api/participant/queue/ticket").then(response => response.json());
+    created.add(ticket.id); tickets.push(ticket.id);
+    await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: drawing });
+    await page.getByLabel("Name we can call at the exhibit").fill(name);
+    await page.getByRole("button", { name: "Send to installation", exact: true }).click();
+    await expect(page.getByTestId("queue-ticket")).toContainText(name);
+    const row = (await db().from("oob_queue_tickets").select("object_path,status").eq("id", ticket.id).single()).data!;
+    expect(row.status).toBe("ready");
+    await page.getByText("Ticket options", { exact: true }).click();
+    await page.getByRole("button", { name: "Cancel my ticket", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Upload drawing", exact: true })).toBeEnabled();
+    expect((await db().from("oob_queue_tickets").select("status,participant_name").eq("id", ticket.id).single()).data)
+      .toEqual({ status: "cancelled", participant_name: "" });
+    expect((await db().storage.from("oob-temporary-artwork").download(row.object_path)).error).not.toBeNull();
+  }
+  expect(new Set(tickets).size).toBe(2);
+});
 test("FIFO follows upload order; call later and simultaneous starts preserve one active participant", async ({ request, browser }) => {
   await open(request); const first = await browser.newContext(), second = await browser.newContext();
   try {
