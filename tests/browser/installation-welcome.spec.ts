@@ -42,20 +42,19 @@ test("unlock opens a centered permanent QR on the full exhibit background, witho
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/favicon.png?v=2");
 });
 
-test("waiting tickets use one Call next action and a cohesive called-participant view", async ({ page }) => {
+test("waiting tickets automatically fill the head and show a single centered Start participant prompt", async ({ page }) => {
   const ticket: QueueTicket = { id: "2b2c4167-d1ea-4f9f-a720-698e90ca1d53", number: 7, name: "Alex", ahead: 0, status: "ready", createdAt: "2026-10-14T00:00:00Z", expiresAt: "2099-01-01T00:00:00Z" };
   const queue: QueueState = { tickets: [ticket], active: null, called: null, waiting: 1, capacity: 20, accepting: true, online: true,
     mobileUrl: "http://127.0.0.1:3202/mobile", qr: await QRCode.toDataURL("http://127.0.0.1:3202/mobile"), downloadBytes: 0, downloads: 0, uploads: 0, usageWarning: false };
   await page.route("**/api/participant/queue?view=operator", route => route.fulfill({ json: queue }));
   await page.route("**/api/participant/queue/action", route => { expect(route.request().postDataJSON().action).toBe("call"); ticket.status = "called"; queue.called = ticket; return route.fulfill({ json: { cleanupPending: false } }); });
   await page.goto("/");
-  await expect(page.getByRole("button", { name: "Call next", exact: true })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Call next", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Call .*later/ })).toHaveCount(0);
   await expect(page.getByText("Usage", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Call next", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Alex, it’s your turn", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Start participant", exact: true })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Call next", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Start participant", exact: true })).toHaveCount(1);
   await expect(page.getByTestId("session-qr")).toBeVisible();
   await page.evaluate(async () => { await document.fonts.ready; });
   await page.screenshot({ path: "test-results/installation-called-welcome.png", fullPage: true });

@@ -61,8 +61,7 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
     await expect(phone.getByTestId("queue-ticket")).toContainText("in line");
     await expect(page.getByTestId("queue-bar")).toContainText("Alex", { timeout: 10000 });
     await expect(page.getByTestId("avatar")).toHaveCount(0);
-    await page.getByRole("button", { name: "Call next", exact: true }).click();
-    await expect(page.getByTestId("queue-bar")).toContainText("Calling: Alex");
+    await expect(page.getByTestId("queue-bar")).toContainText("Calling: Alex", { timeout: 10000 });
     await page.getByRole("button", { name: "Start participant", exact: true }).click();
     await expect.poll(() => page.getByTestId("avatar").evaluate(el => Array.from((el as HTMLCanvasElement).getContext("2d")!.getImageData(420, 385, 1, 1).data))).toEqual([39, 154, 163, 255]);
     const row = (await db().from("oob_queue_tickets").select("object_path").eq("id", ticket.id).single()).data!;
@@ -74,6 +73,7 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
     finally { await nextPhone.close(); }
     await expect(page.getByTestId("queue-bar")).toHaveCount(0);
     await expect.poll(async () => (await page.request.get("/api/participant/queue?view=operator").then(r => r.json())).tickets.some((ticket: { name: string }) => ticket.name === "Sam")).toBe(true);
+    expect((await page.request.get("/api/participant/queue?view=operator").then(r => r.json())).tickets.find((ticket: { name: string }) => ticket.name === "Sam").status).toBe("ready");
     await page.getByRole("button", { name: "Back to setup", exact: true }).click();
     await page.getByText("Setup tools", { exact: true }).click();
     await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
@@ -101,11 +101,33 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
     await page.screenshot({ path: "test-results/design-completion.png", fullPage: true });
     await expect.poll(async () => (await db().storage.from("oob-temporary-artwork").download(row.object_path)).error !== null).toBe(true);
     expect((await db().from("oob_queue_tickets").select("participant_name,status").eq("id", ticket.id).single()).data).toEqual({ participant_name: "", status: "completed" });
+    expect((await page.request.get("/api/participant/queue?view=operator").then(r => r.json())).called).toBeNull();
     await page.getByRole("button", { name: "Next participant", exact: true }).click();
     await expect(page.getByTestId("queue-bar")).toBeVisible();
+    await expect(page.getByTestId("queue-bar")).toContainText("Calling: Sam", { timeout: 10000 });
     expect(await page.getByTestId("session-qr").getAttribute("src")).toBe(qr);
   } finally { await mobile.close(); }
 });
+test("two operator screens automatically select the same FIFO head without advancing the following ticket", async ({ browser }) => {
+  const first = await browser.newContext(), second = await browser.newContext();
+  try {
+    await open(first.request); const firstTicket = await join(first); await upload(first, "First automatic");
+    const secondTicket = await join(second); await upload(second, "Second automatic"); await open(second.request);
+    const firstPage = await first.newPage(), secondPage = await second.newPage();
+    await Promise.all([firstPage.goto("/"), secondPage.goto("/")]);
+    for (const screen of [firstPage, secondPage]) {
+      await expect(screen.getByTestId("installation-welcome")).toContainText("First automatic", { timeout: 12000 });
+      await expect(screen.getByRole("button", { name: "Start participant", exact: true })).toBeEnabled();
+      await expect(screen.getByRole("button", { name: "Call next", exact: true })).toHaveCount(0);
+      await expect(screen.locator("p[role=alert]")).toHaveCount(0, { timeout: 12000 });
+    }
+    const state = await first.request.get("/api/participant/queue?view=operator").then(response => response.json());
+    expect(state.called.id).toBe(firstTicket.id); expect(state.active).toBeNull();
+    expect(state.tickets.filter((ticket: { status: string }) => ticket.status === "called")).toHaveLength(1);
+    expect(state.tickets.find((ticket: { id: string }) => ticket.id === secondTicket.id).status).toBe("ready");
+  } finally { await first.close(); await second.close(); }
+});
+
 test("concurrent admission stops at 20, existing tickets finish, and cancellation/expiry reopen slots", async ({ request, browser }) => {
   await open(request); const contexts = await Promise.all(Array.from({ length: 23 }, () => browser.newContext()));
   try {

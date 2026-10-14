@@ -92,6 +92,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .participant-desktop { min-height: 100svh; display: flex; flex-direction: column; }
 .installation-welcome { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; gap: 18px; }
 .installation-welcome .brand-logo { width: 107px; height: 107px; }
+.installation-welcome[data-called='true'] { gap: 12px; padding: 20px 24px; }
+.installation-welcome[data-called='true'] .brand-logo { width: 83px; height: 83px; }
+.installation-welcome[data-called='true'] .installation-qr img { width: min(200px,calc(100vw - 96px)); }
 .installation-welcome h1 { margin: 0; font-family: var(--heading-font); font-size: clamp(28px,3.2vw,44px); font-weight: 700; }
 .welcome-instruction { margin: 0; max-width: 570px; font-size: 20px; line-height: 1.4; }
 .installation-qr { padding: 20px; background: white; border-radius: 16px; box-shadow: 0 4px 16px #7c0f5533; }
