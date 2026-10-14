@@ -22,7 +22,7 @@ for (const ended of ["cancelled", "expired", "completed"] as const) {
     await page.getByRole("button", { name: "Back to home", exact: true }).click();
     await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
     await expect(page.getByTestId("mobile-photo")).toBeVisible();
-    await expect(page.locator(".ticket-footer")).toContainText("Ticket 8");
+    await expect(page.getByRole("button", { name: "Cancel my ticket", exact: true })).toBeVisible();
     expect(joins).toBe(1);
   });
 }
@@ -41,7 +41,7 @@ test("starting again restores a ready ticket already reserved by another tab", a
   await expect(page.getByRole("heading", { name: "Ticket cancelled" })).toBeVisible();
   await page.getByRole("button", { name: "Back to home", exact: true }).click();
   await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
-  await expect(page.getByTestId("queue-ticket")).toContainText("Ticket 8");
+  await expect(page.getByTestId("queue-ticket")).toContainText("#1 in line");
   await expect(page.getByTestId("mobile-photo")).toHaveCount(0);
   expect(joins).toBe(1);
 });
@@ -64,7 +64,7 @@ test("the same phone can upload, cancel and upload a different drawing without w
     const image = await sharp(Buffer.from(silhouetteSvg(true).replace("</svg>", `<rect x="256" y="324" width="87" height="130" fill="${color}"/></svg>`))).png().toBuffer();
     await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: image });
     await page.getByRole("button", { name: "Send to installation", exact: true }).click();
-    await expect(page.getByTestId("queue-ticket")).toContainText(`Ticket ${joins}`);
+    await expect(page.getByTestId("queue-ticket")).toContainText("#1 in line");
     await page.getByRole("button", { name: "Cancel my ticket", exact: true }).click();
     await page.getByRole("button", { name: "Yes, cancel ticket", exact: true }).click();
     await expect(page.getByRole("button", { name: "Upload drawing", exact: true })).toBeEnabled();
@@ -102,7 +102,7 @@ test("a delayed cancelled-ticket poll cannot overwrite the new reservation", asy
     return route.fulfill({ json: ticket() });
   });
   await page.goto("/mobile");
-  await expect(page.getByTestId("queue-ticket")).toContainText("Ticket 7");
+  await expect(page.getByTestId("queue-ticket")).toContainText("#1 in line");
   status = "cancelled";
   await page.evaluate(() => { (window as unknown as { ticketPollTest: PollTest }).ticketPollTest.hold = true; });
   await page.clock.runFor(15001);
@@ -114,6 +114,6 @@ test("a delayed cancelled-ticket poll cannot overwrite the new reservation", asy
   await page.evaluate(() => { (window as unknown as { ticketPollTest: PollTest }).ticketPollTest.release!(); });
   await page.clock.runFor(100);
   await expect(page.getByTestId("mobile-photo")).toBeVisible();
-  await expect(page.locator(".ticket-footer")).toContainText("Ticket 8");
+  await expect(page.getByRole("button", { name: "Cancel my ticket", exact: true })).toBeVisible();
   expect(joins).toBe(1);
 });

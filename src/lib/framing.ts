@@ -2,6 +2,7 @@ import { areaSide, isLegArea, type BodyArea } from "./body-areas";
 import type { Landmark, Motion } from "./pose";
 
 export const POSITION_STEADY_MS = 2000;
+export const POSITION_COUNTDOWN_MS = 3000;
 export const LOST_PROMPT_MS = 650;
 export type FramingVerdict = { valid: boolean; message: string };
 export function assessFraming(points: Landmark[], motion: Motion, areas: BodyArea[], fresh: boolean): FramingVerdict {
@@ -32,6 +33,11 @@ export function assessFraming(points: Landmark[], motion: Motion, areas: BodyAre
 }
 export type FramingState = { lastTime: number | null; steadySince: number | null; missingSince: number | null; ready: boolean; recovery: boolean };
 export const createFramingState = (): FramingState => ({ lastTime: null, steadySince: null, missingSince: null, ready: false, recovery: false });
+// Count only current, continuously visible tracking frames, never elapsed timer time.
+export function positionCountdown(state: FramingState, valid: boolean): number | null {
+  if (!valid || state.steadySince === null || state.lastTime === null) return null;
+  return Math.max(0, Math.ceil((POSITION_COUNTDOWN_MS - (state.lastTime - state.steadySince)) / 1000));
+}
 export function advanceFraming(state: FramingState, valid: boolean, now: number, monitoring: boolean, hidden = false): FramingState {
   const gap = state.lastTime === null ? 0 : now - state.lastTime;
   if (hidden || gap > 250 || gap < 0) return { ...createFramingState(), lastTime: now, recovery: state.recovery || monitoring };

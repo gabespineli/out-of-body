@@ -5,8 +5,8 @@ import type { TicketStatus } from "../../src/lib/queue";
 
 test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 async function phone(page: Page, status: TicketStatus | null = null) {
-  const state = { status, joins: 0, sends: 0, cancels: 0, offline: false, uploadError: "", cancelError: "", lostUpload: false, full: false, lostJoin: false };
-  const ticket = () => ({ id: "2b2c4167-d1ea-4f9f-a720-698e90ca1d53", number: 7, name: "Alex", ahead: 1,
+  const state = { status, ahead: 1, joins: 0, sends: 0, cancels: 0, offline: false, uploadError: "", cancelError: "", lostUpload: false, full: false, lostJoin: false };
+  const ticket = () => ({ id: "2b2c4167-d1ea-4f9f-a720-698e90ca1d53", number: 7, name: "Alex", ahead: state.ahead,
     status: state.status, createdAt: "2026-10-14T00:00:00Z", expiresAt: "2099-01-01T00:00:00Z" });
   await page.route("**/api/participant/queue", route => state.offline
     ? route.fulfill({ status: 503, json: { error: "Connection interrupted. Retrying…" } })
@@ -38,6 +38,34 @@ async function prepare(page: Page) {
   await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: image });
   await expect(page.getByTestId("mobile-preview")).toBeVisible();
 }
+
+test("the Figma ticket layout shows live place in line and one short message, then switches to drawing on screen", async ({ page }) => {
+  await page.setViewportSize({ width: 430, height: 932 }); await page.clock.install();
+  const state = await phone(page, "ready"); state.ahead = 3; await page.goto("/mobile");
+  const screen = page.getByTestId("queue-ticket"), message = screen.getByRole("status");
+  await expect(message).toContainText("#4 in line");
+  await expect(screen.getByRole("status")).toHaveCount(1);
+  await expect(screen).not.toContainText("Ticket 7"); await expect(screen).not.toContainText("Alex");
+  await expect(screen).not.toContainText("90 minutes");
+  await page.evaluate(async () => { await document.fonts.ready; });
+  const logo = await page.locator(".mobile-brand .brand-logo").boundingBox(), title = await screen.getByRole("heading").boundingBox();
+  expect(logo!.width).toBeCloseTo(83, 0); expect(logo!.y).toBeCloseTo(14, 0); expect(title!.y).toBeCloseTo(390, 0);
+  await page.screenshot({ path: "test-results/mobile-waiting-simple.png", fullPage: true });
+  state.ahead = 0; await page.clock.runFor(15001); await expect(message).toContainText("#1 in line");
+  state.status = "called"; await page.clock.runFor(15001); await expect(message).toContainText("You’re next in line");
+  await expect(screen.getByRole("heading")).toHaveText("Drawing uploaded");
+  state.status = "active"; await page.clock.runFor(5001);
+  await expect(screen.getByRole("heading")).toHaveText("Drawing on screen");
+  await expect(message).toHaveText("Please move to the screen and let’s start stretching!");
+  await expect(screen).not.toContainText("in line");
+  await page.screenshot({ path: "test-results/mobile-on-screen-simple.png", fullPage: true });
+  for (const [width,height] of [[320,600],[390,783],[430,932]]) {
+    await page.setViewportSize({width,height});
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const copy = await message.boundingBox(), home = await page.getByRole("button", { name: "Back to home", exact: true }).boundingBox(), cancel = await page.getByRole("button", { name: "Cancel my ticket", exact: true }).boundingBox();
+    expect(copy!.y + copy!.height).toBeLessThan(home!.y); expect(home!.y + home!.height).toBeLessThan(cancel!.y);
+  }
+});
 
 test("cancellation confirmation preserves the preview on Keep or Escape and cancels only after confirmation", async ({ page }) => {
   const state = await phone(page); await prepare(page);
@@ -105,7 +133,7 @@ test("a failed cancellation keeps the ticket and warning until a successful retr
   await page.getByRole("button", { name: "Yes, cancel ticket", exact: true }).click();
   await expect(page.locator("p[role=alert]")).toContainText(state.cancelError);
   await page.clock.runFor(15001); await expect(page.locator("p[role=alert]")).toContainText(state.cancelError);
-  await expect(page.getByTestId("queue-ticket")).toContainText("Ticket 7");
+  await expect(page.getByTestId("queue-ticket")).toContainText("#2 in line");
   state.cancelError = ""; await page.getByRole("button", { name: "Cancel my ticket", exact: true }).click();
   await page.getByRole("button", { name: "Yes, cancel ticket", exact: true }).click();
   await expect(page.getByRole("button", { name: "Upload drawing", exact: true })).toBeEnabled();
@@ -116,7 +144,7 @@ test("an uploaded drawing is recovered after its response is lost without a seco
   await page.clock.install(); const state = await phone(page); await prepare(page); state.lostUpload = true;
   await page.getByRole("button", { name: "Send to installation", exact: true }).click();
   await expect(page.locator("p[role=alert]")).toBeVisible(); await page.clock.runFor(15001);
-  await expect(page.getByTestId("queue-ticket")).toContainText("Ticket 7");
+  await expect(page.getByTestId("queue-ticket")).toContainText("#2 in line");
   await expect(page.locator("p[role=alert]")).toHaveCount(0); expect(state.sends).toBe(1);
 });
 
@@ -146,7 +174,7 @@ for (const status of ["preparing", "ready", "called", "active"] as const) {
     else await expect(page.getByTestId("queue-ticket")).toBeVisible();
     await page.reload();
     if (status === "preparing") await page.getByRole("button", { name: "Continue my drawing", exact: true }).click();
-    else await expect(page.getByTestId("queue-ticket")).toContainText("Ticket 7");
+    else await expect(page.getByTestId("queue-ticket")).toBeVisible();
     expect(state.joins).toBe(0);
   });
 }
@@ -159,5 +187,5 @@ test("About and home preserve an existing ticket while it is called", async ({ p
   await expect(page.getByRole("heading", { name: "About Out of Body", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Back to home", exact: true }).click();
   await page.getByRole("button", { name: "View my ticket", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "It’s your turn", exact: true })).toBeVisible(); expect(state.joins).toBe(0);
+  await expect(page.getByTestId("queue-ticket")).toContainText("You’re next in line"); expect(state.joins).toBe(0);
 });

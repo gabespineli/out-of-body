@@ -7,7 +7,9 @@
 @font-face { font-family: 'Hatch Sans'; src: url('/fonts/HatchSans-Bold.otf') format('opentype'); font-style: normal; font-weight: 700; font-display: swap; }
 @font-face { font-family: 'Hatch Sans'; src: url('/fonts/HatchSans-BoldItalic.otf') format('opentype'); font-style: italic; font-weight: 700; font-display: swap; }
 :root { --pink: #ec39ad; --pink-strong: #eb2da8; --pink-text: #d51692; --cream: #faf7e8; --blue-button: linear-gradient(90deg,#96e8f3,#e1fcff); --cream-button: linear-gradient(90deg,#fff3cf,#feeab0); --heading-font: 'Hatch Sans', Urbanist, sans-serif; --body-font: Urbanist, sans-serif; }
-body { font-family: var(--body-font); background: #fdfbf1; color: var(--pink-text); }
+:root { --regular-text-glow: 0 0 2px #fff, 0 0 5px #fff, 0 0 9px #ffffffcc; }
+body { font-family: var(--body-font); background: #fdfbf1; color: var(--pink-text); text-shadow: var(--regular-text-glow); }
+h1, h2, h3, h4, h5, h6 { text-shadow: none; }
 button, input, select { font-family: var(--body-font); }
 a { color: var(--pink-text); }
 .brand-logo { display: block; width: 107px; height: 107px; object-fit: contain; margin: 0 auto; flex: 0 0 auto; pointer-events: none; }
@@ -39,6 +41,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .positioning-boundary { border-color: var(--pink); }
 .positioning-placeholder { color: var(--pink-text); }
 .positioning-message { color: var(--pink-text); }
+.positioning-countdown { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); display: flex; flex-direction: column; align-items: center; justify-content: center; width: 150px; min-height: 170px; padding: 14px; border-radius: 20px; background: #faf7e8ed; color: var(--pink-text); box-shadow: 0 4px 20px #7c0f5533; pointer-events: none; }
+.positioning-countdown > span:not(.visually-hidden) { font-size: 16px; }
+.positioning-countdown strong { font-family: var(--heading-font); font-size: 80px; line-height: 1.1; }
 .stretch-exhibit { position: relative; padding: 198px max(24px,calc((100% - 1230px)/2)) 59px; min-height: 100svh; }
 .stretch-header { display: block; position: absolute; top: 0; left: 0; right: 0; }
 .stretch-actions { position: absolute; top: 44px; left: max(24px,calc((100% - 1352px)/2)); gap: 6px; }
@@ -149,11 +154,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .mobile-participant section > h2:not(.visually-hidden) { font-family: var(--heading-font); font-size: clamp(28px,8.372vw,36px); font-weight: 700; line-height: 49px; margin: 0; }
 .mobile-ticket, .mobile-ended { min-height: calc(100svh - 121px); padding: max(100px,calc(41.845svh - 97px)) 0 145px; text-align: center; justify-content: flex-start; }
 .mobile-ticket p, .mobile-ended p { font-size: 18px; line-height: 1.3; }
+.mobile-participant .mobile-ticket > h2:not(.visually-hidden) { line-height: 47px; color: var(--pink-strong); font-size: clamp(24px,8.372vw,36px); }
+.mobile-ticket .ticket-message { max-width: 291px; margin: 0 auto; font-size: 24px; font-weight: 600; line-height: 1.2; }
 .mobile-ticket .ticket-number { font-family: var(--heading-font); font-size: 27px; font-weight: 500; margin: 12px 0 4px; }
 .mobile-ticket .participant-note { font-size: 13px; margin-top: 18px; }
 .home-action { width: 204px; min-height: 44px; padding: 8px 12px; font-size: 20px; text-transform: uppercase; white-space: nowrap; }
 .mobile-ticket .home-action, .mobile-ended .home-action { position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%); }
-.ticket-footer { border-top: 1px solid #ec39ad44; font-size: 12px; color: var(--pink-text); margin-top: 20px; padding-top: 12px; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ticket-footer { border: 0; font-size: 12px; color: var(--pink-text); margin-top: 12px; padding-top: 6px; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
 .ticket-footer .ticket-cancel-action { min-height: 44px; font-size: 13px; padding: 8px 10px; }
 .ticket-cancel-dialog { width: min(380px,calc(100vw - 40px)); max-height: calc(100svh - 40px); padding: 28px; border: 0; border-radius: 16px; background: #faf7e8; color: var(--pink-text); box-shadow: 0 10px 40px #7c0f5540; margin: auto; }
 .ticket-cancel-dialog::backdrop { background: #4b204566; }

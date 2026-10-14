@@ -24,6 +24,6 @@ test("mobile has a minimal preview and a home/ticket round trip without another 
   await page.getByRole("button",{name:"Send to installation",exact:true}).click(); await expect(page.getByTestId("queue-ticket")).toBeVisible();
   await page.getByRole("button",{name:"Back to home",exact:true}).click();
   await expect(page.getByRole("button",{name:"View my ticket",exact:true})).toBeVisible();
-  await page.getByRole("button",{name:"View my ticket",exact:true}).click(); await expect(page.getByTestId("queue-ticket")).toContainText("Ticket 7"); expect(joins).toBe(1);
+  await page.getByRole("button",{name:"View my ticket",exact:true}).click(); await expect(page.getByTestId("queue-ticket")).toContainText("#2 in line"); expect(joins).toBe(1);
   await page.screenshot({path:"test-results/mobile-mid-ticket.png",fullPage:true});
 });

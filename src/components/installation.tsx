@@ -15,7 +15,7 @@ import { guideInstruction, createGuide, advanceGuide, guideSnapshot, skipGuide }
 import { VisualInstructor } from "./visual-instructor";
 import { PositioningGate } from "./positioning-gate";
 import { StretchStage } from "./stretch-stage";
-import { assessFraming, advanceFraming, createFramingState } from "@/lib/framing";
+import { assessFraming, advanceFraming, createFramingState, positionCountdown } from "@/lib/framing";
 import { BrandLogo } from "./design-brand";
 
 const EMPTY_PROGRESS = { hold: 0, fade: 0, complete: false, active: false };
@@ -236,8 +236,8 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
   const feedback = experience === "guided" ? guidedFeedback : practiceFeedback;
 
   const guidedView = experience === "guided" && <div className="guided-shell" ref={stage} data-experience="guided" data-phase={phase} data-testid="guided-shell">
-    <PositioningGate camera={camera} visible={phase === "positioning"} ready={frameStatus.ready} valid={frameStatus.valid} message={frameStatus.message} hasColor={journey.areas.length > 0}
-      onStart={() => { if (!framing.current.ready) return; framing.current.recovery = false; setGuidedRunning(true); setPhase("stretching"); }}
+    <PositioningGate camera={camera} visible={phase === "positioning"} countdown={positionCountdown(frameStatus, frameStatus.valid)} valid={frameStatus.valid} message={frameStatus.message} hasColor={journey.areas.length > 0}
+      onStart={() => { if (document.hidden || phase !== "positioning" || !framing.current.ready || positionCountdown(framing.current, true) !== 0) return; framing.current.recovery = false; setGuidedRunning(true); setPhase("stretching"); }}
       onBack={() => { camera.stop(); setPhase("setup"); }} />
     <div hidden={phase !== "setup"} className="exhibit-setup"><header><h1><BrandLogo /></h1><p>Prepare your drawing, then find your position.</p></header>
       {!participantMode && <ArtworkPanel artwork={artwork} area={activeArea} />}

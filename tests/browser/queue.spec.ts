@@ -58,7 +58,7 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
     await phone.getByLabel("Name").fill("Alex");
     const preview = await phone.getByTestId("mobile-preview").evaluate(el => (el as HTMLCanvasElement).toDataURL());
     await phone.getByRole("button", { name: "Send to installation", exact: true }).click();
-    await expect(phone.getByTestId("queue-ticket")).toContainText("Alex");
+    await expect(phone.getByTestId("queue-ticket")).toContainText("in line");
     await expect(page.getByTestId("queue-bar")).toContainText("Alex", { timeout: 10000 });
     await expect(page.getByTestId("avatar")).toHaveCount(0);
     await page.getByRole("button", { name: "Call next", exact: true }).click();
@@ -134,7 +134,7 @@ test("a phone can cancel its uploaded ticket and immediately reserve and upload 
     await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: drawing });
     await page.getByLabel("Name").fill(name);
     await page.getByRole("button", { name: "Send to installation", exact: true }).click();
-    await expect(page.getByTestId("queue-ticket")).toContainText(name);
+    await expect(page.getByTestId("queue-ticket")).toContainText("in line");
     const row = (await db().from("oob_queue_tickets").select("object_path,status").eq("id", ticket.id).single()).data!;
     expect(row.status).toBe("ready");
     await page.getByRole("button", { name: "Cancel my ticket", exact: true }).click();

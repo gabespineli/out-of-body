@@ -11,18 +11,47 @@ async function setup(page: Page, legs = false, fullscreen = false) {
   await expect(page.getByRole("heading", { name: "Get into position", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Enable camera", exact: true }).click();
 }
-async function start(page: Page) { await setup(page); await expect(page.getByRole("button", { name: "Start stretching", exact: true })).toBeEnabled({ timeout: 10000 }); await page.getByRole("button", { name: "Start stretching", exact: true }).click(); }
+async function start(page: Page) { await setup(page); await expect(page.getByTestId("positioning-countdown")).toBeVisible({ timeout: 10000 }); await expect(page.getByTestId("guided-shell")).toHaveAttribute("data-phase", "stretching", { timeout: 5000 }); }
 async function moveHead(page: Page, count = 4) { for (let i=0;i<count;i++) { const p=standingPoints(); p[8].y += i%2 ? .045 : -.045; await setPoints(page,p); await page.waitForTimeout(400); } }
+
+test("a centered 3-2-1 countdown resets when position is lost and automatically starts only after stabilizing", async ({ page }) => {
+  await setup(page);
+  const count = page.getByTestId("positioning-countdown").locator("strong");
+  await expect(count).toHaveText("3"); await expect(count).toHaveText("2", { timeout: 2500 });
+  await setPoints(page, []); await expect(page.getByTestId("positioning-countdown")).toHaveCount(0);
+  await expect(page.getByTestId("guided-shell")).toHaveAttribute("data-phase", "positioning");
+  await setPoints(page, standingPoints()); await expect(count).toHaveText("3");
+  const badge = await page.getByTestId("positioning-countdown").boundingBox(), camera = await page.locator(".positioning-preview").boundingBox();
+  expect(badge!.x + badge!.width / 2).toBeCloseTo(camera!.x + camera!.width / 2, 0);
+  expect(badge!.y + badge!.height / 2).toBeCloseTo(camera!.y + camera!.height / 2, 0);
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-guided-total", "0.000");
+  await page.screenshot({ path: "test-results/positioning-countdown.png", fullPage: true });
+  await expect(count).toHaveText("2", { timeout: 2500 }); await expect(count).toHaveText("1", { timeout: 2500 });
+  await expect(page.getByTestId("guided-shell")).toHaveAttribute("data-phase", "stretching", { timeout: 2500 });
+});
+
+test("hidden tabs and leaving positioning discard the countdown instead of starting later", async ({ page }) => {
+  await setup(page); await expect(page.getByTestId("positioning-countdown")).toBeVisible();
+  await page.evaluate(() => { Object.defineProperty(document, "hidden", { configurable: true, value: true }); document.dispatchEvent(new Event("visibilitychange")); });
+  await page.waitForTimeout(3200); await expect(page.getByTestId("guided-shell")).toHaveAttribute("data-phase", "positioning");
+  await expect(page.getByTestId("positioning-countdown")).toHaveCount(0);
+  await page.evaluate(() => { Object.defineProperty(document, "hidden", { configurable: true, value: false }); document.dispatchEvent(new Event("visibilitychange")); });
+  await expect(page.getByTestId("positioning-countdown").locator("strong")).toHaveText("3");
+  await page.getByRole("button", { name: "Back to setup", exact: true }).click();
+  await page.waitForTimeout(3200); await expect(page.getByTestId("guided-shell")).toHaveAttribute("data-phase", "setup");
+  expect(await page.getByLabel("Positioning camera preview").evaluate(el => (el as HTMLVideoElement).srcObject)).toBeNull();
+});
 test("positioning requires steady in-frame tracking, and keeps one hidden camera alive during stretching", async ({ page }) => {
   await setup(page, true, true); await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);
   const p=standingPoints(); p[27].y=1.1; await setPoints(page,p);
-  await page.waitForTimeout(2400); await expect(page.getByRole("button", { name: "Start stretching", exact: true })).toBeDisabled();
+  await page.waitForTimeout(2400); await expect(page.getByTestId("positioning-countdown")).toHaveCount(0);
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-guided-total", "0.000");
-  await setPoints(page,standingPoints()); await page.waitForTimeout(900); await expect(page.getByRole("button", { name: "Start stretching", exact: true })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Start stretching", exact: true })).toBeEnabled({ timeout: 4000 });
+  await setPoints(page,standingPoints()); await expect(page.getByTestId("positioning-countdown")).toBeVisible();
+  await page.waitForTimeout(900); await expect(page.getByTestId("guided-shell")).toHaveAttribute("data-phase", "positioning");
+  await expect(page.getByRole("button", { name: "Start stretching", exact: true })).toHaveCount(0);
   await page.screenshot({ path: "test-results/positioning-gate.png", fullPage: true });
   const video=page.getByLabel("Positioning camera preview");
-  await page.getByRole("button", { name: "Start stretching", exact: true }).click();
+  await expect(page.getByTestId("guided-shell")).toHaveAttribute("data-phase", "stretching", { timeout: 4000 });
   await expect(page.getByTestId("positioning-gate")).toHaveClass("background-tracker");
   expect(await video.evaluate(el => (el as HTMLVideoElement).srcObject instanceof MediaStream)).toBe(true);
   await expect(page.locator("video")).toHaveCount(1);
@@ -51,8 +80,8 @@ test("brief loss avoids prompt flicker; Check position preserves progress and Re
   await setPoints(page,[]); await expect(page.getByTestId("tracking-prompt")).toBeVisible();
   const earned=await page.getByTestId("avatar").getAttribute("data-neck-head-fade");
   await page.getByRole("button", { name: "Check position", exact: true }).click(); await expect(page.getByTestId("positioning-gate")).toHaveClass("positioning-gate");
-  await setPoints(page,standingPoints()); await expect(page.getByRole("button", { name: "Start stretching", exact: true })).toBeEnabled({ timeout: 4000 });
-  await page.getByRole("button", { name: "Start stretching", exact: true }).click(); await expect(page.getByTestId("avatar")).toHaveAttribute("data-neck-head-fade",earned!);
+  await setPoints(page,standingPoints()); await expect(page.getByTestId("guided-shell")).toHaveAttribute("data-phase", "stretching", { timeout: 5000 });
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-neck-head-fade",earned!);
   await page.getByRole("button", { name: "Restart", exact: true }).click(); await expect(page.getByTestId("positioning-gate")).toHaveClass("positioning-gate");
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-guided-total","0.000");
 });

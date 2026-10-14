@@ -89,11 +89,10 @@ export function QueueMobileFlow({ notice }: { notice: string }) {
         <button className="primary-action home-action" onClick={() => setStep("landing")}><DesignIcon name="home" />Back to home</button></section>
       : step === "camera" ? <MobileCapture camera={camera} onCapture={() => void capture()} onChoose={file => void choose(file)} busy={busy || photo.busy} />
       : step === "preview" ? <MobilePreview photo={photo} name={name} onName={setName} sending={busy} onSend={() => void send()} onRetake={() => { photo.clear(); setStep("camera"); }} />
-      : ticket && <section className="mobile-ticket" data-testid="queue-ticket"><h2>{ticket.status === "called" ? "It’s your turn" : ticket.status === "active" ? "Your drawing is on screen" : "Drawing uploaded"}</h2>
-        <p className="ticket-number">Ticket {ticket.number}</p>{ticket.name && <p>{ticket.name}</p>}
-        <p role="status">{ticket.status === "called" ? "Please move to the stretching screen. Staff will start your session." : ticket.status === "active" ? "Follow the guide on the installation." : `${ticket.ahead} ${ticket.ahead === 1 ? "person" : "people"} ahead of you. Listen for your ticket or name.`}</p>
-        <p className="participant-note">Keep this page open to see when you are called. Tickets expire after 90 minutes of waiting.</p><button className="primary-action home-action" onClick={() => setStep("landing")}><DesignIcon name="home" />Back to home</button></section>}
-    {ticket && !ended && <div className="ticket-footer"><span>Ticket {ticket.number}{ticket.status === "preparing" ? " · 10 minutes to prepare" : ""}</span>
+      : ticket && <section className="mobile-ticket" data-testid="queue-ticket"><h2>{ticket.status === "active" ? "Drawing on screen" : "Drawing uploaded"}</h2>
+        <p className="ticket-message" role="status" aria-live="polite" aria-atomic="true">{ticket.status === "active" ? "Please move to the screen and let’s start stretching!" : ticket.status === "called" ? "You’re next in line. Please move to the screen." : `You’re #${ticket.ahead + 1} in line. Please wait for your turn.`}</p>
+        <button className="primary-action home-action" onClick={() => setStep("landing")}><DesignIcon name="home" />Back to home</button></section>}
+    {ticket && !ended && <div className="ticket-footer">
       <button className="secondary-action ticket-cancel-action" disabled={busy} onClick={() => setCancelRequest(ticket.id)}>Cancel my ticket</button></div>}
     <TicketCancelDialog open={!!cancelRequest && ticket?.id === cancelRequest && !ended && !busy} onClose={() => setCancelRequest(null)}
       onConfirm={() => { const id = cancelRequest; setCancelRequest(null); if (current.current?.id === id && !terminalTicket(current.current.status)) void cancel(); }} />

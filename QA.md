@@ -1,3 +1,15 @@
+## Simplified phone queue status — 14 October 2026
+
+Rechecked Figma ending frame `16:144` and applied its logo/title/message/Home spacing to the phone status screen. Waiting participants see one short message with their current place (`ahead + 1`) rather than the permanent ticket number. Called participants receive a short move-to-screen cue within the waiting state; active participants see Drawing on screen and the Figma stretching instruction. Removed repeated names, ticket-number footers and expiry/helper paragraphs. Home and confirmed cancellation remain available, with cancellation centered below Home.
+
+Production build, TypeScript, whitespace checks and all **30 affected browser scenarios passed**. The new status check verified live position updates, called/active transitions, source-frame geometry and non-overlapping controls at 320 × 600, 390 × 783 and 430 × 932. Existing cancellation/restoration, prepared-image matching, local camera capture/denial and Supabase-backed upload/queue/completion checks passed. Source and implementation images were compared using the existing local Figma background, logo and home SVG; no new assets or backend changes were needed. Current screenshots are saved outside the repository under `mobile-queue-simple/`. Changes remain local and undeployed.
+
+## Automatic positioning countdown — 14 October 2026
+
+Replaced Start stretching with a centered 3 → 2 → 1 overlay in the camera preview. Three seconds of continuously valid, visible tracking open the guided view automatically. Invalid required landmarks, hidden tabs and stale frame gaps reset the countdown; Back to setup discards it. Counting uses framing timestamps rather than a delayed timer, so no movement is credited during positioning and a suspended tab cannot start later. Camera retry/cancellation controls and explicit Continue in the tracking-loss prompt remain available.
+
+Production build, TypeScript, whitespace checks, all **63 unit tests** and **nine affected browser scenarios** passed. Browser coverage included centered counts and reset, hidden/abandoned positioning, fullscreen, one preserved camera stream, tracking recovery/fades, manual pause, focus recovery and the actual local queue-to-completion flow. Countdown screenshots are saved outside the repository under `positioning-countdown/`; the camera image is a synthetic test fixture. Physical participant/camera verification remains separate. No database or hosting configuration changed, and no deployment was performed.
+
 ## Exhibit root and test route — 14 October 2026
 
 The exhibit installation now opens at `/`. The former root local-upload/manual-demo page is available at `/test`; its link from the installation unlock screen was updated. `/installation` redirects to `/` for existing bookmarks. The `/mobile` route and permanent printed QR address are unchanged.
