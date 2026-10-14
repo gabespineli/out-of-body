@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import { SEGMENTS } from "@/lib/rig";
 import { drawAlignedPhoto } from "@/lib/artwork";
+import { cleanDrawingCanvas } from "@/lib/drawing-cleanup";
 import { usePhotoGestures } from "@/hooks/use-photo-gestures";
 import type { usePhotoPreview } from "@/hooks/use-photo-preview";
 import type { useMobileCamera } from "@/hooks/use-mobile-camera";
@@ -28,16 +29,19 @@ export function MobileCapture({ camera, onCapture, onChoose, busy }: { camera: R
     {camera.error && <p role="alert" className="error-message">{camera.error}</p>}
   </section>;
 }
-export function MobilePreview({ photo, onRetake, onSend, sending }: { photo: ReturnType<typeof usePhotoPreview>; onRetake: () => void; onSend: () => void; sending: boolean }) {
+export function MobilePreview({ photo, onRetake, onSend, sending, name, onName }: { photo: ReturnType<typeof usePhotoPreview>; onRetake: () => void; onSend: () => void; sending: boolean; name?: string; onName?: (value: string) => void }) {
   const preview = useRef<HTMLCanvasElement>(null);
   const gestures = usePhotoGestures(photo.alignment, photo.setAlignment, sending, photo.image);
   useEffect(() => {
     if (!photo.image || !preview.current) return;
     const frame = requestAnimationFrame(() => {
-      if (photo.image && preview.current) drawAlignedPhoto(preview.current.getContext("2d")!, photo.image, photo.alignment);
+      if (photo.image && preview.current) {
+        drawAlignedPhoto(preview.current.getContext("2d")!, photo.image, photo.alignment);
+        if (!photo.showOriginal) cleanDrawingCanvas(preview.current, photo.cleanupStrength);
+      }
     });
     return () => cancelAnimationFrame(frame);
-  }, [photo.image, photo.alignment]);
+  }, [photo.image, photo.alignment, photo.cleanupStrength, photo.showOriginal]);
   return <section aria-labelledby="mobile-preview-title"><h2 id="mobile-preview-title">Preview your drawing</h2>
     <p id="photo-gesture-hint">Drag to move. Pinch to zoom. Match the outline.</p>
     <div className={`phone-photo touch-align${gestures.active ? " is-aligning" : ""}`} ref={gestures.surface} {...gestures.handlers}
@@ -56,6 +60,17 @@ export function MobilePreview({ photo, onRetake, onSend, sending }: { photo: Ret
       ["scale", "Zoom", .5, 3, .01], ["x", "Horizontal", -250, 250, 1], ["y", "Vertical", -400, 400, 1], ["rotation", "Rotation", -30, 30, 1],
     ] as const).map(([key, label, min, max, step]) => <label key={key} className="slider-label">{label}<input type="range" aria-label={`Mobile photo ${label.toLowerCase()}`}
       value={photo.alignment[key]} min={min} max={max} step={step} disabled={sending} onChange={event => photo.setAlignment({ ...photo.alignment, [key]: +event.target.value })} /></label>)}</details>
+    <fieldset className="drawing-cleanup"><legend>Drawing cleanup</legend>
+      <div className="segmented"><button type="button" disabled={sending} aria-pressed={photo.showOriginal} onClick={() => photo.setShowOriginal(true)}>Original</button>
+        <button type="button" disabled={sending} aria-pressed={!photo.showOriginal} onClick={() => photo.setShowOriginal(false)}>Cleaned</button></div>
+      <label className="slider-label">Cleanup amount<input type="range" aria-label="Cleanup amount" min="0" max="1" step=".05" disabled={sending} value={photo.cleanupStrength}
+        onChange={event => { photo.setCleanupStrength(+event.target.value); photo.setShowOriginal(false); }} /></label>
+      <button type="button" disabled={sending} onClick={() => { photo.setCleanupStrength(0); photo.setShowOriginal(false); }}>Turn off cleanup</button>
+      <p className="participant-note">Check faint marks and shadows. Only the cleaned version is sent; set the amount to zero to send the original alignment.</p>
+    </fieldset>
+    {onName && <label className="field-label participant-name">Name we can call at the exhibit<input type="text" autoComplete="off" maxLength={40} value={name || ""} disabled={sending}
+      onChange={event => onName(event.target.value)} /><span>First name or nickname — optional. Exhibit staff use it to call your ticket.</span></label>}
+    {photo.showOriginal && <p role="status">Comparing the original. Select Cleaned to check the version that will be sent.</p>}
     <div className="button-row"><button onClick={onSend} disabled={sending}>{sending ? "Sending drawing…" : "Send to installation"}</button><button onClick={onRetake} disabled={sending}>Retake / choose again</button></div>
   </section>;
 }

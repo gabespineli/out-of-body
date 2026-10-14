@@ -1,5 +1,7 @@
 # Out of Body
 
+The permanent-QR queue is now available on `/installation` and `/mobile`: optional participant names, automatic 20-slot intake, compact queue management above the stretching screen, and local drawing cleanup before upload. See [QUEUE_SETUP.md](QUEUE_SETUP.md) for the new Supabase migration, stable QR address, hosting configuration, operating limits, and verification boundaries. Final Figma styling is deferred.
+
 An interactive art prototype. Upload a drawing on the supplied human silhouette, follow an independent animated stretching guide, and watch the actual drawing mirror your movements. Participation gradually fades the corresponding colored marks while preserving the outline.
 
 This is the separate GitHub/Vercel migration of the existing application. The original ChatGPT Sites checkout and deployment remain unchanged. See [MIGRATION.md](MIGRATION.md) for the original migration audit and [QA.md](QA.md) for verification evidence.
@@ -106,7 +108,7 @@ out-of-body-vercel/
 └── QA.md
 ```
 
-The page is a Next.js App Router shell around browser-side React/Canvas logic. The only route handler generates the printable SVG. The QR journey adds server routes and temporary Supabase storage. The direct local-upload page still processes its drawing in browser memory.
+The page is a Next.js App Router shell around browser-side React/Canvas logic. The original route handler generates the printable SVG. The QR/queue journey adds authorized server routes and temporary Supabase storage. The direct local-upload page still processes its drawing in browser memory.
 
 ## Using the existing experience
 

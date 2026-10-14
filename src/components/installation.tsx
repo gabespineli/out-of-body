@@ -17,8 +17,9 @@ import { VisualInstructor } from "./visual-instructor";
 const EMPTY_PROGRESS = { hold: 0, fade: 0, complete: false, active: false };
 
 export type InstallationResult = { snapshot: string; skipped: BodyArea[] };
-type InstallationProps = { initialArtwork?: File; onArtworkReady?: () => void; onComplete?: (result: InstallationResult) => void; onParticipantReset?: () => void };
-export function Installation({ initialArtwork, onArtworkReady, onComplete, onParticipantReset }: InstallationProps = {}) {
+type InstallationProps = { initialArtwork?: File; onArtworkReady?: () => void; onComplete?: (result: InstallationResult) => void; onParticipantReset?: () => void;
+  participantMode?: boolean; fullscreenRoot?: React.RefObject<HTMLDivElement | null> };
+export function Installation({ initialArtwork, onArtworkReady, onComplete, onParticipantReset, participantMode, fullscreenRoot }: InstallationProps = {}) {
   const artwork = useArtwork();
   const uploadedExternal = useRef<File | null>(null), notifiedArtwork = useRef<File | null>(null), notifiedComplete = useRef(false);
   useEffect(() => {
@@ -157,7 +158,7 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
     setFullscreenError("");
     try {
       if (document.fullscreenElement) await document.exitFullscreen();
-      else if (stage.current?.requestFullscreen) await stage.current.requestFullscreen();
+      else if ((fullscreenRoot?.current || stage.current)?.requestFullscreen) await (fullscreenRoot?.current || stage.current)!.requestFullscreen();
       else setFullscreenError("Fullscreen is unavailable in this browser. Use your browser’s fullscreen shortcut.");
     } catch { setFullscreenError("Fullscreen could not open. Use your browser’s fullscreen shortcut."); }
   };
@@ -207,7 +208,7 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
   const feedback = experience === "guided" ? guidedFeedback : practiceFeedback;
 
   return <div className="installation-shell" data-experience={experience}>
-    <header className="site-header"><h1>Out of Body — MVP</h1></header>
+    <header className="site-header"><h1>{participantMode ? "Out of Body" : "Out of Body — MVP"}</h1></header>
     <main><div className="experience-grid">
       <aside className="control-panel">
         <section className="control-section" aria-labelledby="area-title">
@@ -219,7 +220,7 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
           </details>
           {experience === "practice" && <p className="area-progress" data-testid="area-progress">{BODY_AREAS.map(p => `${p.label}: ${fades[p.id] >= 1 ? "completed" : holds.current[p.id].complete ? "fading" : "waiting"}`).join(" · ")}</p>}
         </section>
-        <ArtworkPanel artwork={artwork} area={activeArea} />
+        {!participantMode && <ArtworkPanel artwork={artwork} area={activeArea} />}
         <MotionPanel area={activeArea} step={journey.step} compact={experience === "guided"} camera={camera} mode={mode} setMode={changeMode} manual={manual} setManual={setManual} detected={detected} />
         {experience === "practice" && <section className="control-section" aria-labelledby="session-title">
           <h2 id="session-title">Hold and fade</h2>

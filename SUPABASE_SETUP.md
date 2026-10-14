@@ -1,5 +1,7 @@
 # Supabase startup and cloud setup
 
+For the permanent QR and queue release, also apply `202610140001_participant_queue.sql` and follow [QUEUE_SETUP.md](QUEUE_SETUP.md). The new queue uses the same project, bucket, server variables, and cleanup schedule.
+
 The local Out of Body instance is separate from the existing projects on ports 54321–54323. Its project ID is `out-of-body-participant-mvp`, with API **55321**, database **55322**, and Studio **55323**.
 
 ## Start locally

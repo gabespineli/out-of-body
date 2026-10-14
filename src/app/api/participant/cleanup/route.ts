@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { apiAction, equalSecret, privateJson, SessionError } from "@/server/session-security";
 import { cleanupExpired } from "@/server/participant-store";
+import { cleanupQueue } from "@/server/queue-store";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 export async function POST(request: NextRequest) {
@@ -8,6 +9,7 @@ export async function POST(request: NextRequest) {
     const key = process.env.OOB_CLEANUP_SECRET ?? "";
     if (key.length < 32) throw new SessionError(503, "Cleanup is not configured.");
     if (!equalSecret(request.headers.get("authorization") ?? "", `Bearer ${key}`)) throw new SessionError(401, "Cleanup authorization is required.");
-    return privateJson(await cleanupExpired());
+    const legacy = await cleanupExpired(), queue = await cleanupQueue();
+    return privateJson({ deleted: legacy.deleted + queue.deleted, failed: legacy.failed + queue.failed });
   });
 }

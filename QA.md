@@ -1,5 +1,22 @@
 # Verification record
 
+## Permanent QR, queue and local drawing cleanup — 14 October 2026
+
+Functional architecture and layout are implemented. Queue management is a compact strip above the two canvases on `/installation`, also visible in fullscreen. There is no separate management route. Final Figma assets, typography and high-fidelity styling remain deferred.
+
+- Production build and TypeScript passed. **55 logic/validation/asset checks passed**, including new paper/lighting correction, stroke preservation, cleanup-off and optional-name checks.
+- **48 distinct browser scenarios passed across the complete regression run and focused reruns.** The full 50-scenario run passed 45 and skipped five optional MediaPipe reference-camera replays because the external Y4M inputs were not configured. After the final QR migration/retry changes, all 25 affected participant/alignment/queue scenarios passed; the added cleanup comparison scenario and updated queue visual scenario passed in their final two-scenario run. These results cover current source, with unchanged core movement tests retained from the full run.
+- The new migration was applied to the dedicated Docker database on 55321–55323. Its final reservation function was refreshed locally after the retry refinement. Existing legacy rows/schema were preserved; no database reset or hosted migration was performed.
+- Decoded the actual QR PNG and verified it contains the stable `/mobile` URL. Expired and unexpired old printed pairing links both enter the queue and discard the obsolete fragment.
+- Named private artwork was uploaded from a separate phone browser, queued, explicitly called/started, and displayed with its actual pixels. Queue names/actions stayed above the canvases at 320/768/1024/1440 widths and in fullscreen. A waiting Sam ticket was visible during Alex's active session in the final screenshot.
+- Concurrent admission across 23 browser contexts accepted exactly 20 reservations and rejected three. Existing reservations could finish uploading while full; cancellation and expiry reopened slots. A lost reservation response restored the same ticket. FIFO follows successful upload order, Call later moves a ticket back, and concurrent start attempts left exactly one active participant.
+- Verified private operator APIs, per-phone capability isolation, public counts without names, RLS/function denial to the anonymous key, cross-origin denial, name bounds and non-overwriting upload retries. Cancellation prevented late publication of an in-flight reservation.
+- Original/Cleaned preview, cleanup strength and Turn off cleanup were exercised in the actual browser. Preview/export/stored PNG pixels matched. Synthetic warm paper corrected toward the fade background; cleanup off retained the exact original aligned pixels. Existing black marks and well-lit color checks passed. Camera capture/denial/cancellation and mobile touch/WebKit controls remained usable.
+- Completion removed stored artwork and erased the name while leaving the queue controls visible. The real Supabase Cron → Vault → application cleanup path deleted expired queued artwork and its row without a manual cleanup call. Synthetic queue tickets/artwork were removed after tests.
+- Restored local cleanup to port 3000 and left the local development app running. `.env.local` and generated assets remain ignored; no credentials were printed or committed.
+
+Evidence: ignored `test-results/queue-stretching.png` and mobile preview images. Hosted setup is documented in `QUEUE_SETUP.md`. Physical phones, actual paper under exhibition lighting, projector behavior, hosted Nano performance and provider account usage remain unverified. The 3 GB warning is an application estimate, not account quota enforcement.
+
 ## Mobile pinch and drag alignment — 14 October 2026
 
 The mobile preview now supports one-finger positioning and two-finger zoom around the moving midpoint. The silhouette guide stays fixed. Zoom buttons, a percentage readout and Reset alignment provide quick alternatives; Fine adjustment retains the existing sliders and rotation control. Gestures feed the existing alignment object and prepared PNG.

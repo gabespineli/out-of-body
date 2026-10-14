@@ -1,4 +1,55 @@
 :root { color-scheme: light; }
+/* Structural queue layout; final Figma assets and typography remain a later pass. */
+.queue-bar { padding: 12px 16px; background: #faf8f3; border-bottom: 1px solid #ccc; }
+.queue-summary { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.queue-summary > div:first-child { display: flex; flex-direction: column; gap: 4px; }
+.queue-capacity { font-size: 12px; color: #555; }
+.queue-current { flex: 1; min-width: 160px; margin: 0; }
+.queue-tickets { display: flex; gap: 8px; list-style: none; padding: 0; margin: 10px 0 0; overflow-x: auto; max-width: 100%; }
+.queue-tickets:empty { display: none; }
+.queue-tickets li { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 6px 8px; border: 1px solid #ccc; background: white; max-width: 440px; }
+.queue-tickets li[data-status="called"] { border-color: #185b9c; }
+.queue-tickets li > span { max-width: 180px; overflow-wrap: anywhere; }
+.queue-tickets small { display: block; font-size: 11px; color: #555; margin-top: 3px; }
+.queue-bar button { min-height: 36px; }
+.queue-usage { font-size: 11px; margin-top: 4px; }
+.queue-usage span { display: block; }
+.queue-warning { color: #8c4512; font-size: 12px; }
+.permanent-qr { position: relative; }
+.permanent-qr > div { position: absolute; z-index: 5; right: 0; top: 100%; width: 224px; padding: 12px; background: white; border: 1px solid #ccc; }
+.permanent-qr img { display: block; }
+.permanent-qr a { display: block; font-size: 12px; margin-top: 8px; overflow-wrap: anywhere; }
+.installation-waiting { padding: 10px 16px; background: #edf5fa; }
+.participant-desktop .experience-grid { grid-template-columns: minmax(0, 1fr); }
+.participant-desktop .stage-panel { order: 0; }
+.participant-desktop .control-panel { order: 1; display: grid; grid-template-columns: minmax(180px, 1fr) minmax(260px, 2fr); gap: 12px; }
+.participant-desktop .camera-preview { max-width: 280px; }
+.participant-desktop .avatar-stage { height: max(440px, calc(100svh - 350px)); }
+.participant-desktop .duet-stage .avatar-frame { width: min(100%, calc((100svh - 410px) * .9333)); }
+.participant-desktop:fullscreen { background: white; overflow-y: auto; }
+.participant-desktop:fullscreen .output-toolbar { display: none; }
+.participant-desktop:fullscreen .queue-bar { position: sticky; top: 0; z-index: 3; }
+.participant-desktop:fullscreen .fullscreen-feedback { position: static; grid-column: 1/-1; }
+.participant-desktop:fullscreen .duet-stage { height: auto; min-height: calc(100svh - 180px); }
+.participant-desktop:fullscreen .stage-pane { min-height: 360px; }
+.drawing-cleanup { border: 1px solid #ccc; margin: 12px 0; padding: 10px; }
+.participant-name input { display: block; width: 100%; min-height: 44px; margin: 6px 0; padding: 8px; }
+.participant-name span { font-size: 12px; }
+.mobile-ticket { min-height: 280px; display: flex; flex-direction: column; justify-content: center; }
+.ticket-number { font-size: 36px; font-weight: bold; }
+.ticket-footer { display: flex; gap: 12px; align-items: center; justify-content: space-between; border-top: 1px solid #ccc; margin-top: 16px; padding-top: 8px; }
+.retry-completion { margin: 0 24px 24px; }
+@media (max-width: 540px) {
+  .queue-bar { padding: 10px; }
+  .queue-summary { gap: 8px; }
+  .queue-current { flex-basis: 100%; }
+  .queue-tickets li { max-width: 300px; }
+  .queue-bar button { min-height: 44px; }
+  .permanent-qr > div { left: 0; right: auto; }
+  .participant-desktop .control-panel { grid-template-columns: 1fr; }
+  .participant-desktop .avatar-stage { height: auto; }
+  .participant-desktop .duet-stage .avatar-frame { width: min(100%, 320px); }
+}
 /* Functional participant screens. Figma styling stays separate from session logic. */
 .participant-entry, .participant-completion { max-width: 800px; margin: 0 auto; padding: 24px; }
 .participant-pairing img { display: block; max-width: 100%; height: auto; }

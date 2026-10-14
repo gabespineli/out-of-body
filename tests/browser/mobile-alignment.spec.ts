@@ -5,14 +5,14 @@ import { existsSync } from "node:fs";
 import { silhouetteSvg } from "../../src/lib/rig";
 test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 let drawing: Buffer;
-const waiting = { id: "2b2c4167-d1ea-4f9f-a720-698e90ca1d53", status: "waiting", paired: true, expiresAt: "2099-01-01T00:00:00Z" };
+const waiting = { id: "2b2c4167-d1ea-4f9f-a720-698e90ca1d53", number: 7, name: "", ahead: 0, status: "preparing", createdAt: "2026-10-14T00:00:00Z", expiresAt: "2099-01-01T00:00:00Z" };
 test.beforeAll(async () => {
   drawing = await sharp(Buffer.from(silhouetteSvg(false).replace("</svg>", '<rect x="256" y="324" width="87" height="130" fill="#279aa3"/><rect x="280" y="110" width="40" height="30" fill="#e5b543"/></svg>'))).png().toBuffer();
 });
 async function prepare(page: Page) {
   // UI-only fixture: no Supabase instance or participant credentials are used.
-  await page.route("**/api/participant/mobile", route => route.fulfill({ json: waiting }));
-  await page.goto("/mobile");
+  await page.route("**/api/participant/queue", route => route.fulfill({ json: { waiting: 0, capacity: 20, accepting: true, online: true } }));
+  await page.route("**/api/participant/queue/ticket", route => route.fulfill({ json: waiting })); await page.goto("/mobile");
   await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
   await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: drawing });
   await expect(page.getByTestId("photo-alignment")).toBeVisible();
@@ -111,7 +111,7 @@ test("the uploaded PNG matches the adjusted preview and is used by the existing 
   const preview = await page.getByTestId("mobile-preview").evaluate(el => (el as HTMLCanvasElement).toDataURL());
   let uploaded: Buffer | null = null;
   let release!: () => void; const waitingUpload = new Promise<void>(resolve => { release = resolve; });
-  await page.route("**/api/participant/upload", async route => {
+  await page.route("**/api/participant/queue/upload", async route => {
     uploaded = route.request().postDataBuffer(); await waitingUpload;
     await route.fulfill({ json: { ...waiting, status: "ready" } });
   });
@@ -146,8 +146,8 @@ test("WebKit uses the same alignment controls and native pointer drag", async ()
   const browser = await webkit.launch(); const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   const page = await context.newPage();
   try {
-    await page.route("**/api/participant/mobile", route => route.fulfill({ json: waiting }));
-    await page.goto("http://127.0.0.1:3202/mobile");
+    await page.route("**/api/participant/queue", route => route.fulfill({ json: { waiting: 0, capacity: 20, accepting: true, online: true } }));
+    await page.route("**/api/participant/queue/ticket", route => route.fulfill({ json: waiting })); await page.goto("http://127.0.0.1:3202/mobile");
     await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
     await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: drawing });
     await expect(page.getByTestId("photo-alignment")).toBeVisible();

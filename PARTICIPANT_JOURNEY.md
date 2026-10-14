@@ -30,6 +30,8 @@ Mobile preview and PNG preparation share `drawAlignedPhoto`, with the existing c
 
 ## Session lifecycle
 
+The permanent entry now runs `/mobile` → private preparation ticket → cleaned/aligned upload → ready queue → operator Call next → Start participant → existing avatar/guide → completion/deletion. Queue controls are embedded at the top of `/installation`, including fullscreen; no separate management screen is created. `queue-store.ts` and service-role-only SQL functions serialize admission/activation and preserve private per-phone credentials. Old printed pairing links enter this same queue, while legacy APIs remain available for already-open sessions. See `QUEUE_SETUP.md` for deadlines, budgets, and deployment steps. The lifecycle below documents the legacy API.
+
 Desktop operator → new QR → one phone claims it → phone previews PNG → upload reservation → private stored PNG → desktop polls/retrieves → existing avatar → guide/fades → completion → deletion → next QR.
 
 Owner, pairing and mobile credentials are separate 256-bit random values. Only hashes are stored in the session row. The pairing token is in the QR URL fragment, exchanged once for an HttpOnly mobile cookie and removed from the address bar. The desktop owns a separate HttpOnly capability. Neither device receives the Supabase secret key.

@@ -5,7 +5,6 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { parseEnv } from "node:util";
 import path from "node:path";
 import sharp from "sharp";
-import jsQR from "jsqr";
 import { silhouetteSvg } from "../../src/lib/rig";
 const settings = (() => { try { return { ...parseEnv(readFileSync(".env.local", "utf8")), ...process.env }; } catch { return process.env; } })();
 const backendKey = settings.SUPABASE_SECRET_KEY || settings.SUPABASE_SERVICE_ROLE_KEY;
@@ -16,6 +15,7 @@ test.use({ trace: "off" });
 const db = () => createClient(settings.SUPABASE_URL!, backendKey!, { auth: { persistSession: false } });
 let drawing: Buffer, cameraFixture: string;
 const created = new Set<string>();
+const queued = new Set<string>();
 test.beforeAll(async () => {
   const source = silhouetteSvg(false).replace("</svg>", '<rect x="280" y="110" width="40" height="30" fill="#e5b543"/><rect x="256" y="324" width="87" height="130" fill="#279aa3"/><rect x="219" y="248" width="40" height="55" fill="#db715d"/><rect x="240" y="590" width="30" height="130" fill="#7399b4"/><rect x="292" y="427" width="16" height="16" fill="#222222"/><rect x="284" y="498" width="32" height="22" fill="#d35fa4"/></svg>');
   drawing = await sharp(Buffer.from(source)).png().toBuffer();
@@ -39,10 +39,20 @@ test.afterAll(async () => {
     if (data?.object_path) await db().storage.from("oob-temporary-artwork").remove([data.object_path]);
     await db().from("oob_sessions").delete().eq("id", id);
   }
+  for (const id of queued) {
+    const row = (await db().from("oob_queue_tickets").select("object_path").eq("id", id).maybeSingle()).data;
+    if (row?.object_path) await db().storage.from("oob-temporary-artwork").remove([row.object_path]);
+    await db().from("oob_queue_tickets").delete().eq("id", id);
+  }
 });
 async function create(request: APIRequestContext) {
+  await request.post("/api/participant/queue", { headers: { Authorization: `Bearer ${settings.OOB_INSTALLATION_KEY}` } });
   const response = await request.post("/api/participant/session", { headers: { Authorization: `Bearer ${settings.OOB_INSTALLATION_KEY}` } });
   expect(response.status()).toBe(200); const value = await response.json(); created.add(value.id); return value;
+}
+async function trackQueue(page: Page) {
+  await expect(page.getByTestId("mobile-photo")).toBeVisible();
+  const ticket = await page.request.get("/api/participant/queue/ticket").then(r => r.json()); queued.add(ticket.id); return ticket;
 }
 async function connect(request: APIRequestContext, session: { id: string; pairToken: string }) {
   const response = await request.post("/api/participant/pair", { data: { id: session.id, token: session.pairToken } });
@@ -61,66 +71,6 @@ async function phoneUpload(page: Page, url: string) {
 async function pixel(page: Page, x: number, y: number) {
   return page.getByTestId("avatar").evaluate((el, p) => Array.from((el as HTMLCanvasElement).getContext("2d")!.getImageData(p.x + 120, p.y, 1, 1).data), { x, y });
 }
-async function gentleMovement(page: Page, turn: number) {
-  const step = await page.getByTestId("avatar").getAttribute("data-step");
-  if (step === "tilt") await page.getByRole("slider", { name: "Manual head tilt", exact: true }).fill(turn % 2 ? "0.3" : "-0.3");
-  else if (step === "reach") await page.getByRole("slider", { name: "Manual left arm height", exact: true }).fill(turn % 2 ? "0.8" : "0.5");
-  else if (step === "side-stretch") {
-    await page.getByRole("slider", { name: "Manual left arm height", exact: true }).fill("0.65");
-    await page.getByRole("slider", { name: "Manual side lean", exact: true }).fill(turn % 2 ? "0.3" : "-0.3");
-  } else if (step === "heel-raise") await page.getByRole("slider", { name: "Manual heel raise", exact: true }).fill(turn % 2 ? "0.6" : "0");
-  else {
-    await page.getByRole("slider", { name: "Manual left leg swing", exact: true }).fill(turn % 2 ? "0" : "0.25");
-    await page.getByRole("slider", { name: "Manual right leg swing", exact: true }).fill(turn % 2 ? "-0.25" : "0");
-  }
-  await page.waitForTimeout(450);
-}
-test("phone pairing -> private upload -> automatic avatar -> full guide -> deletion -> next participant", async ({ page, browser }) => {
-  test.setTimeout(75000);
-  await create(page.request);
-  await page.goto("/installation");
-  await page.getByRole("button", { name: "Create session", exact: true }).click();
-  await expect(page.getByTestId("session-qr")).toBeVisible();
-  const renderedQr = await page.getByTestId("session-qr").getAttribute("src");
-  const qrPixels = await sharp(Buffer.from(renderedQr!.split(",")[1], "base64")).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  const decoded = jsQR(new Uint8ClampedArray(qrPixels.data), qrPixels.info.width, qrPixels.info.height);
-  const url = decoded?.data;
-  expect(url).toBe(await page.getByTestId("pairing-link").getAttribute("href"));
-  const id = new URL(url!).hash.split("=")[1].split(".")[0]; created.add(id);
-  const mobile = await browser.newContext({ viewport: { width: 390, height: 844 } }), phone = await mobile.newPage();
-  try {
-    await phoneUpload(phone, url!);
-    expect(new URL(phone.url()).hash).toBe("");
-    await expect.poll(() => pixel(page, 300, 385)).toEqual([39, 154, 163, 255]);
-    await expect.poll(async () => (await db().from("oob_sessions").select("status").eq("id", id).single()).data?.status).toBe("received");
-    const row = (await db().from("oob_sessions").select("object_path").eq("id", id).single()).data!;
-    const stored = await db().storage.from("oob-temporary-artwork").download(row.object_path);
-    expect(stored.error).toBeNull(); expect((await sharp(Buffer.from(await stored.data!.arrayBuffer())).metadata()).width).toBe(600);
-    await phone.screenshot({ path: "test-results/participant-phone-sent.png", fullPage: true });
-    await page.screenshot({ path: "test-results/participant-desktop-received.png", fullPage: true });
-    await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
-    await page.getByRole("button", { name: "Start guided session", exact: true }).click();
-    let turn = 0, previousArea = "";
-    while (await page.getByTestId("avatar").count() && turn < 90) {
-      const area = await page.getByTestId("avatar").getAttribute("data-area");
-      if (area !== previousArea) { await page.getByRole("button", { name: "Return to rest", exact: true }).click(); previousArea = area!; }
-      await gentleMovement(page, turn++);
-    }
-    await expect(page.getByTestId("participant-completion")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Stretching complete!" })).toBeVisible();
-    await expect.poll(async () => (await db().storage.from("oob-temporary-artwork").download(row.object_path)).error !== null).toBe(true);
-    const snapshot = await page.getByRole("link", { name: "Save your drawing" }).getAttribute("href");
-    const raw = await sharp(Buffer.from(snapshot!.split(",")[1], "base64")).ensureAlpha().raw().toBuffer();
-    expect(Array.from(raw.subarray(((435 * 840) + 420) * 4, ((435 * 840) + 420) * 4 + 4))).toEqual([34, 34, 34, 255]);
-    await page.screenshot({ path: "test-results/participant-completed.png", fullPage: true });
-    await page.getByRole("button", { name: "Next participant", exact: true }).click();
-    await expect(page.getByTestId("session-qr")).toBeVisible();
-    const nextUrl = await page.getByTestId("pairing-link").getAttribute("href");
-    const nextId = new URL(nextUrl!).hash.split("=")[1].split(".")[0]; created.add(nextId); expect(nextId).not.toBe(id);
-    expect((await phone.request.post("/api/participant/upload", { headers: { "Content-Type": "image/png" }, data: drawing })).status()).toBe(410);
-    await expect(page.getByTestId("avatar")).toHaveCount(0);
-  } finally { await mobile.close(); }
-});
 test("pairing is single-use and each desktop can retrieve only its own artwork", async ({ request, browser }) => {
   const first = await create(request), secondContext = await browser.newContext(), phoneContext = await browser.newContext(), thief = await browser.newContext();
   try {
@@ -177,6 +127,7 @@ test("mobile camera captures a real synthetic video frame and closes the stream 
   try {
     await page.goto(session.pairingUrl);
     await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
+    const ticket = await trackQueue(page);
     await page.getByRole("button", { name: "Open camera", exact: true }).click();
     await expect(page.getByRole("button", { name: "Take photo", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Take photo", exact: true }).click();
@@ -186,7 +137,9 @@ test("mobile camera captures a real synthetic video frame and closes the stream 
     await page.screenshot({ path: "test-results/participant-mobile-preview.png", fullPage: true });
     await page.getByRole("button", { name: "Send to installation", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Drawing uploaded" })).toBeVisible();
-    const image = await request.get("/api/participant/artwork"); expect(image.status()).toBe(200);
+    await request.post("/api/participant/queue/action", { data: { action: "call" } });
+    await request.post("/api/participant/queue/action", { data: { action: "start", id: ticket.id } });
+    const image = await request.get("/api/participant/queue/artwork?id=" + ticket.id); expect(image.status()).toBe(200);
     const raw = await sharp(await image.body()).ensureAlpha().raw().toBuffer();
     expect(Array.from(raw.subarray((385 * 600 + 300) * 4, (385 * 600 + 300) * 4 + 4))).toEqual(captured);
   } finally { await context.close(); await cameraBrowser.close(); }
@@ -197,6 +150,7 @@ test("camera denial preserves photo selection and invalid images do not advance 
     await page.addInitScript(() => { navigator.mediaDevices.getUserMedia = async () => { throw new DOMException("Denied", "NotAllowedError"); }; });
     await page.goto(session.pairingUrl);
     await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
+    await trackQueue(page);
     await page.getByRole("button", { name: "Open camera", exact: true }).click();
     await expect(page.locator("p[role=alert]")).toContainText("Camera permission was denied");
     await page.getByTestId("mobile-photo").setInputFiles({ name: "bad.png", mimeType: "image/png", buffer: Buffer.from("bad") });
@@ -215,7 +169,7 @@ test("unpaired phones and unauthenticated/cross-origin operators cannot create o
     expect((await unauth.request.post("/api/participant/upload", { headers: { "Content-Type": "image/png" }, data: drawing })).status()).toBe(401);
     expect((await request.post("/api/participant/session", { headers: { Origin: "https://unrelated.example", Authorization: `Bearer ${settings.OOB_INSTALLATION_KEY}` } })).status()).toBe(403);
     await page.goto("http://127.0.0.1:3202/mobile");
-    await expect(page.getByRole("button", { name: "Upload drawing", exact: true })).toBeDisabled();
+    expect((await unauth.request.post("/api/participant/queue/upload", { headers: { "Content-Type": "image/png" }, data: drawing })).status()).toBe(401);
   } finally { await unauth.close(); }
 });
 
@@ -236,13 +190,14 @@ test("a failed phone connection retains the preview and can retry the upload", a
   const session = await create(request), mobile = await browser.newContext(), page = await mobile.newPage();
   try {
     await page.goto(session.pairingUrl); await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
+    await trackQueue(page);
     await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: drawing });
     await expect(page.getByTestId("mobile-preview")).toBeVisible();
-    await page.route("**/api/participant/upload", route => route.abort("failed"));
+    await page.route("**/api/participant/queue/upload", route => route.abort("failed"));
     await page.getByRole("button", { name: "Send to installation", exact: true }).click();
     await expect(page.locator("p[role=alert]")).toBeVisible();
     await expect(page.getByRole("button", { name: "Send to installation", exact: true })).toBeEnabled();
-    await page.unroute("**/api/participant/upload");
+    await page.unroute("**/api/participant/queue/upload");
     await page.getByRole("button", { name: "Send to installation", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Drawing uploaded" })).toBeVisible();
   } finally { await mobile.close(); }
@@ -261,6 +216,7 @@ test("canceling mobile camera permission releases a stream that arrives late", a
       });
     });
     await page.goto(session.pairingUrl); await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
+    await trackQueue(page);
     await page.getByRole("button", { name: "Open camera", exact: true }).click();
     await page.getByRole("button", { name: "Cancel camera", exact: true }).click();
     await page.evaluate(() => (window as unknown as { finishCamera: () => void }).finishCamera());
