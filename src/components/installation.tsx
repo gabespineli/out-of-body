@@ -23,8 +23,8 @@ const EMPTY_PROGRESS = { hold: 0, fade: 0, complete: false, active: false };
 
 export type InstallationResult = { snapshot: string; skipped: BodyArea[] };
 type InstallationProps = { initialArtwork?: File; onArtworkReady?: () => void; onComplete?: (result: InstallationResult) => void; onParticipantReset?: () => void;
-  participantMode?: boolean; participantName?: string; fullscreenRoot?: React.RefObject<HTMLDivElement | null> };
-export function Installation({ initialArtwork, onArtworkReady, onComplete, onParticipantReset, participantMode, participantName, fullscreenRoot }: InstallationProps = {}) {
+  participantMode?: boolean; participantName?: string; fullscreenRoot?: React.RefObject<HTMLDivElement | null>; onSetupVisibilityChange?: (visible: boolean) => void; setupBlocked?: boolean };
+export function Installation({ initialArtwork, onArtworkReady, onComplete, onParticipantReset, participantMode, participantName, fullscreenRoot, onSetupVisibilityChange, setupBlocked = false }: InstallationProps = {}) {
   const artwork = useArtwork();
   const uploadedExternal = useRef<File | null>(null), notifiedArtwork = useRef<File | null>(null), notifiedComplete = useRef(false);
   useEffect(() => {
@@ -46,6 +46,7 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
   const [journey, setJourney] = useState(() => guideSnapshot(guide.current));
   const [guidedRunning, setGuidedRunning] = useState(false);
   const [phase, setPhase] = useState<"setup" | "positioning" | "stretching">("setup");
+  useEffect(() => { onSetupVisibilityChange?.(experience === "guided" && phase !== "stretching"); }, [phase, experience, onSetupVisibilityChange]);
   const framing = useRef(createFramingState());
   const [frameStatus, setFrameStatus] = useState({ ...createFramingState(), valid: false, message: "Move into view so the camera can see you." });
   useEffect(() => {
@@ -99,7 +100,7 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
         : now - source.current.time < 300 ? source.current.motion : { ...REST };
       const requiredAreas = phase === "stretching" ? [guide.current.areas[guide.current.index]].filter(Boolean) as BodyArea[] : guide.current.areas;
       const verdict = mode === "manual" ? { valid: true, message: "Manual simulation" } : assessFraming(source.current.landmarks ?? [], target, requiredAreas, now - source.current.time < 300);
-      framing.current = advanceFraming(framing.current, verdict.valid, now, phase === "stretching" && !guide.current.done, document.hidden);
+      framing.current = advanceFraming(framing.current, verdict.valid, now, phase === "stretching" && !guide.current.done, document.hidden || setupBlocked);
       const trackingBlocked = experience === "guided" && mode === "camera" && (!verdict.valid || framing.current.recovery);
       const freeze = paused || document.hidden || trackingBlocked || experience === "guided" && phase !== "stretching";
       if (!freeze) displayed.current = smoothMotion(displayed.current, target, dt);
@@ -126,7 +127,7 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [artwork.art, area, mode, manual, timing, strength, paused, experience, guidedRunning, phase]);
+  }, [artwork.art, area, mode, manual, timing, strength, paused, experience, guidedRunning, phase, setupBlocked]);
 
   useEffect(() => {
     const change = () => setFull(!!document.fullscreenElement);
@@ -250,13 +251,13 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
 
   const guidedView = experience === "guided" && <div className="guided-shell" ref={stage} data-experience="guided" data-phase={phase} data-testid="guided-shell">
     {!!celebration && <StretchCelebration key={celebration} />}
-    <PositioningGate camera={camera} visible={phase === "positioning"} countdown={positionCountdown(frameStatus, frameStatus.valid)} valid={frameStatus.valid} message={frameStatus.message} hasColor={journey.areas.length > 0}
-      onStart={() => { if (document.hidden || phase !== "positioning" || !framing.current.ready || positionCountdown(framing.current, true) !== 0) return; framing.current.recovery = false; setGuidedRunning(true); setPhase("stretching"); }}
+    <PositioningGate camera={camera} visible={phase === "positioning"} countdown={setupBlocked ? null : positionCountdown(frameStatus, frameStatus.valid)} valid={frameStatus.valid} message={frameStatus.message} hasColor={journey.areas.length > 0}
+      onStart={() => { if (setupBlocked || document.hidden || phase !== "positioning" || !framing.current.ready || positionCountdown(framing.current, true) !== 0) return; framing.current.recovery = false; setGuidedRunning(true); setPhase("stretching"); }}
       onBack={() => { camera.stop(); setPhase("setup"); }} />
     <div hidden={phase !== "setup"} className="exhibit-setup"><header><h1><BrandLogo /></h1><p>Prepare your drawing, then find your position.</p></header>
       {!participantMode && <ArtworkPanel artwork={artwork} area={activeArea} />}
       <p role="status">{!artwork.art ? "Load a drawing to begin." : !journey.areas.length ? "No colored regions detected. Check the drawing alignment or add colored marks." : `${journey.areas.length} ${journey.areas.length === 1 ? "region" : "regions"} selected from your drawing.`}</p>
-      <button className="primary-action" disabled={!artwork.art || !journey.areas.length} onClick={startGuided}>{journey.done ? "Replay sequence" : "Start guided session"}</button>
+      <button className="primary-action" disabled={setupBlocked || !artwork.art || !journey.areas.length} onClick={startGuided}>{journey.done ? "Replay sequence" : "Start guided session"}</button>
       <details className="secondary-controls setup-tools"><summary>Setup tools</summary>
         <div className="button-row"><button onClick={() => changeExperience("practice")}>Individual stretches</button><button aria-pressed="true">Guided sequence</button><button onClick={() => void enterFullscreen()}>Fullscreen</button></div>
         <MotionPanel preview={false} area={activeArea} step={journey.step} compact camera={camera} mode={mode} setMode={changeMode} manual={manual} setManual={setManual} detected={detected} />

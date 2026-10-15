@@ -37,6 +37,25 @@ async function upload(context: BrowserContext, name = "Alex") {
 async function action(request: APIRequestContext, action: string, id?: string) {
   const response = await request.post("/api/participant/queue/action", { data: { action, id } }); expect(response.status()).toBe(200);
 }
+
+test("phone start requires ownership and the called head, rejects spoofed IDs and safely repeats", async ({ request, browser }) => {
+  await open(request); const first = await browser.newContext(), second = await browser.newContext(), stranger = await browser.newContext();
+  try {
+    const head = await join(first); await upload(first, "Head");
+    const later = await join(second); await upload(second, "Later");
+    expect((await stranger.request.post("/api/participant/queue/start")).status()).toBe(401);
+    expect((await first.request.post("/api/participant/queue/start")).status()).toBe(409);
+    await action(request, "call");
+    expect((await second.request.post("/api/participant/queue/start", { data: { id: head.id } })).status()).toBe(409);
+    const started = await first.request.post("/api/participant/queue/start", { data: { id: later.id } });
+    expect(started.status()).toBe(200); expect((await started.json()).id).toBe(head.id);
+    expect((await first.request.post("/api/participant/queue/start")).status()).toBe(200);
+    expect((await second.request.post("/api/participant/queue/start")).status()).toBe(409);
+    expect((await first.request.post("/api/participant/queue/start", { headers: { Origin: "https://untrusted.example" } })).status()).toBe(403);
+    await action(request, "end", head.id);
+    expect((await first.request.post("/api/participant/queue/start")).status()).toBe(410);
+  } finally { await first.close(); await second.close(); await stranger.close(); }
+});
 test("permanent QR, private named upload, call/start, top queue, fullscreen, completion and deletion", async ({ page, browser }) => {
   test.setTimeout(65000);
   await page.addInitScript(() => {
@@ -68,7 +87,8 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
     await expect(page.getByTestId("queue-bar")).toContainText("Alex", { timeout: 10000 });
     await expect(page.getByTestId("avatar")).toHaveCount(0);
     await expect(page.getByTestId("queue-bar")).toContainText("Calling: Alex", { timeout: 10000 });
-    await page.getByRole("button", { name: "Start participant", exact: true }).click();
+    await expect(phone.getByRole("button", { name: "Start my session", exact: true })).toBeVisible({ timeout: 20000 });
+    await phone.getByRole("button", { name: "Start my session", exact: true }).click();
     await expect.poll(() => page.getByTestId("avatar").evaluate(el => Array.from((el as HTMLCanvasElement).getContext("2d")!.getImageData(420, 385, 1, 1).data))).toEqual([39, 154, 163, 255]);
     const row = (await db().from("oob_queue_tickets").select("object_path").eq("id", ticket.id).single()).data!;
     const stored = await db().storage.from("oob-temporary-artwork").download(row.object_path);
@@ -77,7 +97,7 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
     const nextPhone = await browser.newContext();
     try { await join(nextPhone); await upload(nextPhone, "Sam"); }
     finally { await nextPhone.close(); }
-    await expect(page.getByTestId("queue-bar")).toHaveCount(0);
+    await expect(page.getByTestId("queue-bar")).toHaveCount(1);
     await expect.poll(async () => (await page.request.get("/api/participant/queue?view=operator").then(r => r.json())).tickets.some((ticket: { name: string }) => ticket.name === "Sam")).toBe(true);
     expect((await page.request.get("/api/participant/queue?view=operator").then(r => r.json())).tickets.find((ticket: { name: string }) => ticket.name === "Sam").status).toBe("ready");
     await page.getByRole("button", { name: "Back to setup", exact: true }).click();
@@ -118,7 +138,7 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
     await page.screenshot({ path: "test-results/design-completion.png", fullPage: true });
     await expect.poll(async () => (await db().storage.from("oob-temporary-artwork").download(row.object_path)).error !== null).toBe(true);
     expect((await db().from("oob_queue_tickets").select("participant_name,status").eq("id", ticket.id).single()).data).toEqual({ participant_name: "", status: "completed" });
-    expect((await page.request.get("/api/participant/queue?view=operator").then(r => r.json())).called).toBeNull();
+    await expect.poll(async () => (await page.request.get("/api/participant/queue?view=operator").then(r => r.json())).called?.name).toBe("Sam");
     await page.getByRole("button", { name: "Next participant", exact: true }).click();
     await expect(page.getByTestId("queue-bar")).toBeVisible();
     await expect(page.getByTestId("queue-bar")).toContainText("Calling: Sam", { timeout: 10000 });
@@ -173,7 +193,7 @@ test("two operator screens automatically select the same FIFO head without advan
     await Promise.all([firstPage.goto("/"), secondPage.goto("/")]);
     for (const screen of [firstPage, secondPage]) {
       await expect(screen.getByTestId("installation-welcome")).toContainText("First automatic", { timeout: 12000 });
-      await expect(screen.getByRole("button", { name: "Start participant", exact: true })).toBeEnabled();
+      await expect(screen.getByText("Come to the screen, then tap Start my session on your phone.", { exact: true })).toBeVisible();
       await expect(screen.getByRole("button", { name: "Call next", exact: true })).toHaveCount(0);
       await expect(screen.locator("p[role=alert]")).toHaveCount(0, { timeout: 12000 });
     }

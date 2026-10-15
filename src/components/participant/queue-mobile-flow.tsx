@@ -22,6 +22,7 @@ export function QueueMobileFlow({ notice }: { notice: string }) {
     if (terminalTicket(value.status) || previous?.id !== value.id) setCancelRequest(null);
     current.current = value;
     setTicket(value);
+    if (value.status === "called" && previous?.status !== "called") setStep("waiting");
     if (value.status === "completed" && previous?.status !== "completed") setStep("waiting");
     if (value.status !== "preparing" && value.status !== "uploading") { camera.stop(); photo.clear();
       if (!previous || ["preparing", "uploading"].includes(previous.status)) setStep("waiting"); }
@@ -75,6 +76,15 @@ export function QueueMobileFlow({ notice }: { notice: string }) {
     finally { locked.current = false; setBusy(false); }
   };
   const ended = ticket && terminalTicket(ticket.status);
+  const start = async () => {
+    if (locked.current || current.current?.status !== "called") return;
+    locked.current = true; generation.current++; setBusy(true); setError("");
+    try { accept(await participantApi<QueueTicket>("queue/start", { method: "POST" })); }
+    catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not start. Please retry.");
+      try { accept(await participantApi<QueueTicket>("queue/ticket")); } catch { /* Keep the current ticket so a temporary failure can retry. */ }
+    } finally { locked.current = false; setBusy(false); }
+  };
   const saveDrawing = async () => {
     if (saving) return;
     setSaving(true); setError("");
@@ -109,6 +119,7 @@ export function QueueMobileFlow({ notice }: { notice: string }) {
       : step === "preview" ? <MobilePreview photo={photo} name={name} onName={setName} sending={busy} onSend={() => void send()} onRetake={() => { photo.clear(); setStep("camera"); }} />
       : ticket && <section className="mobile-ticket" data-testid="queue-ticket"><h2>{ticket.status === "active" ? "Drawing on screen" : "Drawing uploaded"}</h2>
         <p className="ticket-message" role="status" aria-live="polite" aria-atomic="true">{ticket.status === "active" ? "Please move to the screen and let’s start stretching!" : ticket.status === "called" ? "You’re next in line. Please move to the screen." : `You’re #${ticket.ahead + 1} in line. Please wait for your turn.`}</p>
+        {ticket.status === "called" && <button className="primary-action phone-start-action" disabled={busy} onClick={() => void start()}>{busy ? "Starting…" : "Start my session"}</button>}
         <button className="primary-action home-action" onClick={() => setStep("landing")}><DesignIcon name="home" />Back to home</button></section>}
     {ticket && !ended && <div className="ticket-footer">
       <button className="secondary-action ticket-cancel-action" disabled={busy} onClick={() => setCancelRequest(ticket.id)}>Cancel my ticket</button></div>}

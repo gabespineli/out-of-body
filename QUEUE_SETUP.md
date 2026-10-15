@@ -1,6 +1,6 @@
 # Permanent QR and participant queue
 
-This release adds one installation queue to the existing `/` and `/mobile` routes. Management is a compact strip on the same installation page before and between turns. It is hidden during an active participant’s positioning and stretching; there is no separate management page.
+The installation uses the same top queue bar on the root waiting screen and during camera/drawing setup. Skip participant and Remove use confirmations. There is no second management panel, and the bar stays hidden during stretching.
 
 ## Hosted Supabase configuration
 
@@ -17,7 +17,7 @@ npx.cmd supabase db push --dry-run
 npx.cmd supabase db push
 ```
 
-The new migration is `supabase/migrations/202610140001_participant_queue.sql`. It adds private queue/control/rate-limit/usage tables and service-role-only functions. It preserves the original session schema and private `oob-temporary-artwork` bucket. No participant accounts, public table policies, Realtime subscriptions, or new buckets are required.
+Apply both 202610140001_participant_queue.sql (queue/control/rate-limit/usage tables) and 202610150001_queue_results.sql (private finished drawings and completion/download functions). These preserve the original session schema and private oob-temporary-artwork bucket. No participant accounts, public table policies, Realtime subscriptions, or new buckets are required.
 
 If linking asks for a password, use that hosted project's database password, not its API key or installation key. Linking and applying a local migration do not verify hosted migration parity; inspect the migration list and dry run before pushing.
 
@@ -54,12 +54,12 @@ Open `/`, enter the operator key, and leave the page visible. Operator authoriza
 - With no tickets, the installation shows a centered permanent QR and upload instructions on the full exhibit background. Mobile-upload and print-download links are directly below it.
 - When tickets arrive, the compact top strip shows current/called participant, ticket numbers, optional names, and reserved capacity. The QR remains visible below the strip until a session starts.
 - The oldest successfully uploaded drawing automatically fills an empty head while this page is open. A preparation in progress does not block ready tickets. No Call next click is needed.
-- **Start participant** explicitly activates the called ticket; upload alone never replaces the active drawing.
+- The called participant taps **Start my session** on their own phone. The server derives ownership from the private ticket cookie and atomically allows only the called head to start. The exhibit opens camera setup on its next refresh. There is no desktop Start participant button.
 - **Remove** cancels a waiting ticket; **End current session** ends the active ticket. Participants can cancel their own ticket from their phone.
 - **Skip activity** still skips only an exercise, preserving only earned fade.
 - Completion hides the queue. Next participant returns to the QR waiting view and any waiting-ticket controls; the next ready ticket is selected automatically and staff press Start participant.
 
-Queue management is visible on the same display before and after each turn. Waiting names and queue actions are hidden while a participant aligns and stretches. The phone's Name field remains optional, limited to 40 characters, stripped of invisible controls, and erased as soon as a ticket ends/expires. Staff can call the displayed name; no names are included in public queue-count responses or another phone's response. Cancel my ticket is directly visible and opens a confirmation dialog; Keep my ticket and Escape preserve the ticket and preview.
+Queue management uses the same top bar before turns and during setup. Confirmations pause the automatic stabilization countdown; closing a confirmation restarts it. Queue controls stay hidden during stretching. The next ready ticket is called automatically after successful completion even if no one clicks Next participant on the exhibit. Participant names remain optional and private to their owner and exhibit operators.
 
 ## Initial limits
 

@@ -16,6 +16,8 @@ export function DesktopFlow() {
   const [file, setFile] = useState<File | null>(null), [result, setResult] = useState<InstallationResult | null>(null), [finishing, setFinishing] = useState<string | null>(null);
   const root = useRef<HTMLDivElement>(null), loaded = useRef<string | null>(null), lock = useRef(false), generation = useRef(0), queueGeneration = useRef(0);
   const completedResult = useRef<InstallationResult | null>(null);
+  const [setupBlocked, setSetupBlocked] = useState(false);
+  const [setupVisible, setSetupVisible] = useState(true);
   const refresh = useCallback(async (signal?: AbortSignal) => {
     const version = queueGeneration.current;
     const relevant = () => !signal?.aborted && version === queueGeneration.current && (!signal || !lock.current);
@@ -43,7 +45,7 @@ export function DesktopFlow() {
         value = await participantApi("queue/result?id=" + id, { method: "POST", headers: { "Content-Type": "image/png" }, body: image });
       } else value = await participantApi("queue/action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: what, id }) });
       await refresh();
-      if (what === "start" || what === "call" || what === "end") { completedResult.current = null; setResult(null); setFinishing(null); }
+      if (what === "start" || what === "call" && !automatic || what === "end") { completedResult.current = null; setResult(null); setFinishing(null); }
       if (what === "complete") setFinishing(null);
       if (value.cleanupPending) setError("Ticket ended. Temporary-file deletion will be retried by scheduled cleanup.");
     } catch (cause) { const message = cause instanceof Error ? cause.message : "Queue action failed. Retry."; if (automatic) setAutomaticError(message); else setError(message); }
@@ -52,9 +54,12 @@ export function DesktopFlow() {
   useEffect(() => {
     if (queue?.called || queue?.active) { setAutomaticError(""); return; }
     // A fresh snapshot retries failures; busy changes alone must never cause a retry loop.
-    if (!queue || result || finishing || lock.current || !queue.tickets.some(ticket => ticket.status === "ready")) return;
+    if (!queue || finishing || lock.current || !queue.tickets.some(ticket => ticket.status === "ready")) return;
     void action("call", undefined, true);
   }, [queue, result, finishing, action]);
+  useEffect(() => {
+    if (queue?.active && result && !finishing) { completedResult.current = null; setResult(null); }
+  }, [queue?.active, result, finishing]);
   useEffect(() => {
     // A fresh queue snapshot can confirm completion even when its POST response was lost.
     if (finishing && !busy && queue && !queue.tickets.some(ticket => ticket.id === finishing)) {
@@ -85,18 +90,18 @@ export function DesktopFlow() {
       <p>Unlock once to display the permanent QR and manage participants here.</p><form onSubmit={event => { event.preventDefault(); void unlock(); }}>
         <label className="field-label">Installation key<input type="password" autoComplete="off" value={key} onChange={event => setKey(event.target.value)} /></label>
         <button className="primary-action" disabled={busy}>{busy ? "Opening…" : "Open installation"}</button></form><p><Link href="/test">Local upload / Manual demo</Link></p></main>
-      : <>{!queue.active && !result && queue.tickets.length > 0 && <QueueBar queue={queue} busy={busy} onAction={(what, id) => void action(what, id)} />}
+      : <>{!result && queue.tickets.length > 0 && (!queue.active || setupVisible) && <QueueBar queue={queue} busy={busy} onAction={(what, id) => void action(what, id)} onInteractionChange={setSetupBlocked} />}
         {!queue.active && !result && <main className="installation-welcome" data-testid="installation-welcome" data-called={!!queue.called}><BrandLogo />
           <h1>{queue.called ? `${queue.called.name || "Participant"}, it’s your turn` : "Your drawing, in motion"}</h1>
-          <p className="welcome-instruction" role="status">{queue.called ? `Ticket ${queue.called.number}: please come to the stretching screen.` : "Scan the permanent QR to upload. Staff will call your ticket when it’s your turn."}</p>
-          {queue.called && <button className="primary-action start-participant-action" disabled={busy} onClick={() => void action("start", queue.called!.id)}>Start participant</button>}
+          <p className="welcome-instruction" role="status">{queue.called ? "Come to the screen, then tap Start my session on your phone." : "Scan the permanent QR to upload. Your phone will let you know when it’s your turn."}</p>
           <div className="installation-qr"><img src={queue.qr} width="260" height="260" alt="Permanent QR to upload a drawing" data-testid="session-qr" /></div>
           <div className="welcome-links"><a href={queue.mobileUrl} data-testid="pairing-link">Open mobile upload</a><a href={queue.qr} download="out-of-body-permanent-qr.png">Save QR for printing</a></div>
           {!queue.tickets.length && <p className="welcome-capacity">{queue.waiting}/{queue.capacity} slots reserved{!queue.accepting ? " · Intake paused automatically" : " · Ready for your drawing"}</p>}
         </main>}
-        {result ? <><CompletionScreen result={result} busy={busy || !!finishing} onNext={() => { setResult(null); }} />
-          {finishing && !busy && <button className="retry-completion" onClick={() => void action("complete", finishing)}>Retry finishing ticket</button>}</>
+        {result ? <CompletionScreen result={result} busy={busy} saving={!!finishing} onRetry={() => { if (finishing) void action("complete", finishing); }} onNext={() => { setResult(null); }} />
           : queue.active ? file ? <Installation key={queue.active.id} initialArtwork={file} participantMode participantName={queue.active.name || `Ticket ${queue.active.number}`} fullscreenRoot={root}
+            setupBlocked={setupBlocked || busy}
+            onSetupVisibilityChange={setSetupVisible}
             onComplete={complete} onParticipantReset={() => { if (queue.active) void action("end", queue.active.id); }} /> : <p role="status" className="installation-waiting">Preparing your drawing…</p> : null}</>}
     {(error || automaticError || connectionError || artworkError) && <p role="alert" className="error-message participant-error">{error || automaticError || connectionError || artworkError}</p>}
   </div>;

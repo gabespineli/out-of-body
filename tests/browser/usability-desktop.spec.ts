@@ -73,18 +73,18 @@ test("a delayed called-participant poll cannot undo starting the automatically s
       return response;
     };
   });
-  await page.clock.install(); const { state } = await exhibit(page);
+  await page.clock.install(); const { state, queue } = await exhibit(page);
   await page.goto("/"); await expect(page.getByTestId("queue-bar")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Start participant", exact: true })).toBeEnabled();
+  await expect(page.getByText("Come to the screen, then tap Start my session on your phone.", { exact: true })).toBeVisible();
   await page.evaluate(() => { (window as unknown as { exhibitPollTest: PollTest }).exhibitPollTest.hold = true; });
   await page.clock.runFor(5001);
   await expect.poll(() => page.evaluate(() => (window as unknown as { exhibitPollTest: PollTest }).exhibitPollTest.pending)).toBe(true);
-  await page.getByRole("button", { name: "Start participant", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Get into position", exact: true })).toBeVisible();
+  queue.active = queue.called; queue.active!.status = "active"; queue.called = null;
   await page.evaluate(() => { (window as unknown as { exhibitPollTest: PollTest }).exhibitPollTest.release!(); });
-  await page.clock.runFor(100);
+  await page.clock.runFor(5001);
+  await expect(page.getByRole("heading", { name: "Get into position", exact: true })).toBeVisible();
   await page.screenshot({ path: "test-results/usability-delayed-call.png", fullPage: true });
-  await expect(page.getByTestId("queue-bar")).toHaveCount(0);
+  await expect(page.getByTestId("queue-bar")).toHaveCount(1);
   await expect(page.getByRole("heading", { name: "Get into position", exact: true })).toBeVisible(); expect(state.calls).toBe(1);
 });
 
@@ -92,17 +92,17 @@ test("a lost automatic selection response is confirmed by polling without select
   await page.clock.install(); const { state } = await exhibit(page); state.lostCall = true;
   await page.goto("/"); await expect(page.locator("p[role=alert]")).toBeVisible();
   await page.clock.runFor(5001);
-  await expect(page.getByRole("button", { name: "Start participant", exact: true })).toBeEnabled();
+  await expect(page.getByText("Come to the screen, then tap Start my session on your phone.", { exact: true })).toBeVisible();
   await expect(page.locator("p[role=alert]")).toHaveCount(0); expect(state.calls).toBe(1); expect(state.attempts).toBe(1);
 });
 
 test("cancelling the called ticket automatically selects the next ready drawing", async ({ page }) => {
   await page.clock.install(); const { state, queue } = await exhibit(page); await page.goto("/");
-  await expect(page.getByRole("button", { name: "Start participant", exact: true })).toBeEnabled();
+  await expect(page.getByText("Come to the screen, then tap Start my session on your phone.", { exact: true })).toBeVisible();
   const sam: QueueTicket = { ...queue.tickets[0], id: "cf649a68-bca1-4210-af45-8a3fbb398324", number: 8, name: "Sam", status: "ready" };
   queue.tickets = [sam]; queue.called = null; await page.clock.runFor(5001);
   await expect(page.getByTestId("installation-welcome")).toContainText("Sam");
-  await expect(page.getByRole("button", { name: "Start participant", exact: true })).toBeEnabled(); expect(state.calls).toBe(2);
+  await expect(page.getByText("Come to the screen, then tap Start my session on your phone.", { exact: true })).toBeVisible(); expect(state.calls).toBe(2);
 });
 
 test("preparing drawings cannot fill the head until their upload is ready", async ({ page }) => {
@@ -110,7 +110,7 @@ test("preparing drawings cannot fill the head until their upload is ready", asyn
   await page.goto("/"); await expect(page.getByTestId("queue-bar")).toContainText("Waiting for a drawing");
   await expect(page.getByRole("button", { name: "Start participant", exact: true })).toHaveCount(0); expect(state.attempts).toBe(0);
   queue.tickets[0].status = "ready"; await page.clock.runFor(5001);
-  await expect(page.getByRole("button", { name: "Start participant", exact: true })).toBeEnabled(); expect(state.calls).toBe(1);
+  await expect(page.getByText("Come to the screen, then tap Start my session on your phone.", { exact: true })).toBeVisible(); expect(state.calls).toBe(1);
 });
 
 test("completion with a lost response recovers after the queue confirms the ticket has ended", async ({ page }) => {

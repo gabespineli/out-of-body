@@ -228,3 +228,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .camera-select { display:flex; align-items:center; justify-content:center; gap:12px; width:min(420px,100%); margin:12px auto; color:var(--pink-text); font-size:15px; }
 .camera-select select { flex:1; min-width:0; max-width:100%; min-height:44px; border:1px solid #d5169266; border-radius:8px; padding:8px 12px; color:var(--pink-text); background:#faf7e8ee; font-size:16px; text-overflow:ellipsis; }
 .positioning-preview { width:min(100%,720px,calc(max(240px,100svh - 420px) * var(--camera-aspect,1.333333))); }
+
+.phone-start-action { margin: 24px auto 0; min-height: 48px; font-size: 20px; }
+.queue-current { overflow-wrap: anywhere; }
+.participant-desktop > .queue-bar + .guided-shell .positioning-preview { width: min(100%,720px,calc(max(200px,100svh - 590px) * var(--camera-aspect,1.333333))); }

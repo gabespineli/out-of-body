@@ -53,8 +53,8 @@ test("waiting tickets automatically fill the head and show a single centered Sta
   await expect(page.getByRole("button", { name: /Call .*later/ })).toHaveCount(0);
   await expect(page.getByText("Usage", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Alex, it’s your turn", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Start participant", exact: true })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Start participant", exact: true })).toHaveCount(1);
+  await expect(page.getByText("Come to the screen, then tap Start my session on your phone.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start participant", exact: true })).toHaveCount(0);
   await expect(page.getByTestId("session-qr")).toBeVisible();
   await page.evaluate(async () => { await document.fonts.ready; });
   await page.screenshot({ path: "test-results/installation-called-welcome.png", fullPage: true });
