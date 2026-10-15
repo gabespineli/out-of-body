@@ -61,49 +61,63 @@ test("positioning requires steady in-frame tracking, and keeps one hidden camera
   await page.screenshot({ path: "test-results/quiet-stretching.png", fullPage: true });
   await page.keyboard.press("Escape"); await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
 });
-test("tracking loss freezes earned progress and instructor, requires stable recovery and explicit Continue", async ({ page }) => {
+test("tracking loss freezes progress and instructor, then resumes automatically after stable return", async ({ page }) => {
   await start(page); await moveHead(page); await expect.poll(async () => +(await page.getByTestId("avatar").getAttribute("data-neck-head-fade"))!).toBeGreaterThan(.05);
-  await setPoints(page,[]); await expect(page.getByTestId("tracking-prompt")).toBeVisible({ timeout: 2500 });
-  const earned=await page.getByTestId("avatar").getAttribute("data-neck-head-fade"), loop=await page.getByTestId("instructor").getAttribute("data-loop-time");
-  const shot=await page.getByTestId("instructor").evaluate(el=>(el as HTMLCanvasElement).toDataURL());
-  await page.waitForTimeout(1000); await expect(page.getByTestId("avatar")).toHaveAttribute("data-neck-head-fade",earned!);
-  expect(await page.getByTestId("instructor").evaluate(el=>(el as HTMLCanvasElement).toDataURL())).toBe(shot);
-  await setPoints(page,standingPoints()); await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeEnabled({ timeout: 4000 });
-  await expect(page.getByTestId("tracking-prompt")).toBeVisible(); await expect(page.getByTestId("avatar")).toHaveAttribute("data-neck-head-fade",earned!);
-  await page.screenshot({ path: "test-results/tracking-recovery.png", fullPage: true });
-  await page.getByRole("button", { name: "Continue", exact: true }).click(); await expect(page.getByTestId("tracking-prompt")).toHaveCount(0);
+  await setPoints(page, []); await expect(page.getByTestId("tracking-notice")).toBeVisible();
+  const earned = await page.getByTestId("avatar").getAttribute("data-neck-head-fade");
+  const frame = await page.getByTestId("instructor").evaluate(el => (el as HTMLCanvasElement).toDataURL());
+  await page.waitForTimeout(800); await expect(page.getByTestId("avatar")).toHaveAttribute("data-neck-head-fade", earned!);
+  expect(await page.getByTestId("instructor").evaluate(el => (el as HTMLCanvasElement).toDataURL())).toBe(frame);
+  await setPoints(page, standingPoints()); await page.waitForTimeout(800);
+  await expect(page.getByTestId("tracking-notice")).toBeVisible();
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-neck-head-fade", earned!);
+  await page.screenshot({ path: "test-results/automatic-recovery.png", fullPage: true });
+  await expect(page.getByTestId("tracking-notice")).toHaveCount(0, { timeout: 3000 });
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toHaveCount(0);
   await moveHead(page); expect(+(await page.getByTestId("avatar").getAttribute("data-neck-head-fade"))!).toBeGreaterThan(+earned!);
 });
-test("brief loss avoids prompt flicker; Check position preserves progress and Restart clears it", async ({ page }) => {
-  await start(page); await moveHead(page,3); await setPoints(page,[]); await page.waitForTimeout(300); await setPoints(page,standingPoints());
-  await page.waitForTimeout(300); await expect(page.getByTestId("tracking-prompt")).toHaveCount(0);
-  await setPoints(page,[]); await expect(page.getByTestId("tracking-prompt")).toBeVisible();
-  const earned=await page.getByTestId("avatar").getAttribute("data-neck-head-fade");
-  await page.getByRole("button", { name: "Check position", exact: true }).click(); await expect(page.getByTestId("positioning-gate")).toHaveClass("positioning-gate");
-  await setPoints(page,standingPoints()); await expect(page.getByTestId("guided-shell")).toHaveAttribute("data-phase", "stretching", { timeout: 5000 });
-  await expect(page.getByTestId("avatar")).toHaveAttribute("data-neck-head-fade",earned!);
-  await page.getByRole("button", { name: "Restart", exact: true }).click(); await expect(page.getByTestId("positioning-gate")).toHaveClass("positioning-gate");
-  await expect(page.getByTestId("avatar")).toHaveAttribute("data-guided-total","0.000");
+
+test("brief loss avoids notice flicker and Restart returns to the larger position preview", async ({ page }) => {
+  await start(page); await moveHead(page, 3); await setPoints(page, []); await page.waitForTimeout(300); await setPoints(page, standingPoints());
+  await page.waitForTimeout(300); await expect(page.getByTestId("tracking-notice")).toHaveCount(0);
+  await page.getByRole("button", { name: "Restart", exact: true }).click();
+  await expect(page.getByTestId("positioning-gate")).toHaveClass("positioning-gate");
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-guided-total", "0.000");
 });
-test("manual Pause remains paused after tracking recovery, and Skip Turn releases the camera", async ({ page }) => {
-  await start(page); await page.getByRole("button", { name: "Pause", exact: true }).click(); await setPoints(page,[]);
-  await expect(page.getByTestId("tracking-prompt")).toBeVisible(); await setPoints(page,standingPoints());
-  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeEnabled({ timeout: 4000 }); await page.getByRole("button", { name: "Continue", exact: true }).click();
+
+test("manual Pause stays paused through automatic recovery and home confirmation releases the camera", async ({ page }) => {
+  await start(page); await page.getByRole("button", { name: "Pause", exact: true }).click(); await setPoints(page, []);
+  await expect(page.getByTestId("tracking-notice")).toBeVisible(); await setPoints(page, standingPoints());
+  await expect(page.getByTestId("tracking-notice")).toHaveCount(0, { timeout: 4000 });
   await expect(page.getByRole("button", { name: "Resume", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Skip Turn", exact: true }).click();
-  await expect(page.getByTestId("guided-shell")).toHaveAttribute("data-phase","setup");
+  await page.getByRole("button", { name: "Back to home", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Keep stretching", exact: true })).toBeFocused();
+  await page.getByRole("button", { name: "Keep stretching", exact: true }).press("Escape");
+  await expect(page.getByTestId("guided-shell")).toHaveAttribute("data-phase", "stretching");
+  await page.getByRole("button", { name: "Back to home", exact: true }).click();
+  await page.getByRole("button", { name: "End turn and go home", exact: true }).click();
+  await expect(page.getByTestId("guided-shell")).toHaveAttribute("data-phase", "setup");
   expect(await page.getByLabel("Positioning camera preview").evaluate(el => (el as HTMLVideoElement).srcObject)).toBeNull();
 });
 
-test("tracking recovery keeps keyboard focus inside the prompt and returns it to Pause", async ({ page }) => {
+test("tracking notice never traps focus or blocks Back to home", async ({ page }) => {
   await start(page); await page.getByRole("button", { name: "Pause", exact: true }).click();
-  await setPoints(page, []); await expect(page.getByTestId("tracking-prompt")).toBeVisible();
-  await expect(page.getByTestId("tracking-prompt")).toBeFocused();
-  await page.keyboard.press("Tab"); await expect(page.getByRole("button", { name: "Check position", exact: true })).toBeFocused();
-  await page.keyboard.press("Shift+Tab"); await expect(page.getByRole("button", { name: "Check position", exact: true })).toBeFocused();
-  await setPoints(page, standingPoints()); await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeEnabled({ timeout: 4000 });
-  await page.keyboard.press("Tab"); await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeFocused();
-  await page.keyboard.press("Shift+Tab"); await expect(page.getByRole("button", { name: "Check position", exact: true })).toBeFocused();
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Resume", exact: true })).toBeFocused();
+  await setPoints(page, []); await expect(page.getByTestId("tracking-notice")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Check position", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Back to home", exact: true }).click();
+  await page.getByRole("button", { name: "Keep stretching", exact: true }).click();
+  await expect(page.getByTestId("tracking-notice")).toBeVisible();
+});
+
+test("home confirmation freezes progress until Keep stretching or Escape", async ({ page }) => {
+  await start(page); await moveHead(page, 2);
+  await page.getByRole("button", { name: "Back to home", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  const earned = await page.getByTestId("avatar").getAttribute("data-neck-head-fade");
+  await moveHead(page, 3);
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-neck-head-fade", earned!);
+  await page.getByRole("button", { name: "Keep stretching", exact: true }).press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await moveHead(page, 3);
+  expect(+(await page.getByTestId("avatar").getAttribute("data-neck-head-fade"))!).toBeGreaterThan(+earned!);
 });

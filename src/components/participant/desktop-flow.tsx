@@ -8,6 +8,7 @@ import type { QueueAction, QueueState } from "@/lib/queue";
 import { QueueBar } from "./queue-bar";
 import { CompletionScreen } from "./completion-screen";
 import { BrandLogo } from "../design-brand";
+import { IdleDemo } from "./idle-demo";
 export function DesktopFlow() {
   const [queue, setQueue] = useState<QueueState | null>(null), [authorized, setAuthorized] = useState(false), [initialized, setInitialized] = useState(false);
   const [key, setKey] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState("");
@@ -87,17 +88,14 @@ export function DesktopFlow() {
   }, [action]);
   return <div className="participant-desktop" ref={root} data-testid="desktop-flow">
     {!initialized ? <p role="status">Preparing installation…</p> : !authorized || !queue ? <main className="participant-entry"><BrandLogo /><h1>Open the exhibit queue</h1>
-      <p>Unlock once to display the permanent QR and manage participants here.</p><form onSubmit={event => { event.preventDefault(); void unlock(); }}>
+      <p>Unlock once to run the exhibit and manage participants here.</p><form onSubmit={event => { event.preventDefault(); void unlock(); }}>
         <label className="field-label">Installation key<input type="password" autoComplete="off" value={key} onChange={event => setKey(event.target.value)} /></label>
         <button className="primary-action" disabled={busy}>{busy ? "Opening…" : "Open installation"}</button></form><p><Link href="/test">Local upload / Manual demo</Link></p></main>
       : <>{!result && queue.tickets.length > 0 && (!queue.active || setupVisible) && <QueueBar queue={queue} busy={busy} onAction={(what, id) => void action(what, id)} onInteractionChange={setSetupBlocked} />}
-        {!queue.active && !result && <main className="installation-welcome" data-testid="installation-welcome" data-called={!!queue.called}><BrandLogo />
-          <h1>{queue.called ? `${queue.called.name || "Participant"}, it’s your turn` : "Your drawing, in motion"}</h1>
-          <p className="welcome-instruction" role="status">{queue.called ? "Come to the screen, then tap Start my session on your phone." : "Scan the permanent QR to upload. Your phone will let you know when it’s your turn."}</p>
-          <div className="installation-qr"><img src={queue.qr} width="260" height="260" alt="Permanent QR to upload a drawing" data-testid="session-qr" /></div>
-          <div className="welcome-links"><a href={queue.mobileUrl} data-testid="pairing-link">Open mobile upload</a><a href={queue.qr} download="out-of-body-permanent-qr.png">Save QR for printing</a></div>
-          {!queue.tickets.length && <p className="welcome-capacity">{queue.waiting}/{queue.capacity} slots reserved{!queue.accepting ? " · Intake paused automatically" : " · Ready for your drawing"}</p>}
-        </main>}
+        {!queue.active && !result && (queue.called ? <main className="installation-welcome" data-testid="installation-welcome" data-called="true"><BrandLogo />
+          <h1>{queue.called.name || "Participant"}, it’s your turn</h1>
+          <p className="welcome-instruction" role="status">Come to the screen, then tap Start my session on your phone.</p>
+        </main> : <IdleDemo />)}
         {result ? <CompletionScreen result={result} busy={busy} saving={!!finishing} onRetry={() => { if (finishing) void action("complete", finishing); }} onNext={() => { setResult(null); }} />
           : queue.active ? file ? <Installation key={queue.active.id} initialArtwork={file} participantMode participantName={queue.active.name || `Ticket ${queue.active.number}`} fullscreenRoot={root}
             setupBlocked={setupBlocked || busy}

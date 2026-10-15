@@ -51,13 +51,13 @@ Vercel Hobby eligibility is limited to personal, non-commercial use. Check event
 
 Open `/`, enter the operator key, and leave the page visible. Operator authorization lasts up to eight hours; the queue accepts new participants only while the installation has refreshed its presence within two minutes. Restarting/opening the installation restores intake without changing the printed QR.
 
-- With no tickets, the installation shows a centered permanent QR and upload instructions on the full exhibit background. Mobile-upload and print-download links are directly below it.
-- When tickets arrive, the compact top strip shows current/called participant, ticket numbers, optional names, and reserved capacity. The QR remains visible below the strip until a session starts.
+- With no uploaded participant ready, the exhibit loops a sample stretch and drawing fade using the stretching layout. The demo never opens the camera or creates a ticket. Participants join from the printed permanent QR; no QR is displayed on screen.
+- When tickets arrive, the existing top strip shows the current/called participant and waiting tickets. The called screen keeps the participant name and asks them to start from their own phone.
 - The oldest successfully uploaded drawing automatically fills an empty head while this page is open. A preparation in progress does not block ready tickets. No Call next click is needed.
 - The called participant taps **Start my session** on their own phone. The server derives ownership from the private ticket cookie and atomically allows only the called head to start. The exhibit opens camera setup on its next refresh. There is no desktop Start participant button.
 - **Remove** cancels a waiting ticket; **End current session** ends the active ticket. Participants can cancel their own ticket from their phone.
 - **Skip activity** still skips only an exercise, preserving only earned fade.
-- Completion hides the queue. Next participant returns to the QR waiting view and any waiting-ticket controls; the next ready ticket is selected automatically and staff press Start participant.
+- Completion preserves the Figma layout and offers Back to home. The next ready ticket is called automatically, and their phone can start the next turn without a facilitator click.
 
 Queue management uses the same top bar before turns and during setup. Confirmations pause the automatic stabilization countdown; closing a confirmation restarts it. Queue controls stay hidden during stretching. The next ready ticket is called automatically after successful completion even if no one clicks Next participant on the exhibit. Participant names remain optional and private to their owner and exhibit operators.
 
@@ -107,4 +107,8 @@ npm.cmd run dev
 
 The environment helper preserves existing local keys and refuses to overwrite a cloud environment. For browser QA, temporarily set `$env:OOB_LOCAL_APP_PORT = '3202'` before `backend:env`, then restore port 3000 afterward. Automated backend tests refuse hosted projects, use synthetic artwork, and remove their test tickets/objects.
 
-The Figma design is implemented with local assets and fonts; its completion shader uses the approved still background. The flow separates queue management, camera positioning and active stretching. The active view shows two live canvases and four compact controls; the webcam runs without a visible preview. Queue controls return after Next participant. The original uploader and movement engine remain available at `/test`. This styling update requires no additional Supabase migration or Vercel environment variable.
+The Figma design is implemented with local assets and fonts; its completion shader uses the approved still background. The flow separates queue management, camera positioning and active stretching. The active view shows two live canvases and four compact controls; the webcam runs without a visible preview. Queue controls return after Back to home or when the next participant starts camera setup from their phone. The original uploader and movement engine remain available at `/test`. This styling update requires no additional Supabase migration or Vercel environment variable.
+
+## Self-service camera and home controls
+
+Camera setup uses a larger preview and outlined body, with camera selection below the preview. The initial three-second countdown still requires a stable position. During stretching, tracking loss freezes earned progress immediately; sustained loss shows a non-modal notice. Two seconds of fresh, stable tracking clear recovery automatically. A deliberate Pause remains paused. Back to home during stretching confirms before ending an unfinished ticket; Keep stretching or Escape preserves the turn and progress.

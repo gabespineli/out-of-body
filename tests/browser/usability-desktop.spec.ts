@@ -125,8 +125,8 @@ test("completion with a lost response recovers after the queue confirms the tick
   await expect(page.getByTestId("participant-completion")).toBeVisible();
   await page.clock.runFor(6001);
   await page.screenshot({ path: "test-results/usability-completion-recovery.png", fullPage: true });
-  await expect(page.getByRole("button", { name: "Next participant", exact: true })).toBeEnabled();
-  await page.getByRole("button", { name: "Next participant", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Back to home", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Back to home", exact: true }).click();
   await expect(page.getByTestId("installation-welcome")).toBeVisible(); await expect(page.getByTestId("participant-completion")).toHaveCount(0);
   expect(state.completions).toBe(1);
 });

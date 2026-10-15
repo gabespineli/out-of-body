@@ -16,7 +16,7 @@ test("the root opens the exhibit, /test preserves the local demo, and the previo
   await expect(page.getByRole("heading", { name: "Open the exhibit queue", exact: true })).toBeVisible();
 });
 
-test("unlock opens a centered permanent QR on the full exhibit background, without unused management controls", async ({ page }) => {
+test("unlock opens a looping example without a camera or on-screen QR", async ({ page }) => {
   await page.setViewportSize({ width: 1363, height: 783 });
   let unlocked = false;
   const qr = await QRCode.toDataURL("http://127.0.0.1:3202/mobile");
@@ -27,13 +27,14 @@ test("unlock opens a centered permanent QR on the full exhibit background, witho
   await page.goto("/");
   await page.getByLabel("Installation key").fill("test-installation-key");
   await page.getByRole("button", { name: "Open installation", exact: true }).click();
-  await expect(page.getByTestId("session-qr")).toBeVisible();
+  await expect(page.getByTestId("session-qr")).toHaveCount(0);
   await expect(page.getByTestId("queue-bar")).toHaveCount(0);
   await expect(page.getByText("Usage", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Call next", exact: true })).toHaveCount(0);
-  await expect(page.getByTestId("installation-welcome")).toContainText("Scan the permanent QR to upload.");
-  const symbol = await page.getByTestId("session-qr").boundingBox();
-  expect(symbol!.x + symbol!.width / 2).toBeCloseTo(1363 / 2, 0);
+  await expect(page.getByTestId("idle-demo")).toContainText("Scan the printed QR to join.");
+  const drawing = page.getByTestId("demo-drawing");
+  await expect.poll(async () => +(await drawing.getAttribute("data-demo-fade"))!).toBeGreaterThan(.01);
+  await expect(page.locator("video")).toHaveCount(0);
   expect(await page.getByTestId("desktop-flow").evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(783);
   expect(await page.getByTestId("desktop-flow").evaluate(el => getComputedStyle(el).backgroundImage)).toContain("exhibit-texture.webp");
   await page.evaluate(async () => { await document.fonts.ready; });
@@ -55,7 +56,7 @@ test("waiting tickets automatically fill the head and show a single centered Sta
   await expect(page.getByRole("heading", { name: "Alex, it’s your turn", exact: true })).toBeVisible();
   await expect(page.getByText("Come to the screen, then tap Start my session on your phone.", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Start participant", exact: true })).toHaveCount(0);
-  await expect(page.getByTestId("session-qr")).toBeVisible();
+  await expect(page.getByTestId("session-qr")).toHaveCount(0);
   await page.evaluate(async () => { await document.fonts.ready; });
   await page.screenshot({ path: "test-results/installation-called-welcome.png", fullPage: true });
 });

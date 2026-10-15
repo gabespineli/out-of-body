@@ -43,6 +43,7 @@ export function advanceFraming(state: FramingState, valid: boolean, now: number,
   if (hidden || gap > 250 || gap < 0) return { ...createFramingState(), lastTime: now, recovery: state.recovery || monitoring };
   const steadySince = valid ? state.steadySince ?? now : null;
   const missingSince = valid ? null : state.missingSince ?? now;
-  return { lastTime: now, steadySince, missingSince, ready: steadySince !== null && now - steadySince >= POSITION_STEADY_MS,
-    recovery: state.recovery || monitoring && missingSince !== null && now - missingSince >= LOST_PROMPT_MS };
+  const ready = steadySince !== null && now - steadySince >= POSITION_STEADY_MS;
+  return { lastTime: now, steadySince, missingSince, ready,
+    recovery: !ready && (state.recovery || monitoring && missingSince !== null && now - missingSince >= LOST_PROMPT_MS) };
 }

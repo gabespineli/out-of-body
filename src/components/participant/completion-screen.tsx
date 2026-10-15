@@ -1,6 +1,6 @@
 "use client";
 import type { InstallationResult } from "@/components/installation";
-import { BrandLogo } from "../design-brand";
+import { BrandLogo, DesignIcon } from "../design-brand";
 export function CompletionScreen({ result, onNext, busy, saving = false, onRetry }: { result: InstallationResult; onNext: () => void; busy: boolean; saving?: boolean; onRetry?: () => void }) {
   return <section className="participant-completion" aria-labelledby="completion-title" data-testid="participant-completion">
     <BrandLogo className="completion-logo" />
@@ -12,7 +12,7 @@ export function CompletionScreen({ result, onNext, busy, saving = false, onRetry
     <p>Save your finished drawing from your phone.</p>
     <div className="button-row completion-actions">{saving
       ? <button className="primary-action" onClick={onRetry} disabled={busy || !onRetry}>{busy ? "Saving your drawing…" : "Retry saving drawing"}</button>
-      : <button className="primary-action" onClick={onNext} disabled={busy}>{busy ? "Preparing next session…" : "Next participant"}</button>}</div>
+      : <button className="primary-action" onClick={onNext} disabled={busy}><DesignIcon name="home" />{busy ? "Loading…" : "Back to home"}</button>}</div>
     {saving && !busy && <p role="status">Your session is kept here. Retry saving to continue.</p>}
     <p className="participant-note">Fading is symbolic progress, not proof of medical relief.</p>
   </section>;

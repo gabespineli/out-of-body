@@ -70,7 +70,7 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
   });
   await open(page.request); await page.goto("/");
   await expect(page.getByTestId("installation-welcome")).toBeVisible();
-  const qr = await page.getByTestId("session-qr").getAttribute("src");
+  const qr = (await page.request.get("/api/participant/queue?view=operator").then(r => r.json())).qr;
   const pixels = await sharp(Buffer.from(qr!.split(",")[1], "base64")).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const decoded = jsQR(new Uint8ClampedArray(pixels.data), pixels.info.width, pixels.info.height);
   expect(decoded?.data).toBe("http://127.0.0.1:3202/mobile");
@@ -139,10 +139,11 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
     await expect.poll(async () => (await db().storage.from("oob-temporary-artwork").download(row.object_path)).error !== null).toBe(true);
     expect((await db().from("oob_queue_tickets").select("participant_name,status").eq("id", ticket.id).single()).data).toEqual({ participant_name: "", status: "completed" });
     await expect.poll(async () => (await page.request.get("/api/participant/queue?view=operator").then(r => r.json())).called?.name).toBe("Sam");
-    await page.getByRole("button", { name: "Next participant", exact: true }).click();
+    await page.getByRole("button", { name: "Back to home", exact: true }).click();
     await expect(page.getByTestId("queue-bar")).toBeVisible();
     await expect(page.getByTestId("queue-bar")).toContainText("Calling: Sam", { timeout: 10000 });
-    expect(await page.getByTestId("session-qr").getAttribute("src")).toBe(qr);
+    expect((await page.request.get("/api/participant/queue?view=operator").then(r => r.json())).qr).toBe(qr);
+    await expect(page.getByTestId("session-qr")).toHaveCount(0);
   } finally { await mobile.close(); }
 });
 test("finished drawings stay private, completion retries preserve the first frame, and expired results are cleaned", async ({ request, browser }) => {

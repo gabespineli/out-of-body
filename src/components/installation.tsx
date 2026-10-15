@@ -63,6 +63,7 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
   const [timing, setTiming] = useState<Timing>({ ...DEFAULT_TIMING });
   const [strength, setStrength] = useState(.97);
   const [paused, setPaused] = useState(false);
+  const [homeOpen, setHomeOpen] = useState(false);
   const [progress, setProgress] = useState({ ...EMPTY_PROGRESS });
   const [detected, setDetected] = useState({ ...REST });
   const [fullscreenError, setFullscreenError] = useState("");
@@ -102,7 +103,7 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
       const verdict = mode === "manual" ? { valid: true, message: "Manual simulation" } : assessFraming(source.current.landmarks ?? [], target, requiredAreas, now - source.current.time < 300);
       framing.current = advanceFraming(framing.current, verdict.valid, now, phase === "stretching" && !guide.current.done, document.hidden || setupBlocked);
       const trackingBlocked = experience === "guided" && mode === "camera" && (!verdict.valid || framing.current.recovery);
-      const freeze = paused || document.hidden || trackingBlocked || experience === "guided" && phase !== "stretching";
+      const freeze = paused || homeOpen || document.hidden || trackingBlocked || experience === "guided" && phase !== "stretching";
       if (!freeze) displayed.current = smoothMotion(displayed.current, target, dt);
       const active = !paused && !document.hidden && !!artwork.art && artwork.art.areas[area].coloredPixels >= COLOR_PIXEL_MIN && matchesBodyStretch(target, area);
       if (experience === "guided") {
@@ -127,7 +128,7 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [artwork.art, area, mode, manual, timing, strength, paused, experience, guidedRunning, phase, setupBlocked]);
+  }, [artwork.art, area, mode, manual, timing, strength, paused, experience, guidedRunning, phase, setupBlocked, homeOpen]);
 
   useEffect(() => {
     const change = () => setFull(!!document.fullscreenElement);
@@ -265,12 +266,11 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
         <div className="button-row"><button disabled={!artwork.art || saving} onClick={() => void save()}>Save PNG</button><button onClick={startFresh}>Start fresh</button></div>
       </details>
     </div>
-    <div hidden={phase !== "stretching"}><StretchStage area={activeArea} step={journey.step} name={participantName || "Your drawing"} paused={paused || mode === "camera" && (!frameStatus.valid || frameStatus.recovery)} done={journey.done} transitioning={journey.transitioning} resetKey={resetKey}
+    <div hidden={phase !== "stretching"}><StretchStage area={activeArea} step={journey.step} name={participantName || "Your drawing"} paused={paused || homeOpen || mode === "camera" && (!frameStatus.valid || frameStatus.recovery)} done={journey.done} transitioning={journey.transitioning} resetKey={resetKey}
       progress={journey.progress} status={guidedStatus} recovery={phase === "stretching" && frameStatus.recovery && mode === "camera"} ready={frameStatus.ready} message={frameStatus.message}
       onSkip={skipActivity} onPause={togglePause} onRestart={() => { restore(); setManual({ ...MANUAL_REST }); setPaused(false); if (mode === "camera") setPhase("positioning"); }}
-      onEnd={() => { camera.stop(); if (onParticipantReset) onParticipantReset(); else resetExperience(); }}
-      onContinue={() => { if (framing.current.ready) { framing.current.recovery = false; setFrameStatus(value => ({ ...value, recovery: false })); } }}
-      onPosition={() => { framing.current = createFramingState(); setPhase("positioning"); }}
+      homeOpen={homeOpen} onRequestHome={() => setHomeOpen(true)} onCancelHome={() => setHomeOpen(false)}
+      onEnd={() => { setHomeOpen(false); camera.stop(); if (onParticipantReset) onParticipantReset(); else resetExperience(); }}
       participant={<div className="stage-pane participant-pane"><div className="avatar-frame"><canvas ref={canvas} width={STAGE_WIDTH} height={HEIGHT} className="avatar-canvas" data-testid="avatar" data-area={activeArea} data-step={journey.step} data-guided-progress={journey.progress.toFixed(3)} data-guided-total={journey.total.toFixed(3)} {...Object.fromEntries(AREA_IDS.map(id => [`data-${id}-fade`, fades[id].toFixed(2)]))} data-fade={journey.progress.toFixed(2)} data-paused={paused || mode === "camera" && (!frameStatus.valid || frameStatus.recovery)} aria-label={`${artwork.art ? "Moving artwork" : "Blank silhouette preview"}. ${mode === "manual" ? "Motion is simulated." : "Motion follows the webcam."}`} /></div></div>} /></div>
     {phase === "stretching" && journey.done && !participantMode && <div className="session-ended"><button className="primary-action" onClick={() => { setPhase("setup"); setGuidedRunning(false); }}>Back to setup</button><button className="quiet-action" onClick={() => void save()}>Save PNG</button></div>}
     {fullscreenError && <p role="alert">{fullscreenError}</p>}{saveError && <p role="alert">{saveError}</p>}

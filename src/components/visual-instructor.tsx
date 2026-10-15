@@ -30,12 +30,13 @@ export function VisualInstructor({ area, paused, step, resetKey = 0 }: { area: B
     let frame = 0, last = performance.now(), rendered = -Infinity;
     clock.current = 0;
     const tick = (now: number) => {
+      if (!canvas.current) return;
       const gap = now - last; last = now;
       if (!freeze.current && !document.hidden && gap <= 250) clock.current += gap / 1000;
       if (now - rendered >= 30) {
         renderAvatar(ctx, null, instructorMotion(area, clock.current, step), emptyFades(), 0, area);
         if (area === "neck-head") neckArc(ctx);
-        canvas.current!.dataset.loopTime = clock.current.toFixed(2);
+        canvas.current.dataset.loopTime = clock.current.toFixed(2);
         rendered = now;
       }
       frame = requestAnimationFrame(tick);

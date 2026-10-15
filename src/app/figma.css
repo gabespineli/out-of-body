@@ -231,4 +231,34 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .phone-start-action { margin: 24px auto 0; min-height: 48px; font-size: 20px; }
 .queue-current { overflow-wrap: anywhere; }
-.participant-desktop > .queue-bar + .guided-shell .positioning-preview { width: min(100%,720px,calc(max(200px,100svh - 590px) * var(--camera-aspect,1.333333))); }
+.positioning-gate { position: relative; max-width: 1240px; width: 100%; }
+.positioning-gate > .brand-logo { position: absolute; left: 24px; top: 14px; width: 64px; height: 64px; }
+.positioning-content { display: grid; grid-template-columns: minmax(0,1fr) 250px; align-items: center; gap: 28px; margin-top: 22px; }
+.positioning-camera { min-width: 0; }
+.positioning-content .positioning-preview { width: min(100%,calc(max(360px,100svh - 340px) * var(--camera-aspect,1.333333))); margin: 0 auto 16px; }
+.positioning-help { display: flex; flex-direction: column; gap: 16px; align-items: center; }
+.positioning-help .positioning-message { margin: 0; min-height: 0; }
+.positioning-outline { inset: 2% 0; height: 96%; opacity: .9; filter: drop-shadow(0 1px 2px #7c0f5580); }
+.positioning-outline path { stroke: #ec39ad; stroke-width: 4; stroke-dasharray: 12 6; }
+.stretch-header .skip-turn { width: auto; min-width: 145px; }
+.tracking-notice { position: fixed; z-index: 8; bottom: 24px; left: 50%; transform: translateX(-50%); width: min(620px,calc(100% - 32px)); background: #faf7e8f5; color: #8c174c; border-radius: 12px; padding: 16px 22px; text-align: center; box-shadow: 0 4px 16px #7c0f5533; }
+.tracking-notice span { display: block; margin-top: 5px; }
+.installation-demo { width: 100%; }
+.idle-exhibit { padding-top: 180px; }
+.idle-exhibit .exhibit-intro { top: 100px; width: min(760px,calc(100% - 48px)); }
+.idle-exhibit .exhibit-intro span { font-family: var(--body-font); font-size: 22px; font-style: normal; }
+.idle-exhibit .exhibit-panels { margin: auto; }
+.exhibit-panels .stage-pane { height: max(260px,calc(100svh - 403px)); }
+.exhibit-panels .avatar-frame { width: min(100%,calc(max(260px,100svh - 403px) * .9333)); transform: none; }
+.demo-caption { margin: 20px auto 0; text-align: center; color: #9b2373; font-size: 16px; }
+.demo-instruction { font-family: var(--heading-font); font-size: 27px; font-weight: 600; font-style: italic; line-height: 1.2; }
+.installation-welcome h1 { overflow-wrap: anywhere; max-width: 100%; }
+.completion-actions .primary-action { display: inline-flex; gap: 10px; align-items: center; }
+@media (max-width: 760px) {
+  .positioning-content { grid-template-columns: 1fr; gap: 20px; }
+  .positioning-gate > .brand-logo { position: static; }
+  .positioning-content .positioning-preview { width: min(100%,calc(420px * var(--camera-aspect,1.333333))); }
+  .positioning-help { gap: 12px; }
+  .idle-exhibit .exhibit-intro { position: static; transform: none; margin: 0 auto 24px; }
+  .idle-exhibit { padding-top: 120px; }
+}

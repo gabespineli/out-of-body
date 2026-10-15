@@ -59,9 +59,9 @@ test("a failed completion keeps the drawing and offers a visible save retry befo
   await page.getByRole("button", { name: "Start guided session", exact: true }).click();
   for (let i = 0; i < 6; i++) await page.getByRole("button", { name: "Skip Stretch", exact: true }).click();
   await expect(page.getByRole("button", { name: "Retry saving drawing", exact: true })).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Next participant", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Back to home", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Retry saving drawing", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Next participant", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Back to home", exact: true })).toBeEnabled();
   expect(saves).toBe(2);
 });
 

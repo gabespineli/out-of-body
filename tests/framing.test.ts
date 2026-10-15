@@ -58,15 +58,20 @@ test("position countdown earns three seconds only from continuous visible tracki
   state = advanceFraming(state, true, 7100, false);
   assert.equal(positionCountdown(state, true), 3);
 });
-test("brief tracking flicker does not open the prompt; sustained loss latches until acknowledged", () => {
+test("brief tracking flicker avoids a notice; sustained loss clears only after stable visible tracking", () => {
   let state = advanceFraming(createFramingState(), false, 0, true);
   for (let now = 100; now <= 600; now += 100) state = advanceFraming(state, false, now, true);
   assert.equal(state.recovery, false);
   state = advanceFraming(state, true, 650, true); assert.equal(state.recovery, false);
   for (let now = 700; now <= 1400; now += 100) state = advanceFraming(state, false, now, true);
   assert.equal(state.recovery, true);
-  for (let now = 1500; now <= 3500; now += 100) state = advanceFraming(state, true, now, true);
-  assert.equal(state.ready, true); assert.equal(state.recovery, true);
+  for (let now = 1500; now <= 3400; now += 100) state = advanceFraming(state, true, now, true);
+  assert.equal(state.recovery, true); assert.equal(state.ready, false);
+  state = advanceFraming(state, false, 3450, true);
+  for (let now = 3500; now <= 5400; now += 100) state = advanceFraming(state, true, now, true);
+  assert.equal(state.recovery, true);
+  state = advanceFraming(state, true, 5500, true);
+  assert.equal(state.ready, true); assert.equal(state.recovery, false);
 });
 test("hidden or stale frames cannot satisfy the gate or silently resume a running session", () => {
   let state = advanceFraming(createFramingState(), true, 0, false);
