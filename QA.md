@@ -1,3 +1,19 @@
+## Phone camera selector removed - 15 October 2026
+
+Removed the phone camera dropdown at the user's request. Phone capture again requests the normal rear-facing camera, ignores the old photo-camera preference, and keeps automatic opening for previously granted permission. The stretching camera selector, its remembered choice and countdown reset remain available.
+
+Production build, TypeScript during the build, whitespace checks and five affected browser scenarios passed. Checks covered no phone selector, automatic capture and Retake, rear/default camera constraints despite an old saved USB preference, stream release, permission denial/cancellation and continued exhibit selection. A real synthetic-frame upload matched the phone preview pixels in private storage. Its test now verifies only its own upload instead of attempting to activate the queue while the user's local session is active. No user queue record was changed or removed; no deployment/configuration change was made.
+
+## Camera selection and automatic opening - 15 October 2026
+
+Added a compact native camera selector directly below the positioning preview and phone capture preview, also available in local setup tools. The list refreshes on device changes and after permission, filters out audio inputs, and remembers separate exhibit/photo camera choices in local browser storage. Explicit selection uses an exact device constraint and releases the previous stream first. Changing cameras resets the positioning countdown. The preview adapts to viewport height so the selector and Back fit at 1363 x 783.
+
+Entering camera setup automatically opens previously granted access. An unsupported permission query falls back to existing labelled video inputs. First-time/denied access keeps an explicit open button. Cancel/Back invalidates pending permission checks and late streams; the same visit does not automatically reopen after cancellation. Connected-camera changes are handled during model loading as well as live tracking.
+
+Production build, TypeScript, whitespace checks, all **62 unit tests** and **22 distinct affected browser scenarios passed**. Tests covered named camera switching, hotplug/removal, disconnected and busy devices, saved choice on reload/retake, automatic opening, permission denial, unsupported permission queries, cancellation during opening, delayed permission lookup after leaving, countdown reset, fullscreen/framing recovery, phone capture-to-preview stream release, photo download recovery and existing webcam/model failure fallbacks. Two initial new-test assertions matched duplicate hidden setup errors; scoping them to the visible positioning gate resolved the test ambiguity. No application defect was hidden by those assertion changes.
+
+Rendered setup and phone screenshots were inspected and saved outside the repository under `camera-selection/`. Tests used synthetic browser streams and a synthetic video frame; a physical USB camera has not been validated. Test-owned database records were cleaned. No additional Supabase migration or Vercel setting is required for this camera update. No commit or deployment was performed.
+
 ## Side raises, phone downloads and stretch celebrations - 15 October 2026
 
 Replaced the heel-raise stage and side-view guide with extended selected-side leg raises. Each leg still earns eight seconds: one third side steps, two thirds side raises. Foot-detail visibility is no longer needed for this sequence. Completed regions trigger one brief confetti burst; skips do not. Reduced-motion users receive the quiet completion message.

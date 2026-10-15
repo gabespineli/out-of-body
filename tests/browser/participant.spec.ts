@@ -128,7 +128,6 @@ test("mobile camera captures a real synthetic video frame and closes the stream 
     await page.goto(session.pairingUrl);
     await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
     const ticket = await trackQueue(page);
-    await page.getByRole("button", { name: "Open camera", exact: true }).click();
     await expect(page.getByRole("button", { name: "Take photo", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Take photo", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Preview your drawing" })).toBeVisible();
@@ -137,10 +136,12 @@ test("mobile camera captures a real synthetic video frame and closes the stream 
     await page.screenshot({ path: "test-results/participant-mobile-preview.png", fullPage: true });
     await page.getByRole("button", { name: "Send to installation", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Drawing uploaded" })).toBeVisible();
-    await request.post("/api/participant/queue/action", { data: { action: "call" } });
-    await request.post("/api/participant/queue/action", { data: { action: "start", id: ticket.id } });
-    const image = await request.get("/api/participant/queue/artwork?id=" + ticket.id); expect(image.status()).toBe(200);
-    const raw = await sharp(await image.body()).ensureAlpha().raw().toBuffer();
+    // Verify only this phone's captured upload; an exhibit session may already be active.
+    const stored = await db().from("oob_queue_tickets").select("object_path").eq("id", ticket.id).single();
+    expect(stored.error).toBeNull();
+    const image = await db().storage.from("oob-temporary-artwork").download(stored.data!.object_path);
+    expect(image.error).toBeNull();
+    const raw = await sharp(Buffer.from(await image.data!.arrayBuffer())).ensureAlpha().raw().toBuffer();
     expect(Array.from(raw.subarray((385 * 600 + 300) * 4, (385 * 600 + 300) * 4 + 4))).toEqual(captured);
   } finally { await context.close(); await cameraBrowser.close(); }
 });

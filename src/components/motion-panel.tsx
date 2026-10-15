@@ -3,6 +3,7 @@ import type { useCamera } from "@/hooks/use-camera";
 import { REST_LEGS, REST_HIPS, REST_HEAD, REST_FEET, REST_ELBOWS, type Motion, type ManualLegs, type ManualHips, type ManualHead, type ManualFeet, type ManualElbows } from "@/lib/pose";
 import type { GuideStep } from "@/lib/guided";
 import { areaConfig, areaSide, isLegArea, type BodyArea } from "@/lib/body-areas";
+import { CameraSelect } from "./camera-select";
 
 export type ManualPose = { left: number; right: number; lean: number } & ManualLegs & ManualHips & ManualHead & ManualFeet & ManualElbows;
 export const MANUAL_REST: ManualPose = { left: 0, right: 0, lean: 0, ...REST_LEGS, ...REST_HIPS, ...REST_HEAD, ...REST_FEET, ...REST_ELBOWS };
@@ -37,6 +38,7 @@ export function MotionPanel({ area, step, compact, camera, mode, setMode, manual
       {mode === "camera" && camera.status !== "live" && camera.status !== "loading" && <div className="camera-placeholder">{camera.status === "permission" ? "Allow camera access in your browser" : "Camera off"}</div>}
     </div>}
     {mode === "camera" ? <>
+      <CameraSelect devices={camera.devices} deviceId={camera.deviceId} disabled={pending} onChange={camera.selectCamera} />
       {(camera.status === "live" || camera.status === "loading") && <p className="camera-status" role="status">{camera.status === "loading" ? "Loading tracker…" : camera.tracking ? "Body found" : "No body detected"}</p>}
       {camera.status === "live" ? <button className="full-width" onClick={camera.stop}>Stop camera</button> : <button className="full-width" disabled={pending} onClick={() => void camera.start()}>{camera.status === "permission" ? "Waiting for permission…" : camera.status === "loading" ? "Starting tracking…" : camera.status === "error" ? "Try camera again" : "Enable camera"}</button>}
       {pending && <button className="full-width" onClick={camera.stop}>Cancel camera</button>}

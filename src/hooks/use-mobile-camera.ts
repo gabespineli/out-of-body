@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { cameraAlreadyAllowed } from "./use-camera-devices";
 function cameraError(cause: unknown) {
   const name = cause instanceof Error ? cause.name : "";
   if (name === "NotAllowedError" || name === "SecurityError") return "Camera permission was denied. Allow it in browser settings, or choose a photo.";
@@ -10,6 +11,7 @@ function cameraError(cause: unknown) {
 export function useMobileCamera() {
   const video = useRef<HTMLVideoElement>(null), stream = useRef<MediaStream | null>(null), generation = useRef(0);
   const [status, setStatus] = useState<"idle" | "requesting" | "live">("idle"), [error, setError] = useState("");
+  const latestStatus = useRef(status); latestStatus.current = status;
   const release = useCallback(() => {
     generation.current++; stream.current?.getTracks().forEach(track => track.stop()); stream.current = null;
     if (video.current) video.current.srcObject = null;
@@ -34,6 +36,11 @@ export function useMobileCamera() {
       release(); setStatus("idle"); setError(cameraError(cause));
     }
   }, [release, stop]);
+  const startAllowed = useCallback(async () => {
+    if (latestStatus.current !== "idle") return;
+    const token = generation.current;
+    if (await cameraAlreadyAllowed() && token === generation.current && !stream.current && !document.hidden) await start();
+  }, [start]);
   const capture = useCallback(async () => {
     const element = video.current;
     if (!element || element.readyState < 2 || !element.videoWidth) throw new Error("Wait for the camera preview, then try again.");
@@ -45,5 +52,5 @@ export function useMobileCamera() {
     stop(); return new File([blob], "drawing-camera.png", { type: "image/png" });
   }, [stop]);
   useEffect(() => release, [release]);
-  return { video, status, error, start, stop, capture };
+  return { video, status, error, start, stop, capture, startAllowed };
 }

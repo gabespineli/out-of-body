@@ -48,6 +48,10 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
   const [phase, setPhase] = useState<"setup" | "positioning" | "stretching">("setup");
   const framing = useRef(createFramingState());
   const [frameStatus, setFrameStatus] = useState({ ...createFramingState(), valid: false, message: "Move into view so the camera can see you." });
+  useEffect(() => {
+    framing.current = createFramingState();
+    setFrameStatus(value => ({ ...value, ...framing.current, valid: false }));
+  }, [camera.deviceId]);
   useEffect(() => { if (journey.done && guidedRunning) camera.stop(); }, [journey.done, guidedRunning, camera.stop]);
   useEffect(() => { if (participantMode && initialArtwork && artwork.art) setPhase("positioning"); }, [participantMode, initialArtwork, artwork.art]);
   const [resetKey, setResetKey] = useState(0);

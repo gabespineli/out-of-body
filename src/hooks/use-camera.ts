@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PoseLandmarker } from "@mediapipe/tasks-vision";
 import { motionFromLandmarks, REST, type Motion, type Landmark } from "@/lib/pose";
+import { cameraAlreadyAllowed, useCameraDevices } from "./use-camera-devices";
 
 export type CameraStatus = "idle" | "permission" | "loading" | "live" | "error";
 export type MotionSource = { motion: Motion; time: number; landmarks?: Landmark[] };
@@ -16,12 +17,14 @@ export function cameraError(error: unknown): string {
 }
 
 export function useCamera(source: React.RefObject<MotionSource>) {
+  const cameras = useCameraDevices("oob-stretch-camera");
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const modelRef = useRef<PoseLandmarker | null>(null);
   const frameRef = useRef<number>(0);
   const generation = useRef(0);
   const [status, setStatus] = useState<CameraStatus>("idle");
+  const latestStatus = useRef(status); latestStatus.current = status;
   const [error, setError] = useState("");
   const [tracking, setTracking] = useState(false);
   const [fps, setFps] = useState(0);
@@ -40,7 +43,7 @@ export function useCamera(source: React.RefObject<MotionSource>) {
     release(); setStatus("idle"); setTracking(false); setFps(0); setError("");
   }, [release]);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (deviceId?: string) => {
     release(); setError(""); setTracking(false); setFps(0);
     const token = generation.current;
     try {
@@ -48,9 +51,15 @@ export function useCamera(source: React.RefObject<MotionSource>) {
         throw new Error("Camera access is unavailable in this view. Open this Site directly in Chrome or Edge, or use manual demo.");
       }
       setStatus("permission");
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" } });
+      const chosen = deviceId ?? cameras.selected.current;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { width: { ideal: 640 }, height: { ideal: 480 }, ...(chosen ? { deviceId: { exact: chosen } } : { facingMode: "user" }) } });
       if (token !== generation.current) { stream.getTracks().forEach(track => track.stop()); return; }
       streamRef.current = stream;
+      stream.getVideoTracks()[0]?.addEventListener("ended", () => {
+        if (token !== generation.current) return;
+        release(); setTracking(false); setFps(0); setStatus("error"); setError("The webcam disconnected. Reconnect it and try again, or use manual mode.");
+      }, { once: true });
+      void cameras.refresh();
       const video = videoRef.current!;
       video.srcObject = stream;
       setStatus("loading");
@@ -79,10 +88,6 @@ export function useCamera(source: React.RefObject<MotionSource>) {
       if (!model || token !== generation.current) return;
       modelRef.current = model;
       setStatus("live");
-      stream.getVideoTracks()[0]?.addEventListener("ended", () => {
-        if (token !== generation.current) return;
-        release(); setTracking(false); setStatus("error"); setError("The webcam disconnected. Reconnect it and try again, or use manual mode.");
-      }, { once: true });
       let lastInference = -Infinity, lastVideoTime = -1, lastUi = 0, count = 0, fpsTime = performance.now();
       const tick = (now: number) => {
         if (token !== generation.current) return;
@@ -115,8 +120,15 @@ export function useCamera(source: React.RefObject<MotionSource>) {
         ? "The pose model could not load. Reload the page and try again. Manual demo still works."
         : message);
     }
-  }, [release, source]);
+  }, [release, source, cameras.selected, cameras.refresh]);
+
+  const startAllowed = useCallback(async () => {
+    if (["permission", "loading", "live"].includes(latestStatus.current)) return;
+    const token = generation.current;
+    if (await cameraAlreadyAllowed() && token === generation.current && !streamRef.current && !document.hidden) await start();
+  }, [start]);
+  const selectCamera = useCallback((id: string) => { cameras.choose(id); void start(id); }, [cameras.choose, start]);
 
   useEffect(() => () => release(), [release]);
-  return { videoRef, status, error, tracking, fps, start, stop };
+  return { videoRef, status, error, tracking, fps, start, stop, startAllowed, selectCamera, devices: cameras.devices, deviceId: cameras.deviceId };
 }

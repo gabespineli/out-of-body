@@ -7,6 +7,7 @@ import { usePhotoGestures } from "@/hooks/use-photo-gestures";
 import type { usePhotoPreview } from "@/hooks/use-photo-preview";
 import type { useMobileCamera } from "@/hooks/use-mobile-camera";
 import { DesignIcon } from "../design-brand";
+import { useAutoCamera } from "@/hooks/use-camera-devices";
 export function TemplateGuide() {
   return <svg className="photo-template" viewBox="0 0 600 900" aria-hidden="true">{Object.values(SEGMENTS).map((path, index) =>
     <path key={index} d={path} fill="none" stroke="#fa4278" strokeWidth="2" strokeDasharray="9 7" />)}</svg>;
@@ -19,6 +20,7 @@ export function MobileLanding({ connected, onContinue }: { connected: boolean; o
   </section>;
 }
 export function MobileCapture({ camera, onCapture, onChoose, busy }: { camera: ReturnType<typeof useMobileCamera>; onCapture: () => void; onChoose: (file: File) => void; busy: boolean }) {
+  useAutoCamera(true, camera.startAllowed);
   return <section className="mobile-capture" aria-labelledby="mobile-camera-title"><h2 className="visually-hidden" id="mobile-camera-title">Photograph your drawing</h2>
     <p className="mobile-alignment-heading">Align your drawing to the outline below.</p>
     <div className="phone-camera" data-live={camera.status === "live"}><video ref={camera.video} autoPlay playsInline muted aria-label="Drawing camera preview" />
