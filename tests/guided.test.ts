@@ -79,34 +79,27 @@ test("torso movement needs both directions, ignores hip roll and does not requir
   state = run(state, () => manualMotion(0, -.5), 200);
   assert.equal(state.earned.torso, ACTIVITY_MS); assert.ok(state.transition !== null && state.transition <= NEXT_ACTIVITY_MS);
 });
-test("leg stages split earned movement into thirds and reject the opposite leg and small side raises", () => {
-  let state = run(createGuide(["left-leg"]), i => legs(0, i % 400 ? -.6 : 0), 1500);
-  assert.equal(state.earned["left-leg"], 0);
-  state = run(state, i => legs(i % 400 ? .25 : 0), 3000);
-  assert.equal(state.earned["left-leg"], PART_MS); assert.equal(guideStep(state), "side-raise");
-  state = run(state, i => legs(i % 400 ? .2 : 0), 1500);
-  assert.equal(state.earned["left-leg"], PART_MS);
-  state = run(state, i => legs(i % 400 ? .6 : 0), 3000);
-  assert.equal(state.earned["left-leg"], PART_MS * 2); assert.equal(guideStep(state), "heel-raise");
+test("legs spend one third on side steps and the remaining time on selected-side raises", () => {
+  for (const side of ["left", "right"] as const) {
+    const area = `${side}-leg` as BodyArea;
+    const motion = (value: number) => side === "left" ? legs(value) : legs(0, -value);
+    let state = run(createGuide([area]), i => side === "left" ? legs(0, i % 400 ? -.6 : 0) : legs(i % 400 ? .6 : 0), 1500);
+    assert.equal(state.earned[area], 0);
+    state = run(state, i => motion(i % 400 ? .25 : 0), 3000);
+    assert.equal(state.earned[area], PART_MS); assert.equal(guideStep(state), "side-raise");
+    state = run(state, i => motion(i % 400 ? .2 : 0), 1500);
+    assert.equal(state.earned[area], PART_MS);
+    state = run(state, i => ({ ...motion(i % 400 ? .6 : 0), leftFootVisible: false, rightFootVisible: false }), 3000);
+    assert.ok(state.earned[area] > PART_MS * 2); assert.equal(guideStep(state), "side-raise");
+    state = run(state, i => ({ ...motion(i % 400 ? .6 : 0), [`${side}LegVisible`]: false }), 1000);
+    const earned = state.earned[area];
+    state = run(state, i => ({ ...motion(i % 400 ? .6 : 0), [`${side}LegVisible`]: false }), 1000);
+    assert.equal(state.earned[area], earned);
+    state = run(state, i => motion(i % 400 ? .6 : 0), 4000);
+    assert.equal(state.earned[area], ACTIVITY_MS);
+  }
 });
-test("heel raises use the selected foot and planted toes; translation cannot earn credit", () => {
-  let state = createGuide(["right-leg"]); state.earned["right-leg"] = PART_MS * 2;
-  state = run(state, i => ({ ...manualMotion(0, 0), leftHeel: i % 400 ? .2 : 0, leftAnkleHeight: i % 400 ? .3 : .18 }), 1500);
-  assert.equal(state.earned["right-leg"], PART_MS * 2);
-  state = run(state, i => ({ ...manualMotion(0, 0), rightHeel: i % 400 ? .2 : 0, rightAnkleHeight: i % 400 ? .3 : .18, rightToeY: i % 400 ? .8 : .9 }), 1500);
-  assert.equal(state.earned["right-leg"], PART_MS * 2);
-  state = run(state, i => manualMotion(0, 0, 0, REST_LEGS, REST_HIPS, REST_HEAD, { heelRaise: i % 400 ? .6 : 0 }), 3000);
-  assert.equal(state.earned["right-leg"], ACTIVITY_MS);
-});
-test("missing selected foot falls back to that leg's side raises, even when the other foot is visible", () => {
-  let state = createGuide(["left-leg"]); state.earned["left-leg"] = PART_MS * 2;
-  state = run(state, () => ({ ...legs(0), leftFootVisible: false }), 2600);
-  assert.equal(state.feetFallback, true); assert.equal(guideStep(state), "side-raise");
-  state = run(state, i => legs(0, i % 400 ? -.6 : 0), 1500);
-  assert.equal(state.earned["left-leg"], PART_MS * 2);
-  state = run(state, i => legs(i % 400 ? .6 : 0), 3000);
-  assert.equal(state.earned["left-leg"], ACTIVITY_MS);
-});
+
 test("partial skips retain fades, advance only selected regions and finish after the final skip", () => {
   let state = createGuide(["left-forearm", "right-leg"]); state.earned["left-forearm"] = 1000;
   state = skipGuide(state);

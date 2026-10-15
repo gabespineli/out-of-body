@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     const old = request.cookies.get(QUEUE_CLIENT_COOKIE)?.value;
     const client = old && /^[A-Za-z0-9_-]{43}$/.test(old) ? old : newToken();
     const created = await joinQueue(client), response = privateJson(await ticketView(created.row));
-    setPrivateCookie(response, request, QUEUE_COOKIE, `${created.row.id}.${created.mobile}`, 2 * 3600);
+    setPrivateCookie(response, request, QUEUE_COOKIE, `${created.row.id}.${created.mobile}`, 3 * 3600);
     setPrivateCookie(response, request, QUEUE_CLIENT_COOKIE, client, 24 * 3600); return response;
   });
 }

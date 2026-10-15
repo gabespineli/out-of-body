@@ -5,7 +5,7 @@ export const IMAGE_WARNING_BYTES = 3_000_000_000;
 export const QUEUE_COOKIE = "oob_queue_ticket";
 export const QUEUE_CLIENT_COOKIE = "oob_queue_client";
 export type TicketStatus = "preparing" | "uploading" | "ready" | "called" | "active" | "completed" | "cancelled" | "expired";
-export type QueueTicket = { id: string; number: number; name: string; status: TicketStatus; expiresAt: string; createdAt: string; ahead: number };
+export type QueueTicket = { id: string; number: number; name: string; status: TicketStatus; expiresAt: string; createdAt: string; ahead: number; downloadAvailable?: boolean };
 export type QueuePublic = { waiting: number; capacity: number; accepting: boolean; online: boolean };
 export type QueueState = QueuePublic & { tickets: QueueTicket[]; active: QueueTicket | null; called: QueueTicket | null;
   mobileUrl: string; qr: string; downloadBytes: number; downloads: number; uploads: number; usageWarning: boolean };

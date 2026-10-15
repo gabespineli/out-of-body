@@ -31,7 +31,7 @@ Mobile preview and PNG preparation share `drawAlignedPhoto`, with the existing c
 
 ## Session lifecycle
 
-The permanent entry now runs `/mobile` → private preparation ticket → cleaned/aligned upload → ready queue → operator Call next → Start participant → existing avatar/guide → completion/deletion. Queue controls stay on `/` before and between turns. Starting a participant opens the positioning gate, then a clean guide/drawing view; the queue is hidden throughout the active turn. No separate management screen is created. `queue-store.ts` and service-role-only SQL functions serialize admission/activation and preserve private per-phone credentials. Old printed pairing links enter this same queue, while legacy APIs remain available for already-open sessions. See `QUEUE_SETUP.md` for deadlines, budgets, and deployment steps. The lifecycle below documents the legacy API.
+The permanent entry now runs `/mobile` → private preparation ticket → cleaned/aligned upload → ready queue → automatic head selection → staff Start participant → existing avatar/guide → completion/deletion. Queue controls stay on `/` before and between turns. Starting a participant opens the positioning gate, then a clean guide/drawing view; the queue is hidden throughout the active turn. No separate management screen is created. `queue-store.ts` and service-role-only SQL functions serialize admission/activation and preserve private per-phone credentials. Old printed pairing links enter this same queue, while legacy APIs remain available for already-open sessions. See `QUEUE_SETUP.md` for deadlines, budgets, and deployment steps. The lifecycle below documents the legacy API.
 
 Desktop operator → new QR → one phone claims it → phone previews PNG → upload reservation → private stored PNG → desktop polls/retrieves → existing avatar → guide/fades → completion → deletion → next QR.
 
@@ -42,3 +42,9 @@ SameSite cookies and origin checks protect writes. All status/artwork responses 
 Sessions expire after 30 minutes; unclaimed QR codes expire after 10. Completion/reset removes the storage object. The minute scheduler retries expired objects, retaining metadata if deletion fails. A two-minute grace window covers an in-flight upload after reset; final upload publication also checks that the session still exists and is active.
 
 No realtime socket service, user accounts, persistent artwork archive, automatic rigging or new exercise classifier is introduced. Desktop polling is intentionally simple. Paper photographs still need manual framing/alignment, and independent feet remain outside the existing rig.
+
+## Completed drawings and leg activities � 15 October 2026
+
+Leg activities keep eight seconds of earned movement: one third side steps, then two thirds selected-side leg raises. Heel raises and the side-view instructor are removed. A brief confetti burst follows each fully earned region, including the final one; skips do not celebrate. Reduced-motion users see the completion message without animated particles.
+
+The exhibit completion view directs participants to their phone. The operator uploads the exact final canvas to a deterministic private result path before atomically completing the ticket. The owning ticket cookie is required for the download; request IDs cannot select another participant. Results expire one hour later, and the existing cleanup removes them. Retries preserve the first stored frame. Original uploads are still deleted immediately. One additive migration (`202610150001_queue_results.sql`) is required on hosted Supabase before deployment, with no new Vercel settings.

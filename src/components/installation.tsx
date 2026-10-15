@@ -17,6 +17,7 @@ import { PositioningGate } from "./positioning-gate";
 import { StretchStage } from "./stretch-stage";
 import { assessFraming, advanceFraming, createFramingState, positionCountdown } from "@/lib/framing";
 import { BrandLogo } from "./design-brand";
+import { StretchCelebration } from "./stretch-celebration";
 
 const EMPTY_PROGRESS = { hold: 0, fade: 0, complete: false, active: false };
 
@@ -63,6 +64,7 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
   const [full, setFull] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [celebration, setCelebration] = useState(0);
 
   useEffect(() => {
     if (!journey.done) { notifiedComplete.current = false; return; }
@@ -78,6 +80,7 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
     setResetKey(key => key + 1);
     setFades(emptyFades());
     setProgress({ ...EMPTY_PROGRESS });
+    setCelebration(0);
     framing.current = createFramingState();
   }, [artwork.art]);
   useEffect(restore, [artwork.art, mode, timing, strength, restore]);
@@ -97,8 +100,15 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
       const freeze = paused || document.hidden || trackingBlocked || experience === "guided" && phase !== "stretching";
       if (!freeze) displayed.current = smoothMotion(displayed.current, target, dt);
       const active = !paused && !document.hidden && !!artwork.art && artwork.art.areas[area].coloredPixels >= COLOR_PIXEL_MIN && matchesBodyStretch(target, area);
-      if (experience === "guided") guide.current = advanceGuide(guide.current, target, now, guidedRunning && phase === "stretching" && !!artwork.art, freeze);
-      else holds.current = advanceAreaHolds(holds.current, area, active, now, timing, paused || document.hidden);
+      if (experience === "guided") {
+        const previous = guideSnapshot(guide.current);
+        guide.current = advanceGuide(guide.current, target, now, guidedRunning && phase === "stretching" && !!artwork.art, freeze);
+        if (previous.progress < 1 && guideSnapshot(guide.current).fades[previous.area] >= 1) setCelebration(value => value + 1);
+      } else {
+        const previous = holds.current[area].fade;
+        holds.current = advanceAreaHolds(holds.current, area, active, now, timing, paused || document.hidden);
+        if (previous < 1 && holds.current[area].fade >= 1) setCelebration(value => value + 1);
+      }
       const current = holds.current[area], snapshot = guideSnapshot(guide.current);
       const areaFades = experience === "guided" ? snapshot.fades : Object.fromEntries(AREA_IDS.map(id => [id, holds.current[id].fade])) as ReturnType<typeof emptyFades>;
       renderAvatar(ctx, artwork.art, displayed.current, areaFades, strength);
@@ -156,7 +166,7 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
     setProgress({ hold: state.elapsed / timing.holdMs, fade: state.fade, complete: state.complete, active: false });
   };
   useWebMcp({
-    state: () => ({ phase, framing: { ready: frameStatus.ready, valid: frameStatus.valid, recovery: frameStatus.recovery }, drawingSource: artwork.kind, mode, camera: camera.status, experience, guided: { running: guidedRunning, areas: journey.areas, activity: journey.areas.length ? journey.index + 1 : 0, activityCount: journey.areas.length, step: journey.step, skipped: journey.skipped, feetFallback: journey.feetFallback, progress: journey.progress, total: journey.total, done: journey.done }, bodyArea: activeArea, areaFades: { ...fades }, manual: { ...manual }, paused, areaCount: AREA_IDS.length, holdSeconds: timing.holdMs / 1000, fadeSeconds: timing.fadeMs / 1000, fadeAmount: strength, holdProgress: progress.hold, fadeProgress: progress.fade, complete: progress.complete }),
+    state: () => ({ phase, framing: { ready: frameStatus.ready, valid: frameStatus.valid, recovery: frameStatus.recovery }, drawingSource: artwork.kind, mode, camera: camera.status, experience, guided: { running: guidedRunning, areas: journey.areas, activity: journey.areas.length ? journey.index + 1 : 0, activityCount: journey.areas.length, step: journey.step, skipped: journey.skipped, progress: journey.progress, total: journey.total, done: journey.done }, bodyArea: activeArea, areaFades: { ...fades }, manual: { ...manual }, paused, areaCount: AREA_IDS.length, holdSeconds: timing.holdMs / 1000, fadeSeconds: timing.fadeMs / 1000, fadeAmount: strength, holdProgress: progress.hold, fadeProgress: progress.fade, complete: progress.complete }),
     setManual: pose => { changeMode("manual"); setManual(pose); },
     setArea: changeArea,
     startGuided,
@@ -220,13 +230,12 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
     : journey.transitioning ? journey.index < journey.areas.length - 1 ? "Completed · next activity…" : "Completed"
     : mode === "camera" && camera.status !== "live" ? "Enable camera or choose Manual demo"
     : mode === "camera" && (!detected.tracked || missing) ? preset.framing
-    : journey.step === "heel-raise" && !detected[`${selectedSide}FootVisible`] ? "Foot unclear · keep it in view, or skip"
     : journey.active ? "Movement detected" : "Follow the guide gently";
   const guidedFeedback = <div className="stretch-feedback guided-feedback" data-testid="guided-feedback" data-guided-state={paused ? "paused" : journey.done ? "completed" : journey.transitioning ? "transitioning" : guidedRunning ? journey.active ? "moving" : "ready" : "idle"}>
     <ol className="activity-steps" aria-label="Stretching sequence">{journey.areas.map((id, index) => <li key={id} aria-current={journey.index === index ? "step" : undefined} data-completed={journey.fades[id] >= 1}>
       {index + 1}. {areaConfig(id).label}{journey.skipped.includes(id) ? " (skipped)" : journey.fades[id] >= 1 ? " ✓" : ""}
     </li>)}</ol>
-    <p className="stretch-instruction" data-testid="current-activity"><strong>{journey.areas.length ? guideInstruction(activeArea, journey.step, journey.feetFallback) : "Your colored regions will select the stretches."}</strong></p>
+    <p className="stretch-instruction" data-testid="current-activity"><strong>{journey.areas.length ? guideInstruction(activeArea, journey.step) : "Your colored regions will select the stretches."}</strong></p>
     <p className="comfort-note">Stay comfortable. Skip any activity.</p>
     <div className="guided-progress"><strong role="status" aria-live="polite" data-testid="guided-status">{guidedStatus}</strong>
       <progress aria-label="Activity progress" max="1" value={journey.progress} /><span data-testid="guided-percent">{Math.round(journey.progress * 100)}%</span>
@@ -236,6 +245,7 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
   const feedback = experience === "guided" ? guidedFeedback : practiceFeedback;
 
   const guidedView = experience === "guided" && <div className="guided-shell" ref={stage} data-experience="guided" data-phase={phase} data-testid="guided-shell">
+    {!!celebration && <StretchCelebration key={celebration} />}
     <PositioningGate camera={camera} visible={phase === "positioning"} countdown={positionCountdown(frameStatus, frameStatus.valid)} valid={frameStatus.valid} message={frameStatus.message} hasColor={journey.areas.length > 0}
       onStart={() => { if (document.hidden || phase !== "positioning" || !framing.current.ready || positionCountdown(framing.current, true) !== 0) return; framing.current.recovery = false; setGuidedRunning(true); setPhase("stretching"); }}
       onBack={() => { camera.stop(); setPhase("setup"); }} />
@@ -251,7 +261,7 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
       </details>
     </div>
     <div hidden={phase !== "stretching"}><StretchStage area={activeArea} step={journey.step} name={participantName || "Your drawing"} paused={paused || mode === "camera" && (!frameStatus.valid || frameStatus.recovery)} done={journey.done} transitioning={journey.transitioning} resetKey={resetKey}
-      progress={journey.progress} status={guidedStatus} fallback={journey.feetFallback} recovery={phase === "stretching" && frameStatus.recovery && mode === "camera"} ready={frameStatus.ready} message={frameStatus.message}
+      progress={journey.progress} status={guidedStatus} recovery={phase === "stretching" && frameStatus.recovery && mode === "camera"} ready={frameStatus.ready} message={frameStatus.message}
       onSkip={skipActivity} onPause={togglePause} onRestart={() => { restore(); setManual({ ...MANUAL_REST }); setPaused(false); if (mode === "camera") setPhase("positioning"); }}
       onEnd={() => { camera.stop(); if (onParticipantReset) onParticipantReset(); else resetExperience(); }}
       onContinue={() => { if (framing.current.ready) { framing.current.recovery = false; setFrameStatus(value => ({ ...value, recovery: false })); } }}
@@ -263,6 +273,7 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
 
   if (guidedView) return guidedView;
   return <div className="installation-shell" data-experience={experience}>
+    {!!celebration && !full && <StretchCelebration key={celebration} />}
     <header className="site-header"><h1>{participantMode ? "Out of Body" : "Out of Body — MVP"}</h1></header>
     <main><div className="experience-grid">
       <aside className="control-panel">
@@ -296,6 +307,7 @@ export function Installation({ initialArtwork, onArtworkReady, onComplete, onPar
         </div>
         {!full && feedback}
         <div className="avatar-stage duet-stage" ref={stage}>
+          {!!celebration && full && <StretchCelebration key={celebration} />}
           {full && <div className="fullscreen-feedback">{feedback}<div className="button-row fullscreen-actions">
             <button onClick={togglePause}>{paused ? "Resume" : "Pause"}</button>
             {experience === "guided" && <button disabled={!guidedRunning || journey.done || journey.transitioning} onClick={skipActivity}>Skip activity</button>}

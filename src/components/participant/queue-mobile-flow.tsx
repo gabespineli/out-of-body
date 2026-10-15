@@ -15,12 +15,14 @@ export function QueueMobileFlow({ notice }: { notice: string }) {
   const [name, setName] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState(""), [initialized, setInitialized] = useState(false);
   const [connectionError, setConnectionError] = useState("");
   const [cancelRequest, setCancelRequest] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const locked = useRef(false), current = useRef(ticket), generation = useRef(0);
   const accept = useCallback((value: QueueTicket) => {
     const previous = current.current;
     if (terminalTicket(value.status) || previous?.id !== value.id) setCancelRequest(null);
     current.current = value;
     setTicket(value);
+    if (value.status === "completed" && previous?.status !== "completed") setStep("waiting");
     if (value.status !== "preparing" && value.status !== "uploading") { camera.stop(); photo.clear();
       if (!previous || ["preparing", "uploading"].includes(previous.status)) setStep("waiting"); }
     if (!previous || previous.id !== value.id || terminalTicket(value.status) ||
@@ -73,6 +75,18 @@ export function QueueMobileFlow({ notice }: { notice: string }) {
     finally { locked.current = false; setBusy(false); }
   };
   const ended = ticket && terminalTicket(ticket.status);
+  const saveDrawing = async () => {
+    if (saving) return;
+    setSaving(true); setError("");
+    try {
+      const response = await fetch("/api/participant/queue/result", { cache: "no-store" });
+      if (!response.ok) { const message = await response.json().catch(() => null); throw new Error(message?.error || "Could not download your drawing. Please retry."); }
+      const url = URL.createObjectURL(await response.blob()), link = document.createElement("a");
+      link.href = url; link.download = "out-of-body-completed.png"; document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not download your drawing. Please retry."); }
+    finally { setSaving(false); }
+  };
   return <main className="mobile-participant" data-testid="mobile-flow" data-step={step} data-terminal={!!ended}><header className="mobile-brand"><h1><BrandLogo /></h1></header>
     {notice && <p className="participant-note">{notice}</p>}
     {!initialized ? <p className="mobile-loading" role="status">Checking the installation…</p> : step === "about" ? <section className="mobile-about"><h2 className="visually-hidden">About Out of Body</h2>
@@ -86,6 +100,10 @@ export function QueueMobileFlow({ notice }: { notice: string }) {
         <p className="intake-status" role="status">{!queue ? "Checking available slots…" : !queue.online ? "The installation is not accepting participants yet." : !queue.accepting ? "The queue is currently full. Please try again shortly." : `${queue.waiting} of ${queue.capacity} waiting slots reserved.`}</p></section>
       : ended ? <section className="mobile-ended"><h2>{ticket.status === "completed" ? "Thank you for moving!" : ticket.status === "expired" ? "Your ticket expired" : "Ticket cancelled"}</h2>
         <p>{ticket.status === "completed" ? "Please take home a care card and remember to look after your body." : "Your temporary drawing is scheduled for deletion."}</p>
+        {ticket.status === "completed" && ticket.downloadAvailable && <>
+          <button className="primary-action" disabled={saving} onClick={() => void saveDrawing()}>{saving ? "Saving…" : "Save your drawing"}</button>
+          <p className="participant-note">Available for one hour after your session.</p>
+        </>}
         <button className="primary-action home-action" onClick={() => setStep("landing")}><DesignIcon name="home" />Back to home</button></section>
       : step === "camera" ? <MobileCapture camera={camera} onCapture={() => void capture()} onChoose={file => void choose(file)} busy={busy || photo.busy} />
       : step === "preview" ? <MobilePreview photo={photo} name={name} onName={setName} sending={busy} onSend={() => void send()} onRetake={() => { photo.clear(); setStep("camera"); }} />

@@ -7,7 +7,7 @@ test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true
 async function phone(page: Page, status: TicketStatus | null = null) {
   const state = { status, ahead: 1, joins: 0, sends: 0, cancels: 0, offline: false, uploadError: "", cancelError: "", lostUpload: false, full: false, lostJoin: false };
   const ticket = () => ({ id: "2b2c4167-d1ea-4f9f-a720-698e90ca1d53", number: 7, name: "Alex", ahead: state.ahead,
-    status: state.status, createdAt: "2026-10-14T00:00:00Z", expiresAt: "2099-01-01T00:00:00Z" });
+    status: state.status, createdAt: "2026-10-14T00:00:00Z", expiresAt: "2099-01-01T00:00:00Z", downloadAvailable: state.status === "completed" });
   await page.route("**/api/participant/queue", route => state.offline
     ? route.fulfill({ status: 503, json: { error: "Connection interrupted. Retrying…" } })
     : route.fulfill({ json: { waiting: state.full ? 20 : 1, capacity: 20, accepting: !state.full, online: true } }));
@@ -65,6 +65,36 @@ test("the Figma ticket layout shows live place in line and one short message, th
     const copy = await message.boundingBox(), home = await page.getByRole("button", { name: "Back to home", exact: true }).boundingBox(), cancel = await page.getByRole("button", { name: "Cancel my ticket", exact: true }).boundingBox();
     expect(copy!.y + copy!.height).toBeLessThan(home!.y); expect(home!.y + home!.height).toBeLessThan(cancel!.y);
   }
+});
+
+test("phone completion offers the finished drawing, retries download failures and survives reload", async ({ page }) => {
+  await page.clock.install(); const state = await phone(page, "active");
+  let failure = true;
+  const image = await sharp({ create: { width: 840, height: 900, channels: 3, background: "#faf8f3" } }).png().toBuffer();
+  await page.route("**/api/participant/queue/result", route => failure
+    ? route.fulfill({ status: 503, json: { error: "Could not download your drawing. Please retry." } })
+    : route.fulfill({ contentType: "image/png", body: image }));
+  await page.goto("/mobile"); await expect(page.getByRole("button", { name: "Save your drawing" })).toHaveCount(0);
+  await expect(page.getByTestId("queue-ticket")).toBeVisible();
+  await page.getByRole("button", { name: "Back to home", exact: true }).click();
+  state.status = "completed"; await page.clock.runFor(5001);
+  await expect(page.getByRole("heading", { name: "Thank you for moving!" })).toBeVisible();
+  await page.getByRole("button", { name: "Save your drawing" }).click();
+  await expect(page.getByTestId("mobile-flow").getByRole("alert")).toContainText("Please retry");
+  failure = false; const event = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Save your drawing" }).click();
+  expect((await event).suggestedFilename()).toBe("out-of-body-completed.png");
+  await expect(page.getByTestId("mobile-flow").getByRole("alert")).toHaveCount(0);
+  await page.reload(); await expect(page.getByRole("button", { name: "Save your drawing" })).toBeVisible();
+  for (const [width,height] of [[320,600],[390,844],[430,932]]) {
+    await page.setViewportSize({ width,height });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const save = await page.getByRole("button", { name: "Save your drawing" }).boundingBox();
+    const home = await page.getByRole("button", { name: "Back to home", exact: true }).boundingBox();
+    expect(save!.y + save!.height).toBeLessThan(home!.y);
+  }
+  await page.screenshot({ path: "test-results/phone-completion-download.png", fullPage: true });
+  await expect(page.getByRole("button", { name: "Cancel my ticket" })).toHaveCount(0);
 });
 
 test("cancellation confirmation preserves the preview on Keep or Escape and cancels only after confirmation", async ({ page }) => {

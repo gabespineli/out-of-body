@@ -163,6 +163,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .mobile-ticket .participant-note { font-size: 13px; margin-top: 18px; }
 .home-action { width: 204px; min-height: 44px; padding: 8px 12px; font-size: 20px; text-transform: uppercase; white-space: nowrap; }
 .mobile-ticket .home-action, .mobile-ended .home-action { position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%); }
+.mobile-ended { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:40px 0; }
+.mobile-ended p { margin:0; max-width:300px; }
+.mobile-ended .participant-note { font-size:13px; }
+.mobile-ended .home-action { position:static; transform:none; margin-top:14px; }
 .ticket-footer { border: 0; font-size: 12px; color: var(--pink-text); margin-top: 12px; padding-top: 6px; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
 .ticket-footer .ticket-cancel-action { min-height: 44px; font-size: 13px; padding: 8px 10px; }
 .ticket-cancel-dialog { width: min(380px,calc(100vw - 40px)); max-height: calc(100svh - 40px); padding: 28px; border: 0; border-radius: 16px; background: #faf7e8; color: var(--pink-text); box-shadow: 0 10px 40px #7c0f5540; margin: auto; }
@@ -214,3 +218,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .mobile-primary-actions .primary-action, .about-action { font-size: clamp(16px,4.651vw,20px); }
 }
 @media (prefers-reduced-motion: reduce) { .primary-action:active:not(:disabled), .exhibit-button:active:not(:disabled), .about-action:active:not(:disabled) { translate: none; } }
+/* Brief completion feedback stays clear of controls and tracking prompts. */
+.stretch-celebration { position:fixed; inset:0; z-index:15; pointer-events:none; overflow:hidden; display:grid; place-items:center; }
+.celebration-message { position:absolute; top:18%; color:var(--pink, #ff3eb5); padding:12px 24px; border-radius:16px; background:#fffaf0e8; font-weight:700; box-shadow:0 4px 16px #ffffff80; }
+.confetti-pieces { position:absolute; left:50%; top:42%; }
+.confetti-pieces i { position:absolute; width:9px; height:16px; background:var(--color); animation:stretch-confetti 950ms ease-out var(--delay) both; }
+@keyframes stretch-confetti { 0% { opacity:0; transform:translate(0,0) rotate(0); } 12% { opacity:1; } 100% { opacity:0; transform:translate(var(--x),230px) rotate(var(--turn)); } }
+@media (prefers-reduced-motion:reduce) { .confetti-pieces { display:none; } }

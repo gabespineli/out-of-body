@@ -20,7 +20,7 @@ async function manualPose(page: Page, values: Record<string, number>) {
     tools.configure_manual_pose.execute({ ...state.manual, ...values });
   }, values);
 }
-async function rest(page: Page) { await manualPose(page, { left: 0, right: 0, lean: 0, leftElbow: 0, rightElbow: 0, headTilt: 0, leftLeg: 0, rightLeg: 0, heelRaise: 0 }); }
+async function rest(page: Page) { await manualPose(page, { left: 0, right: 0, lean: 0, leftElbow: 0, rightElbow: 0, headTilt: 0, leftLeg: 0, rightLeg: 0 }); }
 
 async function drawing(areas: BodyArea[], extra = "") {
   const marks = areas.map(id => { const [x, y] = spots[id]; return `<rect x="${x-8}" y="${y-8}" width="16" height="16" fill="#279aa3"/>`; }).join("");
@@ -42,9 +42,9 @@ async function pixel(page: Page, id: BodyArea) {
 }
 async function move(page: Page, area: BodyArea, i: number) {
   const step = await page.getByTestId("avatar").getAttribute("data-step"), side = area.startsWith("right") ? "right" : "left";
-  const control = area === "neck-head" ? "head tilt" : area === "torso" ? "side lean" : step === "reach" ? `${side} arm height` : step === "elbow-bend" ? `${side} elbow bend` : step === "heel-raise" ? "heel raise" : `${side} leg swing`;
-  const value = area === "neck-head" || area === "torso" ? i % 2 ? ".5" : "-.5" : step === "reach" ? i % 2 ? ".8" : ".5" : step === "elbow-bend" ? i % 2 ? ".8" : ".1" : step === "heel-raise" ? i % 2 ? ".6" : "0" : i % 2 ? "0" : side === "left" ? ".6" : "-.6";
-  const key = area === "neck-head" ? "headTilt" : area === "torso" ? "lean" : step === "reach" ? side : step === "elbow-bend" ? `${side}Elbow` : step === "heel-raise" ? "heelRaise" : `${side}Leg`;
+  const control = area === "neck-head" ? "head tilt" : area === "torso" ? "side lean" : step === "reach" ? `${side} arm height` : step === "elbow-bend" ? `${side} elbow bend` : `${side} leg swing`;
+  const value = area === "neck-head" || area === "torso" ? i % 2 ? ".5" : "-.5" : step === "reach" ? i % 2 ? ".8" : ".5" : step === "elbow-bend" ? i % 2 ? ".8" : ".1" : i % 2 ? "0" : side === "left" ? ".6" : "-.6";
+  const key = area === "neck-head" ? "headTilt" : area === "torso" ? "lean" : step === "reach" ? side : step === "elbow-bend" ? `${side}Elbow` : `${side}Leg`;
   await manualPose(page, { [key]: Number(value) }); await page.waitForTimeout(350);
 }
 async function finish(page: Page, area: BodyArea) {
@@ -91,11 +91,13 @@ test("a forearm activity uses an independent elbow control and only fades that r
   // Ordered colored regions: torso, left upper arm, left forearm, right forearm.
   await page.getByRole("button", { name: "Skip Stretch", exact: true }).click();
   await page.getByRole("button", { name: "Skip Stretch", exact: true }).click();
+  await expect(page.getByTestId("stretch-celebration")).toHaveCount(0);
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-area", "left-forearm");
   await expect(page.getByRole("slider", { name: "Manual left elbow bend", exact: true })).toHaveCount(0);
   await expect(page.getByRole("slider", { name: "Manual left arm height", exact: true })).toHaveCount(0);
   await expect(page.getByTestId("instructor")).toHaveAttribute("data-neck-arrow", "false");
   await finish(page, "left-forearm");
+  await expect(page.getByTestId("stretch-celebration")).toContainText("Stretch complete!");
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-area", "right-forearm", { timeout: 3000 });
   await rest(page); await page.waitForTimeout(1100);
   expect((await pixel(page, "left-forearm"))[0]).toBeGreaterThan(235);
@@ -108,10 +110,13 @@ test("a forearm activity uses an independent elbow control and only fades that r
 test("selected torso and leg activities finish and saved output preserves other colored regions", async ({ page }, testInfo) => {
   test.setTimeout(65000); await prepare(page, ["torso", "left-leg", "right-forearm"]);
   await finish(page, "torso");
+  await expect(page.getByTestId("stretch-celebration")).toBeVisible();
+  await page.screenshot({ path: "test-results/stretch-confetti.png", fullPage: true });
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-area", "right-forearm", { timeout: 3000 });
   await page.getByRole("button", { name: "Skip Stretch", exact: true }).click();
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-area", "left-leg");
   await finish(page, "left-leg");
+  await expect(page.getByTestId("stretch-celebration")).toBeVisible();
   await expect(page.getByTestId("guided-status")).toHaveText("Finished · 1 skipped", { timeout: 3000 });
   await rest(page); await page.waitForTimeout(1100);
   expect((await pixel(page, "torso"))[0]).toBeGreaterThan(235); expect((await pixel(page, "left-leg"))[0]).toBeGreaterThan(235); expect(await pixel(page, "right-forearm")).toEqual(color);
@@ -124,6 +129,15 @@ test("selected torso and leg activities finish and saved output preserves other 
   expect(Array.from(data.subarray(start, start + 4))).toEqual(color);
   await page.getByRole("button", { name: "Replay sequence", exact: true }).click();
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-guided-total", "0.000");
+});
+
+test("reduced motion keeps quiet completion feedback and hides confetti", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await prepare(page, ["neck-head"]); await finish(page, "neck-head");
+  await expect(page.getByTestId("stretch-celebration")).toContainText("Stretch complete!");
+  await expect(page.locator(".confetti-pieces")).toBeHidden();
+  await page.waitForTimeout(1300);
+  await expect(page.getByTestId("stretch-celebration")).toHaveCount(0);
 });
 test("blank drawings cannot start; camera denial retains manual fallback for colored drawings", async ({ page }) => {
   await page.addInitScript(() => { navigator.mediaDevices.getUserMedia = async () => { throw new DOMException("Denied test camera", "NotAllowedError"); }; });

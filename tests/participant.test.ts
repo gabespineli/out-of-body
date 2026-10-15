@@ -45,3 +45,12 @@ test("wrong formats, invalid dimensions and excessive streams are rejected befor
   await assert.rejects(readArtwork(request(wrongSize)), (cause: unknown) => cause instanceof SessionError && cause.status === 400);
   await assert.rejects(readArtwork(request(Buffer.alloc(MAX_UPLOAD_BYTES + 1))), (cause: unknown) => cause instanceof SessionError && cause.status === 413);
 });
+
+test("finished drawings accept only the full stage PNG and flatten transparent pixels for phone downloads", async () => {
+  const bytes = await sharp({ create: { width: 840, height: 900, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).png().toBuffer();
+  const request = () => new Request("https://example.com", { method: "POST", headers: { "Content-Type": "image/png" }, body: bytes });
+  await assert.rejects(readArtwork(request()));
+  const prepared = await readArtwork(request(), 840);
+  const meta = await sharp(prepared).metadata(); assert.equal(meta.width, 840); assert.equal(meta.height, 900);
+  assert.deepEqual(Array.from((await sharp(prepared).ensureAlpha().raw().toBuffer()).subarray(0, 4)), [250, 248, 243, 255]);
+});

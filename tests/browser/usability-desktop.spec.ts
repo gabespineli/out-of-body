@@ -19,10 +19,11 @@ async function exhibit(page: Page, active = false) {
     if (action === "call") { state.calls++; const next = queue.tickets.find(value => value.status === "ready")!; next.status = "called"; queue.called = next; if (state.lostCall) return route.abort("failed"); }
     if (action === "later") { ticket.status = "ready"; queue.called = null; }
     if (action === "start") { ticket.status = "active"; queue.active = ticket; queue.called = null; }
-    if (action === "complete") {
-      state.completions++; queue.active = null; queue.tickets = []; queue.waiting = 0;
-      if (state.lostCompletion) return route.abort("failed");
-    }
+    return route.fulfill({ json: { cleanupPending: false } });
+  });
+  await page.route("**/api/participant/queue/result?*", route => {
+    state.completions++; queue.active = null; queue.tickets = []; queue.waiting = 0;
+    if (state.lostCompletion) return route.abort("failed");
     return route.fulfill({ json: { cleanupPending: false } });
   });
   const drawing = await sharp(Buffer.from(silhouetteSvg(false).replace("</svg>", '<rect x="256" y="324" width="87" height="130" fill="#279aa3"/></svg>'))).png().toBuffer();

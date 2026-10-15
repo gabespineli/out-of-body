@@ -1,3 +1,16 @@
+## Side raises, phone downloads and stretch celebrations - 15 October 2026
+
+Replaced the heel-raise stage and side-view guide with extended selected-side leg raises. Each leg still earns eight seconds: one third side steps, two thirds side raises. Foot-detail visibility is no longer needed for this sequence. Completed regions trigger one brief confetti burst; skips do not. Reduced-motion users receive the quiet completion message.
+
+The installation sends its final canvas to private storage before completing the ticket. Only the owning phone can download that result for one hour. The exhibit directs saving to the phone; retries preserve the first stored frame, and original uploads are deleted immediately. Added `202610150001_queue_results.sql`, applied only to the dedicated local Docker database. Hosted Supabase must apply it before deployment; no new Vercel variable is required.
+
+- Production build, TypeScript, whitespace checks and all **62 unit tests passed**.
+- **53 distinct affected browser scenarios passed** across the initial batch and focused reruns. One optional static-camera replay was skipped because its external fixture was not configured; no physical camera/device validation is claimed.
+- Coverage includes both leg sides, opposite-side/missing-landmark rejection, region-specific fades, partial skips, repeated/final celebrations, reduced motion, phone completion from Home, downloads/reload/retry, non-overlapping phone controls at 320/390/430 pixels, queue cancellation/rejoining and completion recovery.
+- The real local phone-to-exhibit flow compared every downloaded image pixel with the captured final canvas after its opaque export. API checks verified ownership, query-ID isolation, inactive/cancelled rejection, one-hour retention, interrupted-publication recovery and first-frame preservation on repeated completion.
+- Initial failures came from the new phone test matching Next's separate route announcer, unavailable browser inspection of a Blob request body, and a local scheduler pointing at inactive port 3000. Scoped the alert assertion, captured the actual canvas export for pixel comparison, and temporarily directed the local scheduler to the test server. Both scheduled deletion tests passed; the original port 3000 address was restored. Environment files and unrelated Docker projects were unchanged.
+- Screenshots were inspected and saved outside the repository under `stretch-completion/`. Test-owned tickets/files were removed. No commit, hosted migration or deployment was performed.
+
 ## Simplified phone queue status — 14 October 2026
 
 Rechecked Figma ending frame `16:144` and applied its logo/title/message/Home spacing to the phone status screen. Waiting participants see one short message with their current place (`ahead + 1`) rather than the permanent ticket number. Called participants receive a short move-to-screen cue within the waiting state; active participants see Drawing on screen and the Figma stretching instruction. Removed repeated names, ticket-number footers and expiry/helper paragraphs. Home and confirmed cancellation remain available, with cancellation centered below Home.

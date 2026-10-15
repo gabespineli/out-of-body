@@ -5,7 +5,8 @@ import { backend, ART_BUCKET } from "./participant-store";
 import { credential, equalSecret, operatorKey, SessionError, tokenHash } from "./session-security";
 import { IMAGE_WARNING_BYTES, QUEUE_CAPACITY, QUEUE_COOKIE, permanentMobileUrl, terminalTicket, type QueuePublic, type QueueState, type QueueTicket, type TicketStatus } from "@/lib/queue";
 export type StoredTicket = { id: string; number: number; mobile_hash: string; client_hash: string; participant_name: string;
-  status: TicketStatus; created_at: string; order_at: string | null; expires_at: string; object_path: string | null; image_bytes: number };
+  status: TicketStatus; created_at: string; order_at: string | null; expires_at: string; object_path: string | null; image_bytes: number;
+  result_path: string | null; result_bytes: number };
 const messages: Record<string, [number, string]> = {
   QUEUE_FULL: [409, "The queue is full. Please try again shortly."], QUEUE_OFFLINE: [409, "The installation is not accepting participants yet."],
   QUEUE_EXISTING: [409, "This browser already has a ticket. Reopen it here, or wait for its reservation to expire."],
@@ -20,7 +21,8 @@ function check(error: { message?: string } | null) {
 }
 export async function expireTickets() { const { error } = await backend().rpc("oob_queue_expire"); check(error); }
 const view = (row: StoredTicket, ahead = 0): QueueTicket => ({ id: row.id, number: row.number, name: row.participant_name,
-  status: row.status, expiresAt: row.expires_at, createdAt: row.created_at, ahead });
+  status: row.status, expiresAt: row.expires_at, createdAt: row.created_at, ahead,
+  downloadAvailable: row.status === "completed" && !!row.result_path && Date.parse(row.expires_at) > Date.now() });
 export async function queueRows() {
   await expireTickets();
   const { data, error } = await backend().from("oob_queue_tickets").select("*").in("status", ["preparing", "uploading", "ready", "called", "active"])
@@ -125,10 +127,45 @@ export async function cleanupQueue() {
   const { data, error } = await db.from("oob_queue_tickets").select("id,object_path").in("status", ["completed", "cancelled", "expired"]).lt("expires_at", cutoff).limit(100); check(error);
   let deleted = 0, failed = 0;
   for (const row of data ?? []) {
-    if (row.object_path && (await db.storage.from(ART_BUCKET).remove([row.object_path])).error) { failed++; continue; }
+    // The deterministic result path also covers an interrupted upload before SQL publication.
+    if ((await db.storage.from(ART_BUCKET).remove([...(row.object_path ? [row.object_path] : []), `queue/${row.id}/completed.png`])).error) { failed++; continue; }
     const removed = await db.from("oob_queue_tickets").delete().eq("id", row.id).lt("expires_at", cutoff);
     if (removed.error) failed++; else deleted++;
   }
   const rates = await db.from("oob_queue_rate_limits").delete().lt("window_start", new Date(Date.now() - 86_400_000).toISOString()); check(rates.error);
   return { deleted, failed };
+}
+
+export async function finishWithDrawing(id: string, read: () => Promise<Buffer>) {
+  const db = backend();
+  await expireTickets();
+  const found = await db.from("oob_queue_tickets").select("*").eq("id", id).maybeSingle(); check(found.error);
+  const row = found.data as StoredTicket | null;
+  if (row?.status === "completed" && row.result_path) {
+    const removed = row.object_path ? await db.storage.from(ART_BUCKET).remove([row.object_path]) : null;
+    return { cleanupPending: !!removed?.error };
+  }
+  if (!row || row.status !== "active") throw new SessionError(409, "That participant is not active.");
+  await uploadAttempt(id);
+  const bytes = await read(), path = `queue/${id}/completed.png`;
+  const stored = await db.storage.from(ART_BUCKET).upload(path, bytes, { contentType: "image/png", cacheControl: "0", upsert: false });
+  // A retry or second operator keeps the first saved frame, instead of overwriting it.
+  let size = bytes.length;
+  if (stored.error) {
+    if (String((stored.error as { statusCode?: string }).statusCode) !== "409" && !stored.error.message.includes("already exists")) check(stored.error);
+    const saved = await db.storage.from(ART_BUCKET).download(path); check(saved.error);
+    if (!saved.data) throw new SessionError(503, "The finished drawing could not be saved. Retry finishing the ticket.");
+    size = saved.data.size;
+  }
+  const finished = await db.rpc("oob_queue_finish", { p_id: id, p_bytes: size }); check(finished.error);
+  const removed = row.object_path ? await db.storage.from(ART_BUCKET).remove([row.object_path]) : null;
+  return { cleanupPending: !!removed?.error };
+}
+
+export async function completedDrawing(row: StoredTicket) {
+  if (row.status !== "completed" || !row.result_path || Date.parse(row.expires_at) <= Date.now()) throw new SessionError(410, "This finished drawing is no longer available.");
+  const counted = await backend().rpc("oob_queue_result_download", { p_id: row.id }); check(counted.error);
+  const result = await backend().storage.from(ART_BUCKET).download(row.result_path); check(result.error);
+  if (!result.data) throw new SessionError(503, "The finished drawing could not be retrieved. Please retry.");
+  return result.data;
 }

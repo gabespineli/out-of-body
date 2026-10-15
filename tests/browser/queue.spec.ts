@@ -17,7 +17,7 @@ test.beforeAll(async () => {
 test.afterEach(async () => {
   for (const id of created) {
     const row = (await db().from("oob_queue_tickets").select("object_path").eq("id", id).maybeSingle()).data;
-    if (row?.object_path) await db().storage.from("oob-temporary-artwork").remove([row.object_path]);
+    if (row?.object_path) await db().storage.from("oob-temporary-artwork").remove([row.object_path, `queue/${id}/completed.png`]);
     await db().from("oob_queue_tickets").delete().eq("id", id);
   }
   created.clear();
@@ -42,6 +42,12 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
   await page.addInitScript(() => {
     const host = window as unknown as { installationTools: Record<string, { name: string; execute: (input: unknown) => object }> }; host.installationTools = {};
     Object.defineProperty(document, "modelContext", { value: { registerTool: (tool: { name: string; execute: (input: unknown) => object }) => { host.installationTools[tool.name] = tool; } } });
+    const original = HTMLCanvasElement.prototype.toDataURL;
+    HTMLCanvasElement.prototype.toDataURL = function(...args) {
+      const image = original.apply(this, args);
+      if (this.dataset.testid === "avatar") (window as unknown as { completedFrame: string }).completedFrame = image;
+      return image;
+    };
   });
   await open(page.request); await page.goto("/");
   await expect(page.getByTestId("installation-welcome")).toBeVisible();
@@ -96,6 +102,17 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
     }
     await expect(page.getByTestId("participant-completion")).toBeVisible();
     await expect(page.getByTestId("participant-completion")).toContainText("Stretching complete!");
+    await expect(page.getByRole("link", { name: "Save your drawing" })).toHaveCount(0);
+    await phone.reload();
+    await expect(phone.getByRole("button", { name: "Save your drawing", exact: true })).toBeVisible();
+    const downloadEvent = phone.waitForEvent("download");
+    await phone.getByRole("button", { name: "Save your drawing", exact: true }).click();
+    expect((await downloadEvent).suggestedFilename()).toBe("out-of-body-completed.png");
+    const finished = await phone.request.get("/api/participant/queue/result");
+    const captured = await page.evaluate(() => (window as unknown as { completedFrame: string }).completedFrame);
+    const expectedPixels = await sharp(Buffer.from(captured.split(",")[1], "base64")).flatten({ background: "#faf8f3" }).ensureAlpha().raw().toBuffer();
+    expect((await sharp(await finished.body()).ensureAlpha().raw().toBuffer()).equals(expectedPixels)).toBe(true);
+    await phone.screenshot({ path: "test-results/phone-finished-drawing.png", fullPage: true });
     await expect(page.getByTestId("queue-bar")).toHaveCount(0);
     await page.evaluate(async () => { await document.fonts.ready; });
     await page.screenshot({ path: "test-results/design-completion.png", fullPage: true });
@@ -108,6 +125,45 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
     expect(await page.getByTestId("session-qr").getAttribute("src")).toBe(qr);
   } finally { await mobile.close(); }
 });
+test("finished drawings stay private, completion retries preserve the first frame, and expired results are cleaned", async ({ request, browser }) => {
+  test.setTimeout(90000);
+  await open(request); const owner = await browser.newContext(), other = await browser.newContext();
+  try {
+    const ticket = await join(owner); await upload(owner);
+    expect((await owner.request.get("/api/participant/queue/result")).status()).toBe(410);
+    expect((await owner.request.post(`/api/participant/queue/result?id=${ticket.id}`, { headers: { "Content-Type": "image/png" }, data: drawing })).status()).toBe(401);
+    await action(request, "call"); await action(request, "start", ticket.id);
+    const result = await sharp({ create: { width: 840, height: 900, channels: 3, background: "#ec39ad" } }).png().toBuffer();
+    const submit = () => request.post(`/api/participant/queue/result?id=${ticket.id}`, { headers: { "Content-Type": "image/png" }, data: result });
+    expect((await request.post(`/api/participant/queue/result?id=${ticket.id}`, { headers: { "Content-Type": "image/png" }, data: drawing })).status()).toBe(400);
+    // Simulate a stored frame whose publication response was interrupted.
+    const path = `queue/${ticket.id}/completed.png`;
+    expect((await db().storage.from("oob-temporary-artwork").upload(path, result, { contentType: "image/png" })).error).toBeNull();
+    expect((await submit()).status()).toBe(200);
+    expect((await submit()).status()).toBe(200);
+    const replacement = await sharp({ create: { width: 840, height: 900, channels: 3, background: "#279aa3" } }).png().toBuffer();
+    expect((await request.post(`/api/participant/queue/result?id=${ticket.id}`, { headers: { "Content-Type": "image/png" }, data: replacement })).status()).toBe(200);
+    const view = await owner.request.get("/api/participant/queue/ticket").then(r => r.json());
+    expect(view.downloadAvailable).toBe(true); expect(view.status).toBe("completed");
+    expect(Date.parse(view.expiresAt) - Date.now()).toBeGreaterThan(3500_000);
+    const stranger = await join(other);
+    expect((await other.request.get(`/api/participant/queue/result?id=${ticket.id}`)).status()).toBe(410);
+    expect((await request.get(`/api/participant/queue/result?id=${ticket.id}`)).status()).toBe(401);
+    const downloaded = await owner.request.get("/api/participant/queue/result");
+    expect(downloaded.status()).toBe(200); expect(downloaded.headers()["cache-control"]).toBe("no-store");
+    const pixels = await sharp(await downloaded.body()).ensureAlpha().raw().toBuffer();
+    expect(Array.from(pixels.subarray(0,4))).toEqual([236,57,173,255]);
+    expect((await db().from("oob_queue_tickets").select("status").eq("id", stranger.id).single()).data?.status).toBe("preparing");
+    await other.request.delete("/api/participant/queue/ticket");
+    expect((await request.post(`/api/participant/queue/result?id=${stranger.id}`, { headers: { "Content-Type": "image/png" }, data: result })).status()).toBe(409);
+    await db().from("oob_queue_tickets").update({ expires_at: new Date(Date.now() - 180_000).toISOString() }).eq("id", ticket.id);
+    expect((await owner.request.get("/api/participant/queue/result")).status()).toBe(410);
+    expect((await owner.request.get("/api/participant/queue/ticket").then(r => r.json())).downloadAvailable).toBe(false);
+    await expect.poll(async () => (await db().from("oob_queue_tickets").select("id").eq("id", ticket.id).maybeSingle()).data, { timeout: 75000, intervals: [2000,5000] }).toBeNull();
+    expect((await db().storage.from("oob-temporary-artwork").download(path)).error).not.toBeNull();
+  } finally { await owner.close(); await other.close(); }
+});
+
 test("two operator screens automatically select the same FIFO head without advancing the following ticket", async ({ browser }) => {
   const first = await browser.newContext(), second = await browser.newContext();
   try {

@@ -53,11 +53,11 @@ Open `/`, enter the operator key, and leave the page visible. Operator authoriza
 
 - With no tickets, the installation shows a centered permanent QR and upload instructions on the full exhibit background. Mobile-upload and print-download links are directly below it.
 - When tickets arrive, the compact top strip shows current/called participant, ticket numbers, optional names, and reserved capacity. The QR remains visible below the strip until a session starts.
-- **Call next** chooses the oldest successfully uploaded drawing. A preparation in progress does not block ready tickets.
+- The oldest successfully uploaded drawing automatically fills an empty head while this page is open. A preparation in progress does not block ready tickets. No Call next click is needed.
 - **Start participant** explicitly activates the called ticket; upload alone never replaces the active drawing.
 - **Remove** cancels a waiting ticket; **End current session** ends the active ticket. Participants can cancel their own ticket from their phone.
 - **Skip activity** still skips only an exercise, preserving only earned fade.
-- Completion hides the queue. Next participant returns to the QR waiting view and any waiting-ticket controls; staff call/start the next ticket.
+- Completion hides the queue. Next participant returns to the QR waiting view and any waiting-ticket controls; the next ready ticket is selected automatically and staff press Start participant.
 
 Queue management is visible on the same display before and after each turn. Waiting names and queue actions are hidden while a participant aligns and stretches. The phone's Name field remains optional, limited to 40 characters, stripped of invisible controls, and erased as soon as a ticket ends/expires. Staff can call the displayed name; no names are included in public queue-count responses or another phone's response. Cancel my ticket is directly visible and opens a confirmation dialog; Keep my ticket and Escape preserve the ticket and preview.
 
@@ -83,7 +83,7 @@ Polling suspends when a page is hidden and backs off on network/service errors. 
 
 The exhibit has no Usage dropdown. Server-side calendar-month upload/download accounting and the 3 GB warning remain available; the warning is an application estimate, **not an account quota enforcement or billing meter**. It excludes API responses, legacy-session downloads, assets, other projects, and provider accounting differences, and does not stop existing participants. Monitor Supabase egress and Vercel invocations/CPU/memory/transfer in their provider dashboards, particularly for repeated events.
 
-Completed/cancelled artwork deletion is attempted immediately. Scheduled cleanup retries failed deletion, removes expired objects before deleting metadata, and retains a two-minute grace period for a late in-flight upload. Expiration revokes access immediately; physical file deletion depends on the scheduler reaching the app.
+Original uploaded artwork deletion is attempted immediately on completion/cancellation. Finished drawings are separate private 840 × 900 PNGs (at most 2,500,000 bytes), available to the owning phone for one hour after completion. Apply `202610150001_queue_results.sql` before deploying this version. No new environment variable is needed. The existing cleanup job removes both original and result paths after expiry, including a result upload interrupted before publication. Result uploads and downloads count toward the existing usage estimates. Scheduled cleanup retries failed deletion, removes expired objects before deleting metadata, and retains a two-minute grace period for a late in-flight upload. Expiration revokes access immediately; physical file deletion depends on the scheduler reaching the app.
 
 ## Drawing cleanup
 

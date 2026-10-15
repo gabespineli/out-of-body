@@ -19,7 +19,7 @@ test("framing checks the selected regions, confidence and boundary rather than s
   p[15].visibility = .99; p[15].x = Number.NaN;
   assert.equal(assessFraming(p, m, ["left-forearm"], true).valid, false);
 });
-test("all selected areas must fit during setup; current leg framing permits heel fallback", () => {
+test("all selected areas must fit during setup; leg framing does not depend on tiny foot landmarks", () => {
   const p = points(), m = { ...manualMotion(0, 0), leftFootVisible: false };
   assert.equal(assessFraming(p, m, ["left-leg"], true).valid, true);
   assert.equal(assessFraming(p, { ...m, hipsVisible: false }, ["torso"], true).valid, false);

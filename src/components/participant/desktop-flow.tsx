@@ -15,6 +15,7 @@ export function DesktopFlow() {
   const [automaticError, setAutomaticError] = useState("");
   const [file, setFile] = useState<File | null>(null), [result, setResult] = useState<InstallationResult | null>(null), [finishing, setFinishing] = useState<string | null>(null);
   const root = useRef<HTMLDivElement>(null), loaded = useRef<string | null>(null), lock = useRef(false), generation = useRef(0), queueGeneration = useRef(0);
+  const completedResult = useRef<InstallationResult | null>(null);
   const refresh = useCallback(async (signal?: AbortSignal) => {
     const version = queueGeneration.current;
     const relevant = () => !signal?.aborted && version === queueGeneration.current && (!signal || !lock.current);
@@ -35,9 +36,14 @@ export function DesktopFlow() {
   const action = useCallback(async (what: QueueAction, id?: string, automatic = false) => {
     if (lock.current) return; lock.current = true; queueGeneration.current++; setBusy(true); if (automatic) setAutomaticError(""); else setError("");
     try {
-      const value = await participantApi<{ cleanupPending: boolean }>("queue/action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: what, id }) });
+      let value: { cleanupPending: boolean };
+      if (what === "complete") {
+        if (!completedResult.current) throw new Error("The finished drawing is unavailable. Please retry the session.");
+        const image = await fetch(completedResult.current.snapshot).then(response => response.blob());
+        value = await participantApi("queue/result?id=" + id, { method: "POST", headers: { "Content-Type": "image/png" }, body: image });
+      } else value = await participantApi("queue/action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: what, id }) });
       await refresh();
-      if (what === "start" || what === "call" || what === "end") { setResult(null); setFinishing(null); }
+      if (what === "start" || what === "call" || what === "end") { completedResult.current = null; setResult(null); setFinishing(null); }
       if (what === "complete") setFinishing(null);
       if (value.cleanupPending) setError("Ticket ended. Temporary-file deletion will be retried by scheduled cleanup.");
     } catch (cause) { const message = cause instanceof Error ? cause.message : "Queue action failed. Retry."; if (automatic) setAutomaticError(message); else setError(message); }
@@ -72,7 +78,7 @@ export function DesktopFlow() {
   }, [queue?.active?.id]);
   const complete = useCallback((value: InstallationResult) => {
     const id = loaded.current; if (!id) return;
-    setResult(value); setFinishing(id); void action("complete", id);
+    completedResult.current = value; setResult(value); setFinishing(id); void action("complete", id);
   }, [action]);
   return <div className="participant-desktop" ref={root} data-testid="desktop-flow">
     {!initialized ? <p role="status">Preparing installation…</p> : !authorized || !queue ? <main className="participant-entry"><BrandLogo /><h1>Open the exhibit queue</h1>

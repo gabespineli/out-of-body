@@ -23,12 +23,11 @@ const controls: { key: keyof ManualPose; label: string; name: string; min: numbe
   { key: "rightLeg", label: "Right leg", name: "Manual right leg swing", min: -1, max: 0 },
   { key: "leftKnee", label: "Left knee bend", name: "Manual left knee bend", min: 0, max: 1 },
   { key: "rightKnee", label: "Right knee bend", name: "Manual right knee bend", min: 0, max: 1 },
-  { key: "heelRaise", label: "Heel raise", name: "Manual heel raise", min: 0, max: 1 },
 ];
 export function MotionPanel({ area, step, compact, camera, mode, setMode, manual, setManual, detected, preview = true }: Props) {
   const pending = camera.status === "permission" || camera.status === "loading", side = areaSide(area);
   const selected: keyof ManualPose = area === "neck-head" ? "headTilt" : area === "torso" ? "lean"
-    : area.endsWith("forearm") ? `${side}Elbow` : area.endsWith("upper-arm") ? side : step === "heel-raise" ? "heelRaise" : `${side}Leg`;
+    : area.endsWith("forearm") ? `${side}Elbow` : area.endsWith("upper-arm") ? side : `${side}Leg`;
   const preset = (values: Partial<ManualPose>) => setManual({ ...MANUAL_REST, ...values });
   return <section className="control-section motion-section" aria-labelledby="motion-title">
     <h2 id="motion-title">Motion</h2>

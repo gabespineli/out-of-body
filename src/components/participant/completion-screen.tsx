@@ -9,7 +9,8 @@ export function CompletionScreen({ result, onNext, busy }: { result: Installatio
     <p className="care-card-message">Please take home a care card.<br />Always remember to look after your body!</p>
     <p>{result.skipped.length ? `${result.skipped.length} ${result.skipped.length === 1 ? "activity" : "activities"} skipped. Only earned colors faded.` : "Your drawing reflects the movement you completed."}</p>
     </div>
-    <div className="button-row completion-actions"><a className="quiet-action" href={result.snapshot} download="out-of-body-completed.png">Save your drawing</a><button className="primary-action" onClick={onNext} disabled={busy}>{busy ? "Preparing next session…" : "Next participant"}</button></div>
+    <p>Save your finished drawing from your phone.</p>
+    <div className="button-row completion-actions"><button className="primary-action" onClick={onNext} disabled={busy}>{busy ? "Preparing next session…" : "Next participant"}</button></div>
     <p className="participant-note">Fading is symbolic progress, not proof of medical relief.</p>
   </section>;
 }

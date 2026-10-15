@@ -7,7 +7,7 @@ import { VisualInstructor } from "./visual-instructor";
 import { BrandLogo, DesignIcon } from "./design-brand";
 
 type Props = { area: BodyArea; step: GuideStep; participant: React.ReactNode; name: string; paused: boolean; done: boolean; transitioning: boolean; resetKey: number;
-  progress: number; status: string; fallback: boolean; recovery: boolean; ready: boolean; message: string;
+  progress: number; status: string; recovery: boolean; ready: boolean; message: string;
   onSkip: () => void; onPause: () => void; onRestart: () => void; onEnd: () => void; onContinue: () => void; onPosition: () => void };
 export function StretchStage(props: Props) {
   const prompt = useRef<HTMLDivElement>(null), returnFocus = useRef<HTMLElement | null>(null);
@@ -24,7 +24,7 @@ export function StretchStage(props: Props) {
     <p className="exhibit-intro">Relax. Follow your guide and watch as the tension in your body is finally relieved.</p>
     <div className="exhibit-panels" inert={props.recovery}>
       <div className="exhibit-guide"><h2>Your Guide</h2><div className="exhibit-panel-info"><p className="eyebrow">Now Relieving: <span>{props.area === "neck-head" ? "Head & neck" : areaConfig(props.area).label}</span></p>
-        <p data-testid="current-activity">{guideInstruction(props.area, props.step, props.fallback)}</p><span className="exhibit-live-status" role="status" data-testid="guided-status">{props.status}</span></div>
+        <p data-testid="current-activity">{guideInstruction(props.area, props.step)}</p><span className="exhibit-live-status" role="status" data-testid="guided-status">{props.status}</span></div>
         <VisualInstructor area={props.area} step={props.step} resetKey={props.resetKey} paused={props.paused || props.done} /></div>
       <div className="exhibit-drawing"><h2 title={props.name || "Your drawing"}>{props.name || "Your drawing"}</h2><div className="exhibit-panel-info exhibit-progress"><progress aria-label="Activity progress" max="1" value={props.progress} /><span data-testid="guided-percent">{Math.round(props.progress * 100)}%</span></div>{props.participant}</div>
     </div>
