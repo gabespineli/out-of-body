@@ -7,8 +7,8 @@ These are local source exports used by the application. No runtime asset depends
 | Runtime file | Figma source | Preparation |
 |---|---|---|
 | `exhibit-texture.webp` | Background image fill in `6:40` | 4096px texture resized to 2048px, lossless WebP; source opacity retained by the CSS cream overlay |
-| `mobile-background.webp` | Background and overlay in `16:86` | Exact paint-only 430 × 932 export, including image transform and pink overlay, lossless WebP |
-| `completion-background.webp` | Shader fill in `16:87` | Exact paint-only 1440 × 1024 still export, lossless WebP; user approved the still in place of animation |
+| `mobile-background.webp` | Background node `16:110` in `16:86` | Updated exact paint-only 430 × 932 export, lossless WebP; static on every phone screen |
+| `completion-background.webp` | Shader fill in `16:87` | Exact paint-only 1440 × 1024 still export, lossless WebP; fallback for reduced motion and unavailable WebGPU |
 | `logo.webp` | Shared pink logo image in the six source frames | Original transparent image resized to 608px, lossless WebP |
 | `body-template.webp` | `16:130` in capture frame `16:121` | Original sheet image resized to 1264px tall, lossless WebP; used before camera activation |
 | `camera.svg` | `16:118` / `16:162` | Native SVG export, original root geometry retained |
@@ -19,6 +19,10 @@ These are local source exports used by the application. No runtime asset depends
 | `skip.svg` | `68:13` | Native SVG export, original root geometry retained |
 
 The mobile landing, capture, ticket, About, stretching and completion screens reference frames `16:86`, `16:121`, `16:144`, `16:164`, `6:40` and `16:87`. Functional additions include optional participant names, ticket status/cancellation, image alignment and cleanup, camera positioning/recovery and save/next-participant actions. Responsive layouts adapt beyond the source frames' fixed dimensions.
+
+The completion screen alone runs the Figma Moving gradient shader (source version 625), preserved verbatim in `src/lib/figma/completion-gradient.ts`. The small native WebGPU host uses the exact frame `16:87` controls, limits rendering to 24 frames per second and 1280 × 900, and releases the GPU when hidden, unmounted, or reduced motion is enabled. It makes no frame-by-frame server requests. The original still remains visible if GPU initialization or rendering fails. No animation is mounted on phone pages.
+
+The shader browser test skips when its browser has no WebGPU adapter. Set `OOB_GPU_BROWSER=chrome` to run it with installed Chrome; the rest of the browser suite uses its normal browser. This is a test setting only.
 
 ## Fonts
 

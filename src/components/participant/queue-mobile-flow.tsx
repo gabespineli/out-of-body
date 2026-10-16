@@ -117,10 +117,10 @@ export function QueueMobileFlow({ notice }: { notice: string }) {
         <button className="primary-action home-action" onClick={() => setStep("landing")}><DesignIcon name="home" />Back to home</button></section>
       : step === "camera" ? <MobileCapture camera={camera} onCapture={() => void capture()} onChoose={file => void choose(file)} busy={busy || photo.busy} />
       : step === "preview" ? <MobilePreview photo={photo} name={name} onName={setName} sending={busy} onSend={() => void send()} onRetake={() => { photo.clear(); setStep("camera"); }} />
-      : ticket && <section className="mobile-ticket" data-testid="queue-ticket"><h2>{ticket.status === "active" ? "Drawing on screen" : "Drawing uploaded"}</h2>
-        <p className="ticket-message" role="status" aria-live="polite" aria-atomic="true">{ticket.status === "active" ? "Please move to the screen and let’s start stretching!" : ticket.status === "called" ? "You’re next in line. Please move to the screen." : `You’re #${ticket.ahead + 1} in line. Please wait for your turn.`}</p>
+      : ticket && <section className="mobile-ticket" data-testid="queue-ticket" data-status={ticket.status}><div className="ticket-content"><h2>{ticket.status === "active" ? "Drawing on screen" : ticket.status === "called" ? "It’s your turn" : "Drawing uploaded"}</h2>
+        <p className="ticket-message" role="status" aria-live="polite" aria-atomic="true">{ticket.status === "active" ? "Please move to the screen and let’s start stretching!" : ticket.status === "called" ? "Head to the exhibit screen. Start your session when you’re ready." : `You’re #${ticket.ahead + 1} in line. Please wait for your turn.`}</p>
         {ticket.status === "called" && <button className="primary-action phone-start-action" disabled={busy} onClick={() => void start()}>{busy ? "Starting…" : "Start my session"}</button>}
-        <button className="primary-action home-action" onClick={() => setStep("landing")}><DesignIcon name="home" />Back to home</button></section>}
+        </div><button className={`${ticket.status === "called" ? "secondary-action" : "primary-action"} home-action`} onClick={() => setStep("landing")}><DesignIcon name="home" />Back to home</button></section>}
     {ticket && !ended && <div className="ticket-footer">
       <button className="secondary-action ticket-cancel-action" disabled={busy} onClick={() => setCancelRequest(ticket.id)}>Cancel my ticket</button></div>}
     <TicketCancelDialog open={!!cancelRequest && ticket?.id === cancelRequest && !ended && !busy} onClose={() => setCancelRequest(null)}

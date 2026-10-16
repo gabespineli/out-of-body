@@ -14,6 +14,23 @@ test("only a called phone shows Start, failures retry and activation survives re
   });
   await page.goto("/mobile");
   await expect(page.getByRole("button", { name: "Start my session", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "It’s your turn", exact: true })).toBeVisible();
+  for (const [width, height] of [[320, 600], [390, 844], [430, 932]]) {
+    await page.setViewportSize({ width, height });
+    const message = await page.locator(".ticket-message").boundingBox();
+    const start = await page.getByRole("button", { name: "Start my session", exact: true }).boundingBox();
+    const home = await page.getByRole("button", { name: "Back to home", exact: true }).boundingBox();
+    const cancel = await page.getByRole("button", { name: "Cancel my ticket", exact: true }).boundingBox();
+    expect(start!.y - message!.y - message!.height).toBeGreaterThanOrEqual(29);
+    expect(start!.width).toBeLessThanOrEqual(270);
+    expect(start!.y + start!.height).toBeLessThan(home!.y);
+    expect(home!.y + home!.height).toBeLessThan(cancel!.y);
+    expect(cancel!.y + cancel!.height).toBeLessThanOrEqual(height);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expect(page.locator(".completion-background")).toHaveCount(0);
+    expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: "test-results/phone-start.png", fullPage: true });
   await page.getByRole("button", { name: "Start my session", exact: true }).click();
   await expect(page.getByText("Connection interrupted. Please retry.", { exact: true })).toBeVisible();

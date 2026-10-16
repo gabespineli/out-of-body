@@ -4,6 +4,9 @@ import { silhouetteSvg } from "../../src/lib/rig";
 import type { QueueState, QueueTicket } from "../../src/lib/queue";
 import { trackedCamera } from "./fixtures/tracked-camera";
 
+// Set OOB_GPU_BROWSER=chrome to verify the real shader when headless Chromium has no adapter.
+test.use({ channel: process.env.OOB_GPU_BROWSER, launchOptions: { args: ["--enable-unsafe-webgpu"] } });
+
 async function setup(page: Page) {
   const active: QueueTicket = { id: "2b2c4167-d1ea-4f9f-a720-698e90ca1d53", number: 7, name: "Alex", ahead: 0, status: "active", createdAt: "2026-10-15T00:00:00Z", expiresAt: "2099-01-01T00:00:00Z" };
   const waiting: QueueTicket = { ...active, id: "3b2c4167-d1ea-4f9f-a720-698e90ca1d53", number: 8, name: "Sam", status: "ready", ahead: 1 };
@@ -147,4 +150,66 @@ test("completion calls the next person and their phone activation replaces compl
   await expect(page.getByRole("heading", { name: "Get into position", exact: true })).toBeVisible({ timeout: 10000 });
   await expect(page.getByTestId("participant-completion")).toHaveCount(0);
   await expect(page.getByTestId("queue-bar")).toContainText("Current participant: Sam");
+});
+
+async function finish(page: Page) {
+  const { queue } = await setup(page);
+  await page.route("**/api/participant/queue/result?*", route => {
+    queue.active = null; queue.tickets = []; queue.waiting = 0;
+    return route.fulfill({ json: { cleanupPending: false } });
+  });
+  await page.getByRole("button", { name: "Back to setup", exact: true }).click();
+  await page.getByText("Setup tools", { exact: true }).click();
+  await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
+  await page.getByRole("button", { name: "Start guided session", exact: true }).click();
+  await expect(page.locator(".completion-background")).toHaveCount(0);
+  for (let i = 0; i < 6; i++) await page.getByRole("button", { name: "Skip Stretch", exact: true }).click();
+  await expect(page.getByTestId("participant-completion")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Back to home", exact: true })).toBeEnabled();
+}
+
+test("completion retains its still background without WebGPU or when reduced motion is requested", async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, "gpu", { value: undefined, configurable: true }));
+  await finish(page);
+  const canvas = page.locator(".completion-background");
+  await expect(canvas).toHaveAttribute("data-motion", "still");
+  await expect(canvas).toHaveCSS("opacity", "0");
+  await expect(page.getByTestId("participant-completion")).toHaveCSS("background-image", /completion-background.webp/);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(canvas).toHaveAttribute("data-motion", "still");
+  await page.getByRole("button", { name: "Back to home", exact: true }).click();
+  await expect(canvas).toHaveCount(0);
+});
+
+test.describe("Figma completion shader", () => {
+  test("renders changing pixels only on completion, stops for reduced motion and hidden pages", async ({ page }) => {
+    await page.goto("/mobile");
+    const supported = await page.evaluate(async () => {
+      const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
+      return !!(gpu && await gpu.requestAdapter());
+    });
+    test.skip(!supported, "No WebGPU adapter on this test machine; still fallback covered separately.");
+    await finish(page);
+    const canvas = page.locator(".completion-background");
+    await expect(canvas).toHaveAttribute("data-motion", "running", { timeout: 20000 });
+    const first = await canvas.screenshot();
+    const stats = await sharp(first).stats();
+    expect(stats.channels.some(channel => channel.stdev > 10)).toBe(true);
+    await page.waitForTimeout(1200);
+    const second = await canvas.screenshot();
+    expect(first.equals(second)).toBe(false);
+    expect(await canvas.evaluate((node: HTMLCanvasElement) => node.width <= 1280 && node.height <= 900)).toBe(true);
+    await page.screenshot({ path: "test-results/completion-motion.png", fullPage: true });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(canvas).toHaveAttribute("data-motion", "still");
+    await expect(canvas).toHaveCSS("opacity", "0");
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await expect(canvas).toHaveAttribute("data-motion", "running");
+    await page.evaluate(() => { Object.defineProperty(document, "hidden", { value: true, configurable: true }); document.dispatchEvent(new Event("visibilitychange")); });
+    await expect(canvas).toHaveAttribute("data-motion", "still");
+    await page.evaluate(() => { Object.defineProperty(document, "hidden", { value: false, configurable: true }); document.dispatchEvent(new Event("visibilitychange")); });
+    await expect(canvas).toHaveAttribute("data-motion", "running");
+    await page.getByRole("button", { name: "Back to home", exact: true }).click();
+    await expect(canvas).toHaveCount(0);
+  });
 });

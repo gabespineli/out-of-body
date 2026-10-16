@@ -1,8 +1,10 @@
 "use client";
 import type { InstallationResult } from "@/components/installation";
 import { BrandLogo, DesignIcon } from "../design-brand";
+import { CompletionBackground } from "./completion-background";
 export function CompletionScreen({ result, onNext, busy, saving = false, onRetry }: { result: InstallationResult; onNext: () => void; busy: boolean; saving?: boolean; onRetry?: () => void }) {
   return <section className="participant-completion" aria-labelledby="completion-title" data-testid="participant-completion">
+    <CompletionBackground />
     <BrandLogo className="completion-logo" />
     <div className="completion-copy">
     <h1 id="completion-title">{result.skipped.length ? "Session finished" : "Stretching complete!"}</h1>
