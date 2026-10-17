@@ -1,7 +1,7 @@
 import { AREA_IDS, areaSide, emptyFades, type AreaFades, type BodyArea } from "./body-areas";
 import { manualMotion, REST_LEGS, REST_HIPS, REST_HEAD, REST_FEET, type Motion } from "./pose";
 
-export const ACTIVITY_MS = 8000;
+export const ACTIVITY_MS = 5000;
 export const PART_MS = ACTIVITY_MS / 3;
 export const NEXT_ACTIVITY_MS = 1400;
 const MOVEMENT_GRACE_MS = 800;

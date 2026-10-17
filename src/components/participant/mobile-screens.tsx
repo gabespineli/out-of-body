@@ -60,11 +60,12 @@ export function MobilePreview({ photo, onRetake, onSend, sending, name, onName }
       tabIndex={sending ? -1 : 0} role="group" aria-label="Align your drawing" aria-disabled={sending} aria-describedby="photo-gesture-hint photo-keyboard-hint"
       data-testid="photo-alignment" data-scale={photo.alignment.scale} data-x={photo.alignment.x} data-y={photo.alignment.y} data-rotation={photo.alignment.rotation}>
       <canvas ref={preview} width="600" height="900" data-testid="mobile-preview" aria-label="Prepared drawing preview" /><TemplateGuide />
+      {showOnboarding && <PhotoGestureHint onDismiss={dismissOnboarding} />}
     </div></div>
-    {showOnboarding && <PhotoGestureHint onDismiss={dismissOnboarding} />}
     <span className="visually-hidden" id="photo-keyboard-hint">Arrow keys move the photo. Plus and minus zoom.</span>
-    {onName && <label className="field-label participant-name">Name<input type="text" autoComplete="off" maxLength={40} value={name || ""} disabled={sending}
-      onChange={event => onName(event.target.value)} /></label>}
+    {onName && <div className="participant-name-slot"><label className="field-label participant-name">Name<input type="text" autoComplete="off" enterKeyHint="done" maxLength={40} value={name || ""} disabled={sending}
+      onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }}
+      onChange={event => onName(event.target.value)} /></label></div>}
     <div className="mobile-primary-actions editor-actions"><button className="secondary-action" aria-label="Retake / choose again" onClick={onRetake} disabled={sending}>Retake</button><button className="primary-action" aria-label={sending ? "Sending drawing…" : "Send to installation"} onClick={onSend} disabled={sending}><DesignIcon name="camera" />{sending ? "Sending…" : "Send drawing"}</button></div>
   </section>;
 }

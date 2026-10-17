@@ -42,16 +42,41 @@ test("name entry and a smaller visual viewport retain the controls; Retake reset
   await page.getByRole("button", { name: "Tap to continue", exact: true }).click();
   await page.getByTestId("photo-alignment").press("ArrowRight");
   await expect(page.getByTestId("photo-gesture-cue")).toHaveCount(0);
-  await page.getByLabel("Name", { exact: true }).fill("QA editor");
+  const frame = page.getByTestId("photo-alignment"), input = page.getByLabel("Name", { exact: true });
+  const photoBefore = await frame.boundingBox();
+  const nameBefore = await input.boundingBox();
+  await input.fill("QA editor");
+  // Simulate the visual viewport shrinking above a mobile keyboard, while the
+  // layout viewport remains unchanged (the real mobile browser keyboard model).
+  await page.evaluate(() => {
+    Object.defineProperty(visualViewport!, "height", { value: 350, configurable: true });
+    Object.defineProperty(visualViewport!, "offsetTop", { value: 20, configurable: true });
+    visualViewport!.dispatchEvent(new Event("resize"));
+  });
+  await expect(page.getByTestId("mobile-flow")).toHaveAttribute("data-keyboard", "true");
+  expect(await frame.boundingBox()).toEqual(photoBefore);
+  const raised = (await input.boundingBox())!;
+  expect(raised.y).toBeLessThan(nameBefore!.y);
+  expect(raised.y + raised.height).toBeLessThanOrEqual(370);
+  await input.press("End"); await input.press("!");
+  await expect(input).toHaveValue("QA editor!");
+  await input.press("Enter");
+  await page.evaluate(() => {
+    delete (visualViewport as unknown as { height?: number }).height;
+    delete (visualViewport as unknown as { offsetTop?: number }).offsetTop;
+    visualViewport!.dispatchEvent(new Event("resize"));
+  });
+  await expect(page.getByTestId("mobile-flow")).toHaveAttribute("data-keyboard", "false");
+  expect(await frame.boundingBox()).toEqual(photoBefore);
+  expect(await input.boundingBox()).toEqual(nameBefore);
   await fits(page, 390, 400, "preview");
-  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("QA editor");
   await page.getByRole("button", { name: "Retake / choose again", exact: true }).click();
   await page.getByTestId("mobile-photo").setInputFiles({ name: "second.png", mimeType: "image/png", buffer: image });
   await expect(page.getByTestId("photo-gesture-cue")).toBeVisible();
   await expect(page.getByTestId("photo-alignment")).toHaveAttribute("data-x", "0");
 });
 
-test("centered filled-hand onboarding covers the editor, then tap unlocks photo adjustment", async ({ page }) => {
+test("hand onboarding stays inside the photo, explains the pinch within a second, then unlocks adjustment", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await editor(page);
   const image = await sharp(Buffer.from(silhouetteSvg(true))).png().toBuffer();
@@ -63,17 +88,19 @@ test("centered filled-hand onboarding covers the editor, then tap unlocks photo 
   await cue.locator(".gesture-hand").evaluateAll(images => images.forEach(el => { const animation = el.getAnimations()[0]; animation.pause(); animation.currentTime = 0; }));
   await expect(open).toHaveCSS("opacity", "0");
   await page.screenshot({ path: "test-results/filled-hand-closed-phone.png", fullPage: true });
-  await cue.locator(".gesture-hand").evaluateAll(images => images.forEach(el => { el.getAnimations()[0].currentTime = 1500; }));
+  await cue.locator(".gesture-hand").evaluateAll(images => images.forEach(el => { el.getAnimations()[0].currentTime = 300; }));
   await expect(cue.locator(".gesture-hand-closed")).toHaveCSS("opacity", "0");
   await expect(open).toHaveCSS("opacity", "1");
   await page.screenshot({ path: "test-results/filled-hand-open-phone.png", fullPage: true });
   await fits(page, 390, 664, "preview");
   await page.screenshot({ path: "test-results/filled-hand-compact-phone.png", fullPage: true });
   const layer = (await cue.boundingBox())!;
-  expect(layer.x).toBe(0); expect(layer.y).toBe(0);
-  expect(layer.width).toBe(390); expect(layer.height).toBe(664);
+  const photo = (await page.getByTestId("photo-alignment").boundingBox())!;
+  expect(layer.x).toBeCloseTo(photo.x + 1, 0); expect(layer.y).toBeCloseTo(photo.y + 1, 0);
+  expect(layer.width).toBeCloseTo(photo.width - 2, 0); expect(layer.height).toBeCloseTo(photo.height - 2, 0);
   const hand = (await cue.locator(".gesture-hand-frames").boundingBox())!;
-  expect(hand.x + hand.width / 2).toBeCloseTo(195, 0);
+  expect(hand.x + hand.width / 2).toBeGreaterThan(photo.x + photo.width / 2);
+  await expect(open).toHaveCSS("animation-duration", "1s");
   await expect(page.getByRole("button", { name: "Tap to continue", exact: true })).toBeFocused();
   await page.getByRole("button", { name: "Tap to continue", exact: true }).click();
   await expect(page.getByTestId("photo-alignment")).toHaveAttribute("data-x", "0");
@@ -84,14 +111,15 @@ test("centered filled-hand onboarding covers the editor, then tap unlocks photo 
 });
 
 
-test("onboarding keeps keyboard focus, supports Escape and background tap, and fits landscape", async ({ page }) => {
+test("photo onboarding leaves outer controls accessible, supports Escape and photo-background tap, and fits landscape", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 }); await editor(page);
   const image = await sharp(Buffer.from(silhouetteSvg(true))).png().toBuffer();
   await page.getByTestId("mobile-photo").setInputFiles({ name: "onboarding.png", mimeType: "image/png", buffer: image });
   const layer = page.getByTestId("photo-gesture-cue"), proceed = page.getByRole("button", { name: "Tap to continue", exact: true });
   await expect(proceed).toBeFocused();
-  await page.keyboard.press("Tab"); await page.keyboard.press("Tab");
-  await expect(proceed).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByLabel("Name", { exact: true })).toBeFocused();
+  await proceed.focus();
   await page.keyboard.press("Escape"); await expect(layer).toHaveCount(0);
   await expect(page.getByTestId("photo-alignment")).toBeFocused();
   await page.getByRole("button", { name: "Retake / choose again", exact: true }).click();
@@ -101,6 +129,7 @@ test("onboarding keeps keyboard focus, supports Escape and background tap, and f
   const button = (await proceed.boundingBox())!;
   expect(button.y + button.height).toBeLessThanOrEqual(390);
   expect(await layer.evaluate(el => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
-  await page.mouse.click(10, 10); await expect(layer).toHaveCount(0);
+  const area = (await layer.boundingBox())!;
+  await page.mouse.click(area.x + 4, area.y + 4); await expect(layer).toHaveCount(0);
   await expect(page.getByTestId("photo-alignment")).toHaveAttribute("data-x", "0");
 });

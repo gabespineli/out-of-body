@@ -33,6 +33,14 @@ test("instructor loops independently; idle and jitter earn no progress", () => {
   const state = run(createGuide(["neck-head"]), i => neck(Math.sin(i) * .04), 12000);
   assert.equal(state.earned["neck-head"], 0);
 });
+
+test("a selected stretch completes after five earned seconds rather than the old eight", () => {
+  let state = run(createGuide(["left-forearm"]), i => elbow(i % 400 ? .7 : .1), 4000);
+  assert.ok(state.earned["left-forearm"] < ACTIVITY_MS);
+  state = run(state, i => elbow(i % 400 ? .7 : .1), 1200);
+  assert.equal(state.earned["left-forearm"], 5000);
+  assert.notEqual(state.transition, null);
+});
 test("gentle neck movement fades only the head; rest retains earned progress", () => {
   let state = run(createGuide(["neck-head", "torso"]), i => neck(i % 600 < 300 ? -.3 : .3), 2000);
   assert.ok(state.earned["neck-head"] > 1000);
@@ -103,7 +111,7 @@ test("legs spend one third on side steps and the remaining time on selected-side
 test("partial skips retain fades, advance only selected regions and finish after the final skip", () => {
   let state = createGuide(["left-forearm", "right-leg"]); state.earned["left-forearm"] = 1000;
   state = skipGuide(state);
-  assert.equal(guideSnapshot(state).area, "right-leg"); assert.equal(guideSnapshot(state).total, .0625);
+  assert.equal(guideSnapshot(state).area, "right-leg"); assert.equal(guideSnapshot(state).total, 1000 / ACTIVITY_MS / 2);
   state = skipGuide(state);
   assert.equal(state.done, true); assert.deepEqual(state.skipped, ["left-forearm", "right-leg"]);
   assert.equal(state.earned["left-forearm"], 1000); assert.equal(state.earned["right-leg"], 0);

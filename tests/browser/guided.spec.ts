@@ -58,6 +58,33 @@ for (const id of AREA_IDS) test(`only ${id} marks select that region`, async ({ 
   await expect(steps).toHaveCount(1); await expect(steps).toContainText(areaConfig(id).label);
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-area", id);
 });
+
+test("one joint mark belongs only to the visible region, and scattered color noise adds no stretch", async ({ page }) => {
+  await page.goto("/test");
+  for (const [area, mark] of [
+    ["left-forearm", '<rect x="174" y="352" width="14" height="10" fill="#279aa3"/>'],
+    ["neck-head", '<rect x="290" y="211" width="20" height="6" fill="#279aa3"/>'],
+    ["torso", '<rect x="244" y="530" width="20" height="10" fill="#279aa3"/>'],
+  ] as const) {
+    await upload(page, [], mark);
+    const steps = page.getByRole("list", { name: "Stretching sequence" }).locator("li");
+    await expect(steps).toHaveCount(1);
+    await expect(steps).toContainText(areaConfig(area).label);
+  }
+  const speckles = Array.from({ length: 60 }, (_, i) => `<rect x="${250 + (i % 10) * 10}" y="${330 + Math.floor(i / 10) * 12}" width="1" height="1" fill="#279aa3"/>`).join("");
+  await upload(page, [], speckles);
+  await expect(page.getByRole("button", { name: "Start guided session", exact: true })).toBeDisabled();
+});
+
+test("an elbow-joint mark fades on every overlapping texture without adding an upper-arm stretch", async ({ page }) => {
+  await page.goto("/test"); await upload(page, [], '<rect x="174" y="352" width="14" height="10" fill="#279aa3"/>');
+  await page.getByRole("combobox", { name: "Motion source", exact: true }).selectOption("manual");
+  await page.getByRole("button", { name: "Start guided session", exact: true }).click();
+  await finish(page, "left-forearm");
+  await manualPose(page, { leftElbow: .8 });
+  await expect(page.getByTestId("avatar")).toHaveAttribute("data-left-upper-arm-fade", "0.00");
+  await expect.poll(() => page.getByTestId("avatar").evaluate(el => (el as HTMLCanvasElement).getContext("2d")!.getImageData(300, 354, 1, 1).data[0])).toBeGreaterThan(235);
+});
 test("marks across the elbow boundary select both arm regions; neutral and outside marks select none", async ({ page }) => {
   await page.goto("/test"); await upload(page, [], '<rect x="166" y="342" width="26" height="33" fill="#279aa3"/>');
   await expect(page.getByRole("list", { name: "Stretching sequence" }).locator("li")).toHaveCount(2);
@@ -111,6 +138,12 @@ test("selected torso and leg activities finish and saved output preserves other 
   test.setTimeout(65000); await prepare(page, ["torso", "left-leg", "right-forearm"]);
   await finish(page, "torso");
   await expect(page.getByTestId("stretch-celebration")).toBeVisible();
+  for (const side of ["left", "right"]) {
+    const emitter = page.locator(`.confetti-emitter[data-side='${side}']`);
+    await expect(emitter.locator("i")).toHaveCount(56);
+    const bounds = (await emitter.boundingBox())!;
+    expect(bounds.x).toBeCloseTo(side === "left" ? 0 : 1440, 0);
+  }
   await page.screenshot({ path: "test-results/stretch-confetti.png", fullPage: true });
   await expect(page.getByTestId("avatar")).toHaveAttribute("data-area", "right-forearm", { timeout: 3000 });
   await page.getByRole("button", { name: "Skip Stretch", exact: true }).click();

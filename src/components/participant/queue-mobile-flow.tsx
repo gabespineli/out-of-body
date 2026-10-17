@@ -1,10 +1,11 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { participantApi, ParticipantApiError } from "@/lib/participant-api";
 import { participantName, terminalTicket, type QueuePublic, type QueueTicket } from "@/lib/queue";
 import { useMobileCamera } from "@/hooks/use-mobile-camera";
 import { usePhotoPreview } from "@/hooks/use-photo-preview";
 import { useVisiblePoll } from "@/hooks/use-visible-poll";
+import { useEditorViewport } from "@/hooks/use-editor-viewport";
 import { MobileCapture, MobilePreview } from "./mobile-screens";
 import { BrandLogo, DesignIcon } from "../design-brand";
 import { TicketCancelDialog } from "./ticket-cancel-dialog";
@@ -77,13 +78,7 @@ export function QueueMobileFlow({ notice }: { notice: string }) {
   };
   const ended = ticket && terminalTicket(ticket.status);
   const editor = !ended && (step === "camera" || step === "preview"), main = useRef<HTMLElement>(null);
-  useEffect(() => {
-    if (!editor) { main.current?.style.removeProperty("--editor-height"); return; }
-    const viewport = window.visualViewport;
-    const resize = () => main.current?.style.setProperty("--editor-height", `${viewport?.height ?? window.innerHeight}px`);
-    resize(); viewport?.addEventListener("resize", resize); window.addEventListener("resize", resize);
-    return () => { viewport?.removeEventListener("resize", resize); window.removeEventListener("resize", resize); };
-  }, [editor]);
+  useEditorViewport(!!editor, main);
   const start = async () => {
     if (locked.current || current.current?.status !== "called") return;
     locked.current = true; generation.current++; setBusy(true); setError("");

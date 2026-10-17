@@ -1,5 +1,6 @@
 import { WIDTH, HEIGHT, SEGMENTS } from "./rig";
 import { BODY_AREAS, type BodyArea } from "./body-areas";
+import { drawingRegionPixels } from "./drawing-regions";
 export type Alignment = { scale: number; x: number; y: number; rotation: number };
 export const DEFAULT_ALIGNMENT: Alignment = { scale: 1, x: 0, y: 0, rotation: 0 };
 export type AreaMask = { fadeOverlay: HTMLCanvasElement; coloredPixels: number };
@@ -39,6 +40,7 @@ export function drawAlignedPhoto(ctx: CanvasRenderingContext2D, image: HTMLImage
 }
 
 let shapes: Record<BodyArea, Uint8ClampedArray> | undefined;
+let owners: Uint8Array | undefined;
 function areaShapes() {
   if (!shapes) shapes = Object.fromEntries(BODY_AREAS.map(area => {
     const mask = canvas(), ctx = mask.getContext("2d", { willReadFrequently: true })!;
@@ -46,22 +48,31 @@ function areaShapes() {
     for (const key of area.segments) ctx.fill(new Path2D(SEGMENTS[key]));
     return [area.id, ctx.getImageData(0, 0, WIDTH, HEIGHT).data];
   })) as Record<BodyArea, Uint8ClampedArray>;
-  return shapes;
+  // Match the visible painter order in renderAvatar: joints overlap for smooth
+  // motion, but the topmost region owns each drawing pixel exactly once.
+  if (!owners) {
+    owners = new Uint8Array(WIDTH * HEIGHT);
+    const paintOrder: BodyArea[] = ["left-leg", "right-leg", "torso", "neck-head", "left-upper-arm", "left-forearm", "right-upper-arm", "right-forearm"];
+    for (const area of paintOrder) {
+      const id = BODY_AREAS.findIndex(value => value.id === area) + 1;
+      for (let p = 0; p < owners.length; p++) if (shapes[area][p * 4 + 3] >= 128) owners[p] = id;
+    }
+  }
+  return { masks: shapes, owners };
 }
 
 // Fixed template masks select pixels; saturated color is never a diagnosis or art recognition.
 export function buildArtwork(original: HTMLCanvasElement, name: string): Artwork {
   const pixels = original.getContext("2d", { willReadFrequently: true })!.getImageData(0, 0, WIDTH, HEIGHT).data;
-  const masks = areaShapes();
-  const areas = Object.fromEntries(BODY_AREAS.map(area => {
+  const { masks, owners } = areaShapes();
+  const selectedPixels = drawingRegionPixels(pixels, owners, WIDTH, HEIGHT);
+  const areas = Object.fromEntries(BODY_AREAS.map((area, index) => {
     const fadeOverlay = canvas(), ctx = fadeOverlay.getContext("2d")!;
     const out = ctx.createImageData(WIDTH, HEIGHT);
     let coloredPixels = 0;
     for (let i = 0; i < pixels.length; i += 4) {
+      if (selectedPixels[i / 4] !== index + 1) continue;
       const alpha = masks[area.id][i + 3];
-      if (!alpha) continue;
-      const max = Math.max(pixels[i], pixels[i + 1], pixels[i + 2]), min = Math.min(pixels[i], pixels[i + 1], pixels[i + 2]);
-      if (max < 55 || (max - min) / max < .17) continue;
       out.data[i] = 250; out.data[i + 1] = 248; out.data[i + 2] = 243; out.data[i + 3] = alpha;
       coloredPixels++;
     }
