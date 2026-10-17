@@ -9,7 +9,7 @@ const waiting = { id: "2b2c4167-d1ea-4f9f-a720-698e90ca1d53", number: 7, name: "
 test.beforeAll(async () => {
   drawing = await sharp(Buffer.from(silhouetteSvg(false).replace("</svg>", '<rect x="256" y="324" width="87" height="130" fill="#279aa3"/><rect x="280" y="110" width="40" height="30" fill="#e5b543"/></svg>'))).png().toBuffer();
 });
-async function prepare(page: Page) {
+async function prepare(page: Page, keepOnboarding = false) {
   // UI-only fixture: no Supabase instance or participant credentials are used.
   await page.route("**/api/participant/queue", route => route.fulfill({ json: { waiting: 0, capacity: 20, accepting: true, online: true } }));
   await page.route("**/api/participant/queue/ticket", route => route.fulfill({ json: waiting })); await page.goto("/mobile");
@@ -17,6 +17,7 @@ async function prepare(page: Page) {
   await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: drawing });
   await expect(page.getByTestId("photo-alignment")).toBeVisible();
   await expect.poll(() => pixel(page, 300, 385)).toEqual([39, 154, 163, 255]);
+  if (!keepOnboarding) await page.getByRole("button", { name: "Tap to continue", exact: true }).click();
 }
 async function pixel(page: Page, x: number, y: number) {
   return page.getByTestId("mobile-preview").evaluate((el, point) => Array.from((el as HTMLCanvasElement).getContext("2d")!.getImageData(point.x, point.y, 1, 1).data), { x, y });
@@ -32,6 +33,11 @@ async function touch(page: Page, cdp: CDPSession, type: "touchStart" | "touchMov
   await page.waitForTimeout(25);
 }
 async function drag(page: Page, cdp: CDPSession, from = { x: 280, y: 350 }, to = { x: 310, y: 370 }) {
+  await touch(page, cdp, "touchStart", [{ id: 1, x: from.x - 30, y: from.y }, { id: 2, x: from.x + 30, y: from.y }]);
+  await touch(page, cdp, "touchMove", [{ id: 1, x: to.x - 30, y: to.y }, { id: 2, x: to.x + 30, y: to.y }]);
+  await touch(page, cdp, "touchEnd", []);
+}
+async function singleFinger(page: Page, cdp: CDPSession, from = { x: 280, y: 350 }, to = { x: 310, y: 370 }) {
   await touch(page, cdp, "touchStart", [{ id: 1, ...from }]);
   await touch(page, cdp, "touchMove", [{ id: 1, ...to }]);
   await touch(page, cdp, "touchEnd", []);
@@ -41,11 +47,19 @@ async function pinch(page: Page, cdp: CDPSession) {
   await touch(page, cdp, "touchMove", [{ id: 1, x: 250, y: 405 }, { id: 2, x: 410, y: 405 }]);
   await touch(page, cdp, "touchEnd", []);
 }
-test("real one-finger drag and two-finger pinch move the photo around a fixed guide", async ({ page }) => {
-  await prepare(page);
+test("onboarding blocks adjustment until dismissed; one finger stays still and two fingers move and zoom", async ({ page }) => {
+  await prepare(page, true);
   const cdp = await page.context().newCDPSession(page);
   const guide = await page.locator(".phone-photo .photo-template").innerHTML();
+  const original = await alignment(page);
+  await expect(page.getByTestId("photo-gesture-cue")).toBeVisible();
+  await singleFinger(page, cdp); expect(await alignment(page)).toEqual(original);
+  await expect(page.getByTestId("photo-gesture-cue")).toBeVisible();
+  await page.getByRole("button", { name: "Tap to continue", exact: true }).click();
+  expect(await alignment(page)).toEqual(original);
+  await singleFinger(page, cdp); expect(await alignment(page)).toEqual(original);
   await drag(page, cdp);
+  await expect(page.getByTestId("photo-gesture-cue")).toHaveCount(0);
   const moved = await alignment(page); expect(moved.x).toBeCloseTo(30, 0); expect(moved.y).toBeCloseTo(20, 0);
   await expect.poll(() => pixel(page, 330, 405)).toEqual([39, 154, 163, 255]);
   await pinch(page, cdp);
@@ -55,7 +69,7 @@ test("real one-finger drag and two-finger pinch move the photo around a fixed gu
   expect(await page.evaluate(() => window.visualViewport!.scale)).toBe(1);
   await page.screenshot({ path: "test-results/mobile-touch-alignment.png", fullPage: true });
 });
-test("lifting one finger continues as a drag; cancellation and resize clear active touches", async ({ page }) => {
+test("lifting a finger stops movement; cancellation and resize clear active touches", async ({ page }) => {
   await prepare(page); const cdp = await page.context().newCDPSession(page);
   await page.getByTestId("photo-alignment").evaluate(el => {
     const state = window as unknown as { contactIds: number[] }; state.contactIds = [];
@@ -72,7 +86,7 @@ test("lifting one finger continues as a drag; cancellation and resize clear acti
     clientX: bounds.x + 180 * bounds.width / 600, clientY: bounds.y + 450 * bounds.height / 900 });
   const lifted = await alignment(page); expect(lifted.scale).toBeCloseTo(before.scale, 5); expect(lifted.x).toBeCloseTo(before.x, 5);
   await touch(page, cdp, "touchMove", [{ id: 2, x: 440, y: 420 }]);
-  const dragged = await alignment(page); expect(dragged.x - before.x).toBeCloseTo(20, 0); expect(dragged.y - before.y).toBeCloseTo(-30, 0);
+  expect(await alignment(page)).toEqual(lifted);
   await touch(page, cdp, "touchCancel", []);
   const canceled = await alignment(page);
   await drag(page, cdp, { x: 250, y: 350 }, { x: 260, y: 350 });
@@ -125,18 +139,32 @@ test("the uploaded PNG matches the adjusted preview and is used by the existing 
     await expect.poll(() => avatar.getByTestId("avatar").evaluate(el => Array.from((el as HTMLCanvasElement).getContext("2d")!.getImageData(450, 405, 1, 1).data))).toEqual([39, 154, 163, 255]);
   } finally { await avatar.close(); }
 });
-test("photo gestures do not scroll the page, but swiping outside the preview still does", async ({ page }) => {
+test("photo adjustment stays contained and the safe gutter can scroll an exceptionally short editor", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 600 }); await prepare(page);
   const cdp = await page.context().newCDPSession(page);
   const scroll = await page.evaluate(() => scrollY); await drag(page, cdp, { x: 280, y: 500 }, { x: 280, y: 300 });
   expect(await page.evaluate(() => scrollY)).toBe(scroll);
-  const hint = (await page.locator(".gesture-tip").boundingBox())!;
-  const outside = { x: hint.x + hint.width / 2, y: hint.y + hint.height / 2 };
+  expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1)).toBe(true);
+  await page.setViewportSize({ width: 320, height: 240 });
+  const editor = page.getByTestId("mobile-flow"), bounds = (await editor.boundingBox())!;
+  const outside = { x: bounds.x + 6, y: 170 };
   expect(await page.evaluate(point => !!document.elementFromPoint(point.x, point.y)?.closest(".touch-align"), outside)).toBe(false);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ id: 1, ...outside }] });
   for (const distance of [10, 25, 45, 75]) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ id: 1, x: outside.x, y: outside.y - distance }] });
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(scroll + 20);
+  await expect.poll(() => editor.evaluate(el => el.scrollTop)).toBeGreaterThan(20);
+});
+
+test("the gesture cue respects reduced motion and pauses while hidden", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" }); await prepare(page, true);
+  const cue = page.getByTestId("photo-gesture-cue"), finger = cue.locator(".gesture-hand-open");
+  await expect(cue).toBeVisible(); await expect(finger).toHaveCSS("animation-name", "none");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await expect(finger).toHaveCSS("animation-name", "explain-hand-pinch");
+  await page.evaluate(() => { Object.defineProperty(document, "hidden", { value: true, configurable: true }); document.dispatchEvent(new Event("visibilitychange")); });
+  await expect(finger).toHaveCSS("animation-play-state", "paused");
+  await page.evaluate(() => { Object.defineProperty(document, "hidden", { value: false, configurable: true }); document.dispatchEvent(new Event("visibilitychange")); });
+  await expect(finger).toHaveCSS("animation-play-state", "running");
 });
 test("WebKit uses the same alignment controls and native pointer drag", async () => {
   test.skip(!existsSync(webkit.executablePath()), "Install WebKit with npx playwright install webkit.");
@@ -148,6 +176,7 @@ test("WebKit uses the same alignment controls and native pointer drag", async ()
     await page.getByRole("button", { name: /Upload drawing|Continue my drawing/ }).click();
     await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: drawing });
     await expect(page.getByTestId("photo-alignment")).toBeVisible();
+    await page.getByRole("button", { name: "Tap to continue", exact: true }).click();
     const bounds = (await page.getByTestId("photo-alignment").boundingBox())!;
     await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2); await page.mouse.down();
     await page.mouse.move(bounds.x + bounds.width / 2 + 18, bounds.y + bounds.height / 2 + 12, { steps: 4 }); await page.mouse.up();

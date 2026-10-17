@@ -6,37 +6,49 @@ import { boundedAlignment, photoPoint, startPhotoGesture, updatePhotoGesture, zo
 export function usePhotoGestures(alignment: Alignment, setAlignment: Dispatch<SetStateAction<Alignment>>, disabled: boolean, image: HTMLImageElement | null) {
   const surface = useRef<HTMLDivElement>(null), points = useRef(new Map<number, PhotoPoint>());
   const start = useRef<PhotoGesture | null>(null), current = useRef(alignment);
-  const [active, setActive] = useState(false);
+  const input = useRef(""), [active, setActive] = useState(false), [adjusted, setAdjusted] = useState(false);
   current.current = alignment;
-  const publish = (next: Alignment) => { current.current = next; setAlignment(next); };
-  const rebase = () => { start.current = points.current.size ? startPhotoGesture(current.current, [...points.current.values()]) : null; };
+  const publish = (next: Alignment) => {
+    if (Math.abs(next.x - current.current.x) + Math.abs(next.y - current.current.y) + Math.abs(next.scale - current.current.scale) > .01) setAdjusted(true);
+    current.current = next; setAlignment(next);
+  };
+  const rebase = () => {
+    const enough = points.current.size >= (input.current === "touch" ? 2 : 1);
+    start.current = enough ? startPhotoGesture(current.current, [...points.current.values()]) : null;
+    setActive(enough);
+  };
   const cancel = useCallback(() => {
     const captured = [...points.current.keys()]; points.current.clear(); start.current = null; setActive(false);
     for (const id of captured) if (surface.current?.hasPointerCapture(id)) surface.current.releasePointerCapture(id);
   }, []);
   useEffect(() => {
     cancel();
+    const observer = new ResizeObserver(cancel);
+    if (surface.current) observer.observe(surface.current);
     window.addEventListener("resize", cancel);
     window.addEventListener("blur", cancel);
-    return () => { window.removeEventListener("resize", cancel); window.removeEventListener("blur", cancel); };
+    return () => { observer.disconnect(); window.removeEventListener("resize", cancel); window.removeEventListener("blur", cancel); };
   }, [image, disabled, cancel]);
+  useEffect(() => { setAdjusted(false); }, [image]);
   const position = (event: PointerEvent<HTMLDivElement>) => photoPoint({ x: event.clientX, y: event.clientY }, event.currentTarget.getBoundingClientRect());
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (disabled || !image || points.current.size >= 2 || event.pointerType === "mouse" && event.button !== 0) return;
+    if (points.current.size && input.current !== event.pointerType) return;
     const rect = event.currentTarget.getBoundingClientRect(); if (!rect.width || !rect.height) return;
     event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId);
     if (event.pointerType === "mouse") event.currentTarget.focus({ preventScroll: true });
-    points.current.set(event.pointerId, position(event)); rebase(); setActive(true);
+    input.current = event.pointerType;
+    points.current.set(event.pointerId, position(event)); rebase();
   };
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    if (disabled || !points.current.has(event.pointerId) || !start.current) return;
+    if (disabled || !points.current.has(event.pointerId)) return;
     event.preventDefault(); points.current.set(event.pointerId, position(event));
-    publish(updatePhotoGesture(start.current, [...points.current.values()]));
+    if (start.current) publish(updatePhotoGesture(start.current, [...points.current.values()]));
   };
   const end = (event: PointerEvent<HTMLDivElement>) => {
     if (!points.current.has(event.pointerId)) return;
     if (event.type === "pointerup") onPointerMove(event);
-    points.current.delete(event.pointerId); rebase(); setActive(points.current.size > 0);
+    points.current.delete(event.pointerId); rebase();
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
   const zoom = (factor: number) => { if (!disabled) { cancel(); publish(zoomPhoto(current.current, factor)); } };
@@ -49,6 +61,6 @@ export function usePhotoGestures(alignment: Alignment, setAlignment: Dispatch<Se
     else if (event.key === "+" || event.key === "=") { event.preventDefault(); zoom(1.2); }
     else if (event.key === "-") { event.preventDefault(); zoom(1 / 1.2); }
   };
-  return { surface, active, zoom, reset, handlers: { onPointerDown, onPointerMove, onPointerUp: end, onPointerCancel: end,
+  return { surface, active, adjusted, zoom, reset, handlers: { onPointerDown, onPointerMove, onPointerUp: end, onPointerCancel: end,
     onLostPointerCapture: end, onKeyDown, onContextMenu: (event: React.MouseEvent) => event.preventDefault() } };
 }

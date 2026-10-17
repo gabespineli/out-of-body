@@ -34,6 +34,7 @@ test("Figma phone entry, About, capture and named ticket use local artwork and f
   await page.screenshot({path:'test-results/design-mobile-capture.png',fullPage:true});
   const drawing=await sharp(Buffer.from(silhouetteSvg(true))).png().toBuffer();
   await page.getByTestId('mobile-photo').setInputFiles({name:'drawing.png',mimeType:'image/png',buffer:drawing});
+  await page.getByRole("button", { name: "Tap to continue", exact: true }).click();
   await page.getByLabel('Name').fill('Alex'); await fonts(page);
   await phoneWidths(page);
   await page.screenshot({path:'test-results/design-mobile-preview.png',fullPage:true});

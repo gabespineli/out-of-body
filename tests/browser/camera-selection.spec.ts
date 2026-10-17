@@ -49,7 +49,7 @@ test("first permission stays explicit; connected cameras switch cleanly, refresh
   await page.getByRole("button", { name: "Enable camera", exact: true }).click(); await live(page);
   await expect(picker(page).getByRole("option", { name: "USB exhibit camera" })).toHaveCount(1);
   const preview = await page.locator(".positioning-preview").boundingBox(), select = await picker(page).boundingBox();
-  expect(select!.y).toBeGreaterThanOrEqual(preview!.y + preview!.height);
+  expect(select!.x).toBeGreaterThanOrEqual(preview!.x + preview!.width);
   await picker(page).selectOption("usb"); await live(page);
   expect(await requests(page)).toEqual(["default", "usb"]);
   expect(await page.evaluate(() => (window as unknown as { cameraTest: Fixture }).cameraTest.streams[0].getTracks()[0].readyState)).toBe("ended");
@@ -133,6 +133,7 @@ test("phone capture keeps automatic opening and retake without a camera selector
   expect(await requests(page)).toEqual(["default"]);
   await page.getByRole("button", { name: "Take photo", exact: true }).click();
   await expect(page.getByTestId("mobile-preview")).toBeVisible();
+  await page.getByRole("button", { name: "Tap to continue", exact: true }).click();
   expect(await page.evaluate(() => (window as unknown as { cameraTest: Fixture }).cameraTest.streams.every(stream => stream.getTracks().every(track => track.readyState === "ended")))).toBe(true);
   await page.getByRole("button", { name: "Retake / choose again", exact: true }).click();
   await expect(page.getByRole("button", { name: "Take photo", exact: true })).toBeVisible();

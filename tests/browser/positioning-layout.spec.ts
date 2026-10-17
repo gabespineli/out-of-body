@@ -1,13 +1,14 @@
 import { test, expect } from "@playwright/test";
 import sharp from "sharp";
 import { silhouetteSvg } from "../../src/lib/rig";
-import { trackedCamera, setPoints } from "./fixtures/tracked-camera";
+import { trackedCamera, setPoints, standingPoints } from "./fixtures/tracked-camera";
 
-test("camera setup leaves the picker and recovery controls visible beneath the real queue bar", async ({ page }) => {
+test("camera setup has a large preview on the left and controls on the right beneath the queue", async ({ page }) => {
   await trackedCamera(page);
   const active = { id: "2b2c4167-d1ea-4f9f-a720-698e90ca1d53", number: 7, name: "QA camera layout", ahead: 0, status: "active", createdAt: "2026-10-16T00:00:00Z", expiresAt: "2099-01-01T00:00:00Z" };
+  const waiting = { ...active, id: "3b2c4167-d1ea-4f9f-a720-698e90ca1d53", number: 8, status: "ready", name: "QA waiting" };
   await page.route("**/api/participant/queue?view=operator", route => route.fulfill({ json: {
-    tickets: [active], active, called: null, waiting: 0, capacity: 20, accepting: true, online: true,
+    tickets: [active, waiting], active, called: null, waiting: 1, capacity: 20, accepting: true, online: true,
     mobileUrl: "/mobile", qr: "", downloadBytes: 0, downloads: 0, uploads: 0, usageWarning: false,
   } }));
   const image = await sharp(Buffer.from(silhouetteSvg(true))).png().toBuffer();
@@ -25,11 +26,23 @@ test("camera setup leaves the picker and recovery controls visible beneath the r
     const back = await page.getByRole("button", { name: "Back to setup", exact: true }).boundingBox();
     const skip = await page.getByRole("button", { name: "Skip participant", exact: true }).boundingBox();
     expect(preview!.height).toBeLessThanOrEqual(height * .8 + 1);
-    expect(preview!.height).toBeGreaterThanOrEqual(height * .4);
-    expect(picker!.y).toBeGreaterThanOrEqual(preview!.y + preview!.height);
+    expect(preview!.height).toBeGreaterThanOrEqual(height * .65);
+    expect(picker!.x).toBeGreaterThanOrEqual(preview!.x + preview!.width);
+    expect(back!.x).toBeGreaterThanOrEqual(preview!.x + preview!.width);
     expect(back!.y + back!.height).toBeLessThanOrEqual(height);
     expect(skip!.y + skip!.height).toBeLessThanOrEqual(height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (width === 1363) await page.screenshot({ path: "test-results/positioning-controls-fit.png", fullPage: true });
   }
+  await page.setViewportSize({ width: 1363, height: 783 });
+  await setPoints(page, standingPoints());
+  await expect(page.getByTestId("stretch-exhibit")).toBeVisible({ timeout: 6000 });
+  await expect(page.getByTestId("queue-bar")).toHaveCount(0);
+  await setPoints(page, []);
+  await page.getByRole("button", { name: "Restart", exact: true }).click();
+  await expect(page.getByTestId("queue-bar")).toBeVisible();
+  await expect.poll(async () => {
+    const frame = await page.locator(".positioning-preview").boundingBox();
+    return frame!.y + frame!.height;
+  }).toBeLessThanOrEqual(783);
 });

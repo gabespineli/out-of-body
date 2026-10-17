@@ -63,6 +63,7 @@ test("the same phone can upload, cancel and upload a different drawing without w
     await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
     const image = await sharp(Buffer.from(silhouetteSvg(true).replace("</svg>", `<rect x="256" y="324" width="87" height="130" fill="${color}"/></svg>`))).png().toBuffer();
     await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: image });
+    await page.getByRole("button", { name: "Tap to continue", exact: true }).click();
     await page.getByRole("button", { name: "Send to installation", exact: true }).click();
     await expect(page.getByTestId("queue-ticket")).toContainText("#1 in line");
     await page.getByRole("button", { name: "Cancel my ticket", exact: true }).click();

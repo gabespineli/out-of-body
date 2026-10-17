@@ -80,6 +80,7 @@ test("permanent QR, private named upload, call/start, top queue, fullscreen, com
     await expect(phone.getByTestId("mobile-photo")).toBeVisible();
     const ticket = await phone.request.get("/api/participant/queue/ticket").then(r => r.json()); created.add(ticket.id);
     await phone.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: drawing });
+    await phone.getByRole("button", { name: "Tap to continue", exact: true }).click();
     await phone.getByLabel("Name").fill("Alex");
     const preview = await phone.getByTestId("mobile-preview").evaluate(el => (el as HTMLCanvasElement).toDataURL());
     await phone.getByRole("button", { name: "Send to installation", exact: true }).click();
@@ -231,6 +232,7 @@ test("a phone can cancel its uploaded ticket and immediately reserve and upload 
     const ticket = await page.request.get("/api/participant/queue/ticket").then(response => response.json());
     created.add(ticket.id); tickets.push(ticket.id);
     await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: drawing });
+    await page.getByRole("button", { name: "Tap to continue", exact: true }).click();
     await page.getByLabel("Name").fill(name);
     await page.getByRole("button", { name: "Send to installation", exact: true }).click();
     await expect(page.getByTestId("queue-ticket")).toContainText("in line");
@@ -336,6 +338,7 @@ test("automatic phone cleanup submits exactly the displayed cleaned result witho
   const ticket = await page.request.get("/api/participant/queue/ticket").then(r => r.json()); created.add(ticket.id);
   const shadowed = await sharp({ create: { width: 600, height: 900, channels: 3, background: { r: 195, g: 180, b: 160 } } }).png().toBuffer();
   await page.getByTestId("mobile-photo").setInputFiles({ name: "warm-paper.png", mimeType: "image/png", buffer: shadowed });
+  await page.getByRole("button", { name: "Tap to continue", exact: true }).click();
   const pixel = () => page.getByTestId("mobile-preview").evaluate(el => Array.from((el as HTMLCanvasElement).getContext("2d")!.getImageData(100, 100, 1, 1).data));
   await expect(page.getByText("Adjust photo", { exact: true })).toHaveCount(0);
   await expect.poll(pixel).not.toEqual([195, 180, 160, 255]);

@@ -13,6 +13,7 @@ test("mobile has a minimal preview and a home/ticket round trip without another 
   await page.getByRole("button",{name:"Upload drawing",exact:true}).click();
   const image=await sharp(Buffer.from(silhouetteSvg(true))).png().toBuffer();
   await page.getByTestId("mobile-photo").setInputFiles({name:"drawing.png",mimeType:"image/png",buffer:image});
+  await page.getByRole("button", { name: "Tap to continue", exact: true }).click();
   await expect(page.getByRole("button",{name:"Send to installation",exact:true})).toBeVisible();
   await expect(page.getByRole("button",{name:"Zoom in",exact:true})).toHaveCount(0);
   await expect(page.getByLabel("Preview version")).not.toBeVisible();

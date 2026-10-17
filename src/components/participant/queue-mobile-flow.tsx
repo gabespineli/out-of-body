@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { participantApi, ParticipantApiError } from "@/lib/participant-api";
 import { participantName, terminalTicket, type QueuePublic, type QueueTicket } from "@/lib/queue";
 import { useMobileCamera } from "@/hooks/use-mobile-camera";
@@ -76,6 +76,14 @@ export function QueueMobileFlow({ notice }: { notice: string }) {
     finally { locked.current = false; setBusy(false); }
   };
   const ended = ticket && terminalTicket(ticket.status);
+  const editor = !ended && (step === "camera" || step === "preview"), main = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!editor) { main.current?.style.removeProperty("--editor-height"); return; }
+    const viewport = window.visualViewport;
+    const resize = () => main.current?.style.setProperty("--editor-height", `${viewport?.height ?? window.innerHeight}px`);
+    resize(); viewport?.addEventListener("resize", resize); window.addEventListener("resize", resize);
+    return () => { viewport?.removeEventListener("resize", resize); window.removeEventListener("resize", resize); };
+  }, [editor]);
   const start = async () => {
     if (locked.current || current.current?.status !== "called") return;
     locked.current = true; generation.current++; setBusy(true); setError("");
@@ -97,7 +105,8 @@ export function QueueMobileFlow({ notice }: { notice: string }) {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not download your drawing. Please retry."); }
     finally { setSaving(false); }
   };
-  return <main className="mobile-participant" data-testid="mobile-flow" data-step={step} data-terminal={!!ended}><header className="mobile-brand"><h1><BrandLogo /></h1></header>
+  return <main ref={main} className="mobile-participant" data-testid="mobile-flow" data-step={step} data-terminal={!!ended} data-editor={editor}><header className="mobile-brand"><h1><BrandLogo /></h1>
+    {editor && ticket && <button className="quiet-action editor-cancel" aria-label="Cancel my ticket" disabled={busy} onClick={() => setCancelRequest(ticket.id)}>Cancel ticket</button>}</header>
     {notice && <p className="participant-note">{notice}</p>}
     {!initialized ? <p className="mobile-loading" role="status">Checking the installation…</p> : step === "about" ? <section className="mobile-about"><h2 className="visually-hidden">About Out of Body</h2>
       <button className="primary-action about-home" aria-label="Back to home" onClick={() => setStep("landing")}><DesignIcon name="home" /></button>
@@ -121,7 +130,7 @@ export function QueueMobileFlow({ notice }: { notice: string }) {
         <p className="ticket-message" role="status" aria-live="polite" aria-atomic="true">{ticket.status === "active" ? "Please move to the screen and let’s start stretching!" : ticket.status === "called" ? "Head to the exhibit screen. Start your session when you’re ready." : `You’re #${ticket.ahead + 1} in line. Please wait for your turn.`}</p>
         {ticket.status === "called" && <button className="primary-action phone-start-action" disabled={busy} onClick={() => void start()}>{busy ? "Starting…" : "Start my session"}</button>}
         </div><button className={`${ticket.status === "called" ? "secondary-action" : "primary-action"} home-action`} onClick={() => setStep("landing")}><DesignIcon name="home" />Back to home</button></section>}
-    {ticket && !ended && <div className="ticket-footer">
+    {ticket && !ended && !editor && <div className="ticket-footer">
       <button className="secondary-action ticket-cancel-action" disabled={busy} onClick={() => setCancelRequest(ticket.id)}>Cancel my ticket</button></div>}
     <TicketCancelDialog open={!!cancelRequest && ticket?.id === cancelRequest && !ended && !busy} onClose={() => setCancelRequest(null)}
       onConfirm={() => { const id = cancelRequest; setCancelRequest(null); if (current.current?.id === id && !terminalTicket(current.current.status)) void cancel(); }} />

@@ -36,6 +36,7 @@ async function prepare(page: Page) {
   await page.getByRole("button", { name: /Upload drawing|Continue my drawing/ }).click();
   const image = await sharp(Buffer.from(silhouetteSvg(false).replace("</svg>", '<rect x="256" y="324" width="87" height="130" fill="#279aa3"/></svg>'))).png().toBuffer();
   await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: image });
+  await page.getByRole("button", { name: "Tap to continue", exact: true }).click();
   await expect(page.getByTestId("mobile-preview")).toBeVisible();
 }
 

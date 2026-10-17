@@ -64,6 +64,7 @@ async function upload(request: APIRequestContext) {
 async function phoneUpload(page: Page, url: string) {
   await page.goto(url); await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
   await page.getByTestId("mobile-photo").setInputFiles({ name: "private-participant.png", mimeType: "image/png", buffer: drawing });
+  await page.getByRole("button", { name: "Tap to continue", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Preview your drawing" })).toBeVisible();
   await page.getByRole("button", { name: "Send to installation", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Drawing uploaded" })).toBeVisible();
@@ -157,6 +158,7 @@ test("camera denial preserves photo selection and invalid images do not advance 
     await page.getByTestId("mobile-photo").setInputFiles({ name: "bad.png", mimeType: "image/png", buffer: Buffer.from("bad") });
     await expect(page.getByRole("heading", { name: "Photograph your drawing" })).toBeVisible();
     await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: drawing });
+    await page.getByRole("button", { name: "Tap to continue", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Preview your drawing" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.getByRole("button", { name: "Retake / choose again", exact: true }).click();
@@ -193,6 +195,7 @@ test("a failed phone connection retains the preview and can retry the upload", a
     await page.goto(session.pairingUrl); await page.getByRole("button", { name: "Upload drawing", exact: true }).click();
     await trackQueue(page);
     await page.getByTestId("mobile-photo").setInputFiles({ name: "drawing.png", mimeType: "image/png", buffer: drawing });
+    await page.getByRole("button", { name: "Tap to continue", exact: true }).click();
     await expect(page.getByTestId("mobile-preview")).toBeVisible();
     await page.route("**/api/participant/queue/upload", route => route.abort("failed"));
     await page.getByRole("button", { name: "Send to installation", exact: true }).click();
